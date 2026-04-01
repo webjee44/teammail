@@ -461,14 +461,91 @@ function ContactDetailView({
               </p>
             )}
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-destructive hover:text-destructive shrink-0"
-            onClick={() => onDelete(contact.id)}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-1 shrink-0">
+            <Dialog open={mergeOpen} onOpenChange={(open) => { setMergeOpen(open); if (!open) { setMergeTarget(null); setMergeSearch(""); } }}>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="icon" title="Fusionner avec un autre contact">
+                  <Merge className="h-4 w-4" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Fusionner les contacts</DialogTitle>
+                </DialogHeader>
+                <p className="text-sm text-muted-foreground">
+                  Sélectionnez le contact à fusionner dans <strong>{contact.name || contact.email}</strong>.
+                  Ses conversations et informations seront transférées.
+                </p>
+
+                <div className="relative mt-2">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    value={mergeSearch}
+                    onChange={(e) => setMergeSearch(e.target.value)}
+                    placeholder="Rechercher le contact à fusionner..."
+                    className="pl-8 h-8 text-sm"
+                  />
+                </div>
+
+                <ScrollArea className="max-h-[200px] border rounded-md">
+                  {mergeableContacts.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">Aucun contact trouvé</p>
+                  ) : (
+                    <div className="divide-y divide-border">
+                      {mergeableContacts.slice(0, 20).map((c) => (
+                        <button
+                          key={c.id}
+                          className={`w-full text-left p-2.5 hover:bg-muted/50 transition-colors ${mergeTarget?.id === c.id ? "bg-primary/10" : ""}`}
+                          onClick={() => setMergeTarget(c)}
+                        >
+                          <p className="text-sm font-medium truncate">{c.name || c.email}</p>
+                          {c.name && <p className="text-xs text-muted-foreground">{c.email}</p>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </ScrollArea>
+
+                {mergeTarget && (
+                  <div className="border rounded-md p-3 bg-muted/30 space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Aperçu de la fusion</p>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="font-medium">{mergeTarget.name || mergeTarget.email}</span>
+                      <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="font-medium text-primary">{contact.name || contact.email}</span>
+                    </div>
+                    <ul className="text-xs text-muted-foreground space-y-0.5">
+                      {!contact.name && mergeTarget.name && <li>+ Nom : {mergeTarget.name}</li>}
+                      {!contact.company && mergeTarget.company && <li>+ Entreprise : {mergeTarget.company}</li>}
+                      {!contact.phone && mergeTarget.phone && <li>+ Téléphone : {mergeTarget.phone}</li>}
+                      <li>Conversations de {mergeTarget.email} → transférées</li>
+                      <li className="text-destructive">{mergeTarget.email} sera supprimé</li>
+                    </ul>
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-2 mt-2">
+                  <Button variant="outline" onClick={() => setMergeOpen(false)}>Annuler</Button>
+                  <Button
+                    onClick={handleMerge}
+                    disabled={!mergeTarget || merging}
+                    className="gap-2"
+                  >
+                    {merging ? <Loader2 className="h-4 w-4 animate-spin" /> : <Merge className="h-4 w-4" />}
+                    Fusionner
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-destructive hover:text-destructive"
+              onClick={() => onDelete(contact.id)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         <Separator />
