@@ -63,8 +63,8 @@ const mockConversations: Conversation[] = [
   },
   {
     id: "5",
-    subject: "Re: Feature request - Dark mode",
-    snippet: "Thank you for your suggestion! We've added it to our roadmap...",
+    subject: "Re: Demande de fonctionnalité - Mode sombre",
+    snippet: "Merci pour votre suggestion ! Nous l'avons ajoutée à notre feuille de route...",
     from_email: "support@app.com",
     from_name: "Support Team",
     status: "closed",
