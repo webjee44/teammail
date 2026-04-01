@@ -20,6 +20,7 @@ const Compose = () => {
   const [fromEmail, setFromEmail] = useState("");
   const [mailboxes, setMailboxes] = useState<{ id: string; email: string; label: string | null }[]>([]);
   const [sending, setSending] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState<FileToUpload[]>([]);
 
   useEffect(() => {
     const fetchMailboxes = async () => {
