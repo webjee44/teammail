@@ -288,6 +288,52 @@ serve(async (req) => {
                 continue;
               }
               conversationId = newConv.id;
+
+              // Auto-create or link contact
+              if (fromEmail) {
+                try {
+                  const { data: existingContact } = await supabase
+                    .from("contacts")
+                    .select("id")
+                    .eq("team_id", mailbox.team_id)
+                    .eq("email", fromEmail)
+                    .maybeSingle();
+
+                  let contactId: string;
+                  if (existingContact) {
+                    contactId = existingContact.id;
+                  } else {
+                    const domain = fromEmail.split("@")[1] || null;
+                    const { data: newContact } = await supabase
+                      .from("contacts")
+                      .insert({
+                        team_id: mailbox.team_id,
+                        email: fromEmail,
+                        name: fromName,
+                        company: domain,
+                      })
+                      .select("id")
+                      .single();
+                    contactId = newContact?.id;
+                  }
+
+                  if (contactId) {
+                    // Link contact to conversation
+                    await supabase.from("contact_conversations").insert({
+                      contact_id: contactId,
+                      conversation_id: conversationId,
+                    }).select().maybeSingle();
+
+                    // Set contact_id on conversation
+                    await supabase
+                      .from("conversations")
+                      .update({ contact_id: contactId })
+                      .eq("id", conversationId);
+                  }
+                } catch (contactErr) {
+                  console.error("Auto-contact creation error:", contactErr);
+                }
+              }
             }
           }
 
