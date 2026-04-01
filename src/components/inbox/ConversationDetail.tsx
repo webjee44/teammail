@@ -42,11 +42,20 @@ import {
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { AttachmentList, AttachmentUpload, FileToUpload } from "./Attachments";
 
 const decodeHtml = (s = "") => {
   const t = document.createElement("textarea");
   t.innerHTML = s;
   return t.value.replace(/\u00A0/g, " ").replace(/\s+/g, " ").trim();
+};
+
+type MessageAttachment = {
+  id: string;
+  filename: string;
+  mime_type: string;
+  size_bytes: number;
+  storage_path: string;
 };
 
 type Message = {
@@ -58,6 +67,7 @@ type Message = {
   body_text: string | null;
   sent_at: string;
   is_outbound: boolean;
+  attachments?: MessageAttachment[];
 };
 
 type Comment = {
@@ -90,7 +100,7 @@ type ConversationDetailData = {
 type Props = {
   conversation: ConversationDetailData | null;
   onStatusChange?: (id: string, status: "open" | "snoozed" | "closed") => void;
-  onReply?: (id: string, body: string) => void;
+  onReply?: (id: string, body: string, attachments?: FileToUpload[]) => void;
   onComment?: (id: string, body: string) => void;
 };
 
@@ -117,6 +127,7 @@ export function ConversationDetail({ conversation, onStatusChange, onReply, onCo
   const [infoOpen, setInfoOpen] = useState(false);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState<FileToUpload[]>([]);
 
   if (!conversation) {
     return (
@@ -315,6 +326,7 @@ export function ConversationDetail({ conversation, onStatusChange, onReply, onCo
                 ) : (
                   <p className="text-sm text-foreground whitespace-pre-wrap">{msg.body_text}</p>
                 )}
+                <AttachmentList attachments={msg.attachments || []} />
               </div>
             );
           })}
@@ -390,6 +402,7 @@ export function ConversationDetail({ conversation, onStatusChange, onReply, onCo
                 onChange={(e) => setReplyText(e.target.value)}
                 className="min-h-[80px] text-sm resize-none"
               />
+              <AttachmentUpload files={attachedFiles} onFilesChange={setAttachedFiles} />
               <div className="flex justify-between">
                 <Button
                   size="sm"
@@ -408,9 +421,10 @@ export function ConversationDetail({ conversation, onStatusChange, onReply, onCo
                 <Button
                   size="sm"
                   onClick={() => {
-                    onReply?.(conversation.id, replyText);
+                    onReply?.(conversation.id, replyText, attachedFiles);
                     setReplyText("");
                     setSuggestions([]);
+                    setAttachedFiles([]);
                   }}
                   disabled={!replyText.trim()}
                 >

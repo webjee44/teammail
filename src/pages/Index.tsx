@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import type { FileToUpload } from "@/components/inbox/Attachments";
 
 type Message = {
   id: string;
@@ -117,7 +118,7 @@ const Index = () => {
   // Fetch messages & comments when conversation is selected
   const fetchDetail = useCallback(async (convId: string) => {
     setLoadingDetail(true);
-    const [msgRes, commentRes] = await Promise.all([
+    const [msgRes, commentRes, attRes] = await Promise.all([
       supabase
         .from("messages")
         .select("*")
@@ -128,9 +129,28 @@ const Index = () => {
         .select("*")
         .eq("conversation_id", convId)
         .order("created_at", { ascending: true }),
+      supabase
+        .from("attachments")
+        .select("*"),
     ]);
 
-    if (msgRes.data) setMessages(msgRes.data);
+    if (msgRes.data) {
+      // Build a map of attachments by message_id
+      const attMap = new Map<string, any[]>();
+      if (attRes.data) {
+        for (const att of attRes.data) {
+          const list = attMap.get(att.message_id) || [];
+          list.push(att);
+          attMap.set(att.message_id, list);
+        }
+      }
+      setMessages(
+        msgRes.data.map((m: any) => ({
+          ...m,
+          attachments: attMap.get(m.id) || [],
+        }))
+      );
+    }
     if (commentRes.data) {
       setComments(
         commentRes.data.map((c) => ({
@@ -182,7 +202,7 @@ const Index = () => {
     toast.success(`Statut → ${status === "open" ? "Ouvert" : status === "snoozed" ? "En pause" : "Fermé"}`);
   };
 
-  const handleReply = async (id: string, body: string) => {
+  const handleReply = async (id: string, body: string, attachedFiles?: FileToUpload[]) => {
     const conv = conversations.find((c) => c.id === id);
     if (!conv?.from_email) return;
 
@@ -199,6 +219,12 @@ const Index = () => {
     }
 
     const senderName = user?.user_metadata?.full_name || "";
+    const gmailAttachments = attachedFiles?.map((f) => ({
+      filename: f.name,
+      mime_type: f.file.type || "application/octet-stream",
+      data: f.base64,
+    }));
+
     const { data, error } = await supabase.functions.invoke("gmail-send", {
       body: {
         to: conv.from_email,
@@ -206,6 +232,7 @@ const Index = () => {
         body,
         from_email: fromEmail,
         from_name: senderName,
+        attachments: gmailAttachments,
       },
     });
 
@@ -214,7 +241,7 @@ const Index = () => {
       return;
     }
 
-    await supabase.from("messages").insert({
+    const { data: newMsg } = await supabase.from("messages").insert({
       conversation_id: id,
       from_email: fromEmail,
       from_name: user?.user_metadata?.full_name || fromEmail,
@@ -223,7 +250,25 @@ const Index = () => {
       body_html: body.replace(/\n/g, "<br>"),
       is_outbound: true,
       gmail_message_id: data?.messageId || null,
-    });
+    }).select("id").single();
+
+    // Upload attachments to storage and save metadata
+    if (newMsg && attachedFiles && attachedFiles.length > 0) {
+      for (const f of attachedFiles) {
+        const storagePath = `${id}/${newMsg.id}/${f.name}`;
+        await supabase.storage.from("attachments").upload(storagePath, f.file, {
+          contentType: f.file.type,
+          upsert: true,
+        });
+        await supabase.from("attachments").insert({
+          message_id: newMsg.id,
+          filename: f.name,
+          mime_type: f.file.type || "application/octet-stream",
+          size_bytes: f.file.size,
+          storage_path: storagePath,
+        });
+      }
+    }
 
     await supabase
       .from("conversations")

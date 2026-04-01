@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Send, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { AttachmentUpload, FileToUpload } from "@/components/inbox/Attachments";
 
 const Compose = () => {
   const navigate = useNavigate();
@@ -19,6 +20,7 @@ const Compose = () => {
   const [fromEmail, setFromEmail] = useState("");
   const [mailboxes, setMailboxes] = useState<{ id: string; email: string; label: string | null }[]>([]);
   const [sending, setSending] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState<FileToUpload[]>([]);
 
   useEffect(() => {
     const fetchMailboxes = async () => {
@@ -39,8 +41,13 @@ const Compose = () => {
     if (!to || !subject || !body || !fromEmail) return;
     setSending(true);
     try {
+      const gmailAttachments = attachedFiles.map((f) => ({
+        filename: f.name,
+        mime_type: f.file.type || "application/octet-stream",
+        data: f.base64,
+      }));
       const { data, error } = await supabase.functions.invoke("gmail-send", {
-        body: { to, subject, body, from_email: fromEmail },
+        body: { to, subject, body, from_email: fromEmail, attachments: gmailAttachments.length > 0 ? gmailAttachments : undefined },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -109,6 +116,10 @@ const Compose = () => {
                 onChange={(e) => setBody(e.target.value)}
                 className="min-h-[250px] resize-none"
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Pièces jointes</Label>
+              <AttachmentUpload files={attachedFiles} onFilesChange={setAttachedFiles} />
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => navigate("/")}>
