@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ConversationList, Conversation } from "@/components/inbox/ConversationList";
 import { ConversationDetail } from "@/components/inbox/ConversationDetail";
@@ -34,17 +35,33 @@ const Index = () => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [hideNoise, setHideNoise] = useState(false);
+  const [searchParams] = useSearchParams();
+  const filter = searchParams.get("filter");
   const { user } = useAuth();
 
-  // Fetch conversations
+  // Fetch conversations based on filter
   useEffect(() => {
     const fetchConversations = async () => {
       setLoading(true);
-      const { data, error } = await supabase
+      let query = supabase
         .from("conversations")
         .select("*")
-        .eq("status", "open")
         .order("last_message_at", { ascending: false });
+
+      // Apply filter
+      if (filter === "snoozed") {
+        query = query.eq("status", "snoozed");
+      } else if (filter === "closed") {
+        query = query.eq("status", "closed");
+      } else if (filter === "mine") {
+        query = query.eq("status", "open").eq("assigned_to", user?.id ?? "");
+      } else if (filter === "unassigned") {
+        query = query.eq("status", "open").is("assigned_to", null);
+      } else {
+        query = query.eq("status", "open");
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error("Failed to fetch conversations:", error);
@@ -74,7 +91,7 @@ const Index = () => {
     };
 
     fetchConversations();
-  }, []);
+  }, [filter, user?.id]);
 
   // Fetch messages & comments when conversation is selected
   const fetchDetail = useCallback(async (convId: string) => {
@@ -213,8 +230,16 @@ const Index = () => {
     ? conversations.filter((c) => !c.is_noise)
     : conversations;
 
-  const openCount = conversations.filter((c) => c.status === "open").length;
+  const totalCount = conversations.length;
   const noiseCount = conversations.filter((c) => c.is_noise).length;
+
+  const filterLabels: Record<string, string> = {
+    mine: "Assigné à moi",
+    unassigned: "Non assigné",
+    snoozed: "En pause",
+    closed: "Fermé",
+  };
+  const headerTitle = filter ? filterLabels[filter] || "Boîte de réception" : "Boîte de réception";
 
   return (
     <AppLayout hideHeader>
@@ -222,9 +247,9 @@ const Index = () => {
         <div className="w-[340px] border-r border-border flex flex-col shrink-0">
           <div className="h-12 flex items-center px-3 border-b border-border gap-2 shrink-0">
             <SidebarTrigger />
-            <h2 className="text-sm font-semibold text-foreground">Boîte de réception</h2>
+            <h2 className="text-sm font-semibold text-foreground">{headerTitle}</h2>
             <span className="text-xs text-muted-foreground ml-auto">
-              {openCount} ouvertes
+              {totalCount} conversation{totalCount !== 1 ? "s" : ""}
             </span>
           </div>
           <ConversationList
