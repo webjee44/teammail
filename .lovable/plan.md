@@ -1,74 +1,63 @@
 
 
-# Plan : Barre de recherche globale ⌘K façon Boldy
+# Gestion des contacts — style Missive
 
-## Concept
+## Résumé
 
-Ajouter une barre de recherche globale (Command Menu) accessible via un bouton dans le header de la liste de conversations et via le raccourci ⌘K. Elle cherche dans les conversations (sujet, expéditeur) et les messages (contenu) puis affiche les résultats groupés. Cliquer sur un résultat ouvre la conversation correspondante.
+Créer un système complet de gestion de contacts partagés par équipe : table `contacts` en base, fiche contact dans le panneau droit de la conversation, page dédiée `/contacts`, et enrichissement automatique à la réception d'emails.
 
-## Architecture
+## Base de données
 
-```text
-Header conversation list
-┌──────────────────────────────────┐
-│ ☰  Boîte de réception  [🔍 ⌘K] │  ← bouton qui ouvre le CommandDialog
-└──────────────────────────────────┘
+**Nouvelle table `contacts`** :
+- `id`, `team_id`, `email` (unique par team), `name`, `company`, `phone`, `avatar_url`, `notes` (texte libre partagé), `custom_fields` (jsonb), `created_at`, `updated_at`
+- RLS : CRUD pour les membres de l'équipe (`team_id = get_user_team_id(auth.uid())`)
 
-CommandDialog (overlay modal)
-┌──────────────────────────────────┐
-│ 🔍  Rechercher dans les mails…   │
-│──────────────────────────────────│
-│ Conversations                    │
-│   📧 Candidature spontanée …    │
-│   📧 Facture décembre …         │
-│ Messages                         │
-│   💬 "…texte trouvé…"           │
-└──────────────────────────────────┘
-```
+**Nouvelle table `contact_conversations`** (lien many-to-many) :
+- `contact_id`, `conversation_id` — pour retrouver l'historique des conversations d'un contact
+- RLS : SELECT via join sur conversations.team_id
 
-## Etapes
+**Ajout colonne `contact_id` sur `conversations`** (optionnel, pour lien rapide au contact principal).
 
-### 1. Migration DB — fonction de recherche full-text
+## Enrichissement automatique
 
-Créer une fonction RPC `search_inbox` qui :
-- Prend `p_query text` et `p_limit int`
-- Cherche dans `conversations.subject`, `conversations.from_email`, `conversations.from_name` via `ILIKE`
-- Cherche dans `messages.body_text` via `ILIKE`
-- Retourne `type` (conversation/message), `id`, `conversation_id`, `label`, `subtitle`
-- Respecte le `team_id` de l'utilisateur via `SECURITY DEFINER` + `get_user_team_id(auth.uid())`
+Dans la edge function `gmail-sync`, après création d'une conversation :
+1. Chercher si un contact existe déjà pour `from_email` dans l'équipe
+2. Si non → créer automatiquement avec `name` = `from_name`, `company` = domaine de l'email (partie après @)
+3. Lier la conversation au contact via `contact_conversations`
 
-### 2. Composant `CommandMenu.tsx`
+## Fiche contact dans le panneau conversation
 
-Nouveau fichier `src/components/inbox/CommandMenu.tsx` inspiré du pattern Boldy :
-- Utilise `CommandDialog`, `CommandInput`, `CommandList`, `CommandGroup`, `CommandItem` (shadcn déjà installé)
-- State: `query`, `results`, `searching`
-- Debounce 200ms, appel RPC `search_inbox`
-- Résultats groupés : "Conversations" et "Messages"
-- `onSelect` → appelle un callback pour sélectionner la conversation
+Dans `ConversationDetail.tsx`, ajouter un panneau latéral droit (ou section dépliable) affichant :
+- Avatar, nom, email, entreprise, téléphone
+- Notes partagées (éditables inline)
+- Champs personnalisés
+- Liste des conversations passées avec ce contact (cliquable pour naviguer)
+- Bouton "Voir la fiche complète" → lien vers `/contacts/:id`
 
-### 3. Raccourci ⌘K global
+## Page `/contacts`
 
-Dans `Index.tsx` ou `AppLayout.tsx` :
-- `useEffect` pour écouter `Cmd+K` / `Ctrl+K`
-- Toggle l'état `commandOpen`
+Nouvelle page avec :
+- Liste searchable/filtrable de tous les contacts de l'équipe
+- Colonnes : nom, email, entreprise, dernière interaction, nb conversations
+- Clic sur un contact → vue détaillée (drawer ou page)
+- Actions : créer, éditer, supprimer un contact
+- Import possible plus tard
 
-### 4. Bouton search dans le header
+## Navigation
 
-Dans `Index.tsx`, dans le header de la liste de conversations (le div `h-12` existant) :
-- Ajouter un bouton stylisé comme Boldy : icône Search + badge `⌘K`
-- Click → ouvre le CommandDialog
+- Ajouter "Contacts" dans `InboxSidebar.tsx` (section Outils, icône `Users`)
+- Route `/contacts` dans `App.tsx`
 
-### 5. Navigation vers le résultat
-
-Quand l'utilisateur clique sur un résultat :
-- Extraire le `conversation_id`
-- Appeler `setSelectedId(conversation_id)` pour ouvrir la conversation dans le panneau de droite
-
-## Fichiers concernés
+## Fichiers impactés
 
 | Fichier | Action |
 |---------|--------|
-| `supabase/migrations/` | Fonction RPC `search_inbox` |
-| `src/components/inbox/CommandMenu.tsx` | Nouveau composant |
-| `src/pages/Index.tsx` | Bouton search + raccourci ⌘K + state `commandOpen` |
+| Migration SQL | Créer tables `contacts` et `contact_conversations` + RLS |
+| `supabase/functions/gmail-sync/index.ts` | Auto-création contacts |
+| `src/pages/Contacts.tsx` | Nouvelle page |
+| `src/components/inbox/ContactPanel.tsx` | Nouveau panneau fiche contact |
+| `src/components/inbox/ConversationDetail.tsx` | Intégrer ContactPanel |
+| `src/pages/Index.tsx` | Charger le contact lié à la conversation |
+| `src/components/inbox/InboxSidebar.tsx` | Ajouter lien Contacts |
+| `src/App.tsx` | Route `/contacts` |
 
