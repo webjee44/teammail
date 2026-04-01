@@ -127,6 +127,7 @@ export function ConversationDetail({ conversation, onStatusChange, onReply, onCo
   const [infoOpen, setInfoOpen] = useState(false);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState<FileToUpload[]>([]);
 
   if (!conversation) {
     return (
