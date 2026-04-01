@@ -35,7 +35,7 @@ const mockRules: Rule[] = [
   },
   {
     id: "2",
-    name: "Tag urgent emails",
+    name: "Taguer les emails urgents",
     is_active: true,
     conditions: [{ field: "subject", operator: "contains", value: "urgent" }],
     actions: [{ type: "tag", value: "Urgent" }],
