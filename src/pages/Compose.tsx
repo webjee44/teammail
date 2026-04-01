@@ -41,8 +41,13 @@ const Compose = () => {
     if (!to || !subject || !body || !fromEmail) return;
     setSending(true);
     try {
+      const gmailAttachments = attachedFiles.map((f) => ({
+        filename: f.name,
+        mime_type: f.file.type || "application/octet-stream",
+        data: f.base64,
+      }));
       const { data, error } = await supabase.functions.invoke("gmail-send", {
-        body: { to, subject, body, from_email: fromEmail },
+        body: { to, subject, body, from_email: fromEmail, attachments: gmailAttachments.length > 0 ? gmailAttachments : undefined },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
