@@ -313,10 +313,12 @@ const Contacts = () => {
 
 function ContactDetailView({
   contact,
+  allContacts,
   onDelete,
   onUpdate,
 }: {
   contact: Contact;
+  allContacts: Contact[];
   onDelete: (id: string) => void;
   onUpdate: () => void;
 }) {
@@ -325,6 +327,10 @@ function ContactDetailView({
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesValue, setNotesValue] = useState(contact.notes || "");
   const [pastConvos, setPastConvos] = useState<{ id: string; subject: string; status: string; last_message_at: string }[]>([]);
+  const [mergeOpen, setMergeOpen] = useState(false);
+  const [mergeSearch, setMergeSearch] = useState("");
+  const [mergeTarget, setMergeTarget] = useState<Contact | null>(null);
+  const [merging, setMerging] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
