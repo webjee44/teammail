@@ -38,9 +38,9 @@ const responseTimeData = [
 ];
 
 const statusData = [
-  { name: "Open", value: 12, color: "hsl(142, 72%, 40%)" },
-  { name: "Snoozed", value: 5, color: "hsl(38, 92%, 50%)" },
-  { name: "Closed", value: 28, color: "hsl(220, 10%, 46%)" },
+  { name: "Ouvert", value: 12, color: "hsl(142, 72%, 40%)" },
+  { name: "En pause", value: 5, color: "hsl(38, 92%, 50%)" },
+  { name: "Fermé", value: 28, color: "hsl(220, 10%, 46%)" },
 ];
 
 const teamData = [
