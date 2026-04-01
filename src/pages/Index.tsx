@@ -230,8 +230,16 @@ const Index = () => {
     ? conversations.filter((c) => !c.is_noise)
     : conversations;
 
-  const openCount = conversations.filter((c) => c.status === "open").length;
+  const totalCount = conversations.length;
   const noiseCount = conversations.filter((c) => c.is_noise).length;
+
+  const filterLabels: Record<string, string> = {
+    mine: "Assigné à moi",
+    unassigned: "Non assigné",
+    snoozed: "En pause",
+    closed: "Fermé",
+  };
+  const headerTitle = filter ? filterLabels[filter] || "Boîte de réception" : "Boîte de réception";
 
   return (
     <AppLayout hideHeader>
@@ -239,9 +247,9 @@ const Index = () => {
         <div className="w-[340px] border-r border-border flex flex-col shrink-0">
           <div className="h-12 flex items-center px-3 border-b border-border gap-2 shrink-0">
             <SidebarTrigger />
-            <h2 className="text-sm font-semibold text-foreground">Boîte de réception</h2>
+            <h2 className="text-sm font-semibold text-foreground">{headerTitle}</h2>
             <span className="text-xs text-muted-foreground ml-auto">
-              {openCount} ouvertes
+              {totalCount} conversation{totalCount !== 1 ? "s" : ""}
             </span>
           </div>
           <ConversationList
