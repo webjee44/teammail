@@ -351,6 +351,34 @@ function ContactDetailView({
     fetchConvos();
   }, [contact.id, contact.email, contact.notes]);
 
+  const handleMerge = async () => {
+    if (!mergeTarget) return;
+    setMerging(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("merge-contacts", {
+        body: { primary_id: contact.id, secondary_id: mergeTarget.id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(`Contact ${mergeTarget.email} fusionné avec succès`);
+      setMergeOpen(false);
+      setMergeTarget(null);
+      setMergeSearch("");
+      onUpdate();
+    } catch (err: any) {
+      toast.error("Erreur : " + (err.message || String(err)));
+    } finally {
+      setMerging(false);
+    }
+  };
+
+  const mergeableContacts = allContacts.filter(
+    (c) => c.id !== contact.id && (
+      c.email.toLowerCase().includes(mergeSearch.toLowerCase()) ||
+      (c.name?.toLowerCase().includes(mergeSearch.toLowerCase()) ?? false)
+    )
+  );
+
   const saveField = async (field: string, value: string) => {
     const { error } = await supabase
       .from("contacts")
