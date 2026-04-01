@@ -51,8 +51,8 @@ const mockConversations: Conversation[] = [
   },
   {
     id: "4",
-    subject: "Invoice #2024-0142",
-    snippet: "Please find attached the invoice for last month's services...",
+    subject: "Facture #2024-0142",
+    snippet: "Veuillez trouver ci-joint la facture pour les services du mois dernier...",
     from_email: "billing@vendor.com",
     from_name: "Vendor Billing",
     status: "snoozed",
