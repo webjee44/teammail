@@ -294,6 +294,7 @@ const Contacts = () => {
           {selectedContact ? (
             <ContactDetailView
               contact={selectedContact}
+              allContacts={contacts}
               onDelete={handleDelete}
               onUpdate={() => fetchContacts()}
             />
