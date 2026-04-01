@@ -42,6 +42,7 @@ import {
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { AttachmentList, AttachmentUpload, FileToUpload } from "./Attachments";
 
 const decodeHtml = (s = "") => {
   const t = document.createElement("textarea");
