@@ -13,6 +13,9 @@ import {
   Mail,
   Phone,
   MessageSquare,
+  Merge,
+  Loader2,
+  ArrowRight,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
