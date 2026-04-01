@@ -115,7 +115,7 @@ export function InboxSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>Tags</SidebarGroupLabel>
+          <SidebarGroupLabel>Étiquettes</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {[

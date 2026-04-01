@@ -13,9 +13,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
 const mockMembers = [
-  { id: "1", name: "Alex Moreau", email: "alex@company.com", role: "admin", avatar: "" },
-  { id: "2", name: "Sarah Chen", email: "sarah@company.com", role: "member", avatar: "" },
-  { id: "3", name: "Thomas Petit", email: "thomas@company.com", role: "member", avatar: "" },
+  { id: "1", name: "Alex Moreau", email: "alex@company.com", role: "admin" as const, avatar: "" },
+  { id: "2", name: "Sarah Chen", email: "sarah@company.com", role: "membre" as const, avatar: "" },
+  { id: "3", name: "Thomas Petit", email: "thomas@company.com", role: "membre" as const, avatar: "" },
 ];
 
 const mockTags = [
