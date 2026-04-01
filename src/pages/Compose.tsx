@@ -7,8 +7,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Send, X, Loader2 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Send, X, Loader2, Clock, CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { AttachmentUpload, FileToUpload } from "@/components/inbox/Attachments";
 
@@ -22,6 +27,10 @@ const Compose = () => {
   const [sending, setSending] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<FileToUpload[]>([]);
   const [signatureHtml, setSignatureHtml] = useState("");
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState<Date | undefined>();
+  const [scheduleTime, setScheduleTime] = useState("09:00");
+  const [scheduling, setScheduling] = useState(false);
 
   useEffect(() => {
     const fetchMailboxes = async () => {
@@ -48,7 +57,6 @@ const Compose = () => {
     if (!mb) return;
 
     const loadSignature = async () => {
-      // Try mailbox-specific signature first
       const { data: ms } = await supabase
         .from("mailbox_signatures")
         .select("signature_id")
@@ -65,7 +73,6 @@ const Compose = () => {
         return;
       }
 
-      // Fallback to team default signature
       const { data: defaultSig } = await supabase
         .from("signatures")
         .select("body_html")
@@ -98,6 +105,63 @@ const Compose = () => {
       setSending(false);
     }
   };
+
+  const handleSchedule = async () => {
+    if (!to || !subject || !body || !fromEmail || !scheduleDate) return;
+
+    const [hours, minutes] = scheduleTime.split(":").map(Number);
+    const scheduledAt = new Date(scheduleDate);
+    scheduledAt.setHours(hours, minutes, 0, 0);
+
+    if (scheduledAt <= new Date()) {
+      toast.error("La date doit être dans le futur");
+      return;
+    }
+
+    setScheduling(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Non authentifié");
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("team_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (!profile?.team_id) throw new Error("Aucune équipe trouvée");
+
+      const gmailAttachments = attachedFiles.length > 0
+        ? attachedFiles.map((f) => ({
+            filename: f.name,
+            mime_type: f.file.type || "application/octet-stream",
+            data: f.base64,
+          }))
+        : null;
+
+      const { error } = await supabase.from("scheduled_emails").insert({
+        team_id: profile.team_id,
+        created_by: user.id,
+        to_email: to,
+        subject,
+        body,
+        from_email: fromEmail,
+        attachments: gmailAttachments,
+        scheduled_at: scheduledAt.toISOString(),
+      });
+
+      if (error) throw error;
+
+      toast.success(`Email programmé pour le ${format(scheduledAt, "d MMMM à HH:mm", { locale: fr })}`);
+      navigate("/");
+    } catch (err: any) {
+      toast.error("Erreur : " + (err.message || String(err)));
+    } finally {
+      setScheduling(false);
+      setScheduleOpen(false);
+    }
+  };
+
+  const isFormValid = to && subject && body && fromEmail;
 
   return (
     <AppLayout>
@@ -173,9 +237,80 @@ const Compose = () => {
               <Button variant="outline" onClick={() => navigate("/")}>
                 Annuler
               </Button>
+
+              <Popover open={scheduleOpen} onOpenChange={setScheduleOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    disabled={!isFormValid || scheduling}
+                    className="gap-2"
+                  >
+                    {scheduling ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Clock className="h-4 w-4" />
+                    )}
+                    Envoyer plus tard
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-4" align="end">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Date</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !scheduleDate && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {scheduleDate
+                              ? format(scheduleDate, "d MMMM yyyy", { locale: fr })
+                              : "Choisir une date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={scheduleDate}
+                            onSelect={setScheduleDate}
+                            disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                            initialFocus
+                            className={cn("p-3 pointer-events-auto")}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Heure</Label>
+                      <Input
+                        type="time"
+                        value={scheduleTime}
+                        onChange={(e) => setScheduleTime(e.target.value)}
+                      />
+                    </div>
+                    <Button
+                      onClick={handleSchedule}
+                      disabled={!scheduleDate || scheduling}
+                      className="w-full gap-2"
+                    >
+                      {scheduling ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Clock className="h-4 w-4" />
+                      )}
+                      Programmer l'envoi
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
+
               <Button
                 onClick={handleSend}
-                disabled={!to || !subject || !body || !fromEmail || sending}
+                disabled={!isFormValid || sending}
                 className="gap-2"
               >
                 {sending ? (
