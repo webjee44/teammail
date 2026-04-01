@@ -37,6 +37,7 @@ const Index = () => {
   const [hideNoise, setHideNoise] = useState(false);
   const [searchParams] = useSearchParams();
   const filter = searchParams.get("filter");
+  const mailboxId = searchParams.get("mailbox");
   const { user } = useAuth();
 
   // Fetch conversations based on filter
