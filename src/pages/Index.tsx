@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ConversationList, Conversation } from "@/components/inbox/ConversationList";
 import { ConversationDetail } from "@/components/inbox/ConversationDetail";
@@ -7,146 +7,215 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 
-// Mock data for UI preview while backend wires up
-const mockConversations: Conversation[] = [
-  {
-    id: "1",
-    subject: "Question sur les tarifs",
-    snippet: "Bonjour, je voulais en savoir plus sur vos tarifs entreprise...",
-    from_email: "jean@example.com",
-    from_name: "Jean Dupont",
-    status: "open",
-    assigned_to: null,
-    is_read: false,
-    last_message_at: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
-    tags: [{ id: "1", name: "Ventes", color: "#6366f1" }],
-  },
-  {
-    id: "2",
-    subject: "Rapport de bug : Connexion impossible",
-    snippet: "Quand j'essaie de me connecter avec mon compte Google, j'obtiens une erreur...",
-    from_email: "marie@startup.io",
-    from_name: "Marie Martin",
-    status: "open",
-    assigned_to: "user1",
-    assignee_name: "Alex",
-    is_read: true,
-    last_message_at: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
-    tags: [
-      { id: "2", name: "Bug", color: "#ef4444" },
-      { id: "3", name: "Urgent", color: "#f59e0b" },
-    ],
-  },
-  {
-    id: "3",
-    subject: "Opportunité de partenariat",
-    snippet: "Nous aimerions discuter d'un partenariat potentiel entre nos entreprises...",
-    from_email: "thomas@bigcorp.com",
-    from_name: "Thomas Bernard",
-    status: "open",
-    assigned_to: null,
-    is_read: false,
-    last_message_at: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
-    tags: [],
-  },
-  {
-    id: "4",
-    subject: "Facture #2024-0142",
-    snippet: "Veuillez trouver ci-joint la facture pour les services du mois dernier...",
-    from_email: "billing@vendor.com",
-    from_name: "Vendor Billing",
-    status: "snoozed",
-    assigned_to: null,
-    is_read: true,
-    last_message_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-    tags: [],
-  },
-  {
-    id: "5",
-    subject: "Re: Demande de fonctionnalité - Mode sombre",
-    snippet: "Merci pour votre suggestion ! Nous l'avons ajoutée à notre feuille de route...",
-    from_email: "support@app.com",
-    from_name: "Support Team",
-    status: "closed",
-    assigned_to: "user2",
-    assignee_name: "Sarah",
-    is_read: true,
-    last_message_at: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
-    tags: [{ id: "4", name: "Fonctionnalité", color: "#6366f1" }],
-  },
-];
+type Message = {
+  id: string;
+  from_email: string | null;
+  from_name: string | null;
+  to_email: string | null;
+  body_html: string | null;
+  body_text: string | null;
+  sent_at: string;
+  is_outbound: boolean;
+};
 
-const mockMessages = [
-  {
-    id: "m1",
-    from_email: "jean@example.com",
-    from_name: "Jean Dupont",
-    to_email: "team@yourcompany.com",
-    body_html: null,
-    body_text:
-      "Bonjour,\n\nJe voulais en savoir plus sur vos plans tarifaires pour les entreprises. Nous sommes une équipe de 50 personnes et nous cherchons une solution de communication adaptée.\n\nPouvez-vous m'envoyer un devis personnalisé ?\n\nCordialement,\nJean Dupont",
-    sent_at: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-    is_outbound: false,
-  },
-  {
-    id: "m2",
-    from_email: "alex@yourcompany.com",
-    from_name: "Alex (Vous)",
-    to_email: "jean@example.com",
-    body_html: null,
-    body_text:
-      "Bonjour Jean,\n\nMerci pour votre intérêt ! Je serais ravi de discuter de nos plans entreprise avec vous.\n\nPour une équipe de 50 personnes, je vous recommande notre plan Business à 15€/utilisateur/mois.\n\nSouhaitez-vous planifier un appel cette semaine ?\n\nBien cordialement,\nAlex",
-    sent_at: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
-    is_outbound: true,
-  },
-];
+type Comment = {
+  id: string;
+  user_id: string;
+  body: string;
+  created_at: string;
+  author_name?: string;
+};
 
 const Index = () => {
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [loadingDetail, setLoadingDetail] = useState(false);
   const { user } = useAuth();
 
+  // Fetch conversations
+  useEffect(() => {
+    const fetchConversations = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("conversations")
+        .select("*")
+        .eq("status", "open")
+        .order("last_message_at", { ascending: false });
+
+      if (error) {
+        console.error("Failed to fetch conversations:", error);
+        toast.error("Erreur lors du chargement des conversations");
+      } else {
+        setConversations(
+          (data || []).map((c) => ({
+            id: c.id,
+            subject: c.subject,
+            snippet: c.snippet,
+            from_email: c.from_email,
+            from_name: c.from_name,
+            status: c.status as "open" | "snoozed" | "closed",
+            assigned_to: c.assigned_to,
+            is_read: c.is_read,
+            last_message_at: c.last_message_at,
+            tags: [],
+          }))
+        );
+      }
+      setLoading(false);
+    };
+
+    fetchConversations();
+  }, []);
+
+  // Fetch messages & comments when conversation is selected
+  const fetchDetail = useCallback(async (convId: string) => {
+    setLoadingDetail(true);
+    const [msgRes, commentRes] = await Promise.all([
+      supabase
+        .from("messages")
+        .select("*")
+        .eq("conversation_id", convId)
+        .order("sent_at", { ascending: true }),
+      supabase
+        .from("comments")
+        .select("*")
+        .eq("conversation_id", convId)
+        .order("created_at", { ascending: true }),
+    ]);
+
+    if (msgRes.data) setMessages(msgRes.data);
+    if (commentRes.data) {
+      setComments(
+        commentRes.data.map((c) => ({
+          id: c.id,
+          user_id: c.user_id,
+          body: c.body,
+          created_at: c.created_at,
+        }))
+      );
+    }
+    setLoadingDetail(false);
+  }, []);
+
+  useEffect(() => {
+    if (selectedId) {
+      fetchDetail(selectedId);
+      // Mark as read
+      supabase
+        .from("conversations")
+        .update({ is_read: true })
+        .eq("id", selectedId)
+        .then();
+    }
+  }, [selectedId, fetchDetail]);
+
   const selectedConv = selectedId
+    ? conversations.find((c) => c.id === selectedId)
+    : null;
+
+  const selectedDetail = selectedConv
     ? {
-        ...mockConversations.find((c) => c.id === selectedId)!,
-        messages: selectedId === "1" ? mockMessages : [],
-        comments: [
-          {
-            id: "c1",
-            user_id: "user1",
-            body: "Ce prospect semble sérieux, je m'en occupe !",
-            created_at: new Date(Date.now() - 1000 * 60 * 20).toISOString(),
-            author_name: "Alex",
-          },
-        ],
+        ...selectedConv,
+        messages,
+        comments,
       }
     : null;
+
+  const handleStatusChange = async (id: string, status: "open" | "snoozed" | "closed") => {
+    const { error } = await supabase
+      .from("conversations")
+      .update({ status })
+      .eq("id", id);
+    if (error) {
+      toast.error("Erreur : " + error.message);
+      return;
+    }
+    setConversations((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, status } : c))
+    );
+    toast.success(`Statut → ${status === "open" ? "Ouvert" : status === "snoozed" ? "En pause" : "Fermé"}`);
+  };
+
+  const handleReply = async (id: string, body: string) => {
+    const conv = conversations.find((c) => c.id === id);
+    if (!conv?.from_email) return;
+
+    // Get a mailbox to send from
+    const { data: mailboxes } = await supabase
+      .from("team_mailboxes")
+      .select("email")
+      .eq("sync_enabled", true)
+      .limit(1);
+
+    const fromEmail = mailboxes?.[0]?.email;
+    if (!fromEmail) {
+      toast.error("Aucune boîte mail configurée pour l'envoi");
+      return;
+    }
+
+    const { data, error } = await supabase.functions.invoke("gmail-send", {
+      body: {
+        to: conv.from_email,
+        subject: `Re: ${conv.subject}`,
+        body,
+        from_email: fromEmail,
+      },
+    });
+
+    if (error || data?.error) {
+      toast.error("Erreur d'envoi : " + (data?.error || error?.message));
+      return;
+    }
+
+    toast.success("Réponse envoyée");
+    fetchDetail(id);
+  };
+
+  const handleComment = async (id: string, body: string) => {
+    if (!user) return;
+    const { error } = await supabase.from("comments").insert({
+      conversation_id: id,
+      user_id: user.id,
+      body,
+    });
+    if (error) {
+      toast.error("Erreur : " + error.message);
+      return;
+    }
+    toast.success("Note ajoutée");
+    fetchDetail(id);
+  };
+
+  const openCount = conversations.filter((c) => c.status === "open").length;
 
   return (
     <AppLayout hideHeader>
       <div className="flex w-full h-screen">
-        {/* Conversation list column */}
         <div className="w-[340px] border-r border-border flex flex-col shrink-0">
           <div className="h-12 flex items-center px-3 border-b border-border gap-2 shrink-0">
             <SidebarTrigger />
             <h2 className="text-sm font-semibold text-foreground">Boîte de réception</h2>
             <span className="text-xs text-muted-foreground ml-auto">
-              {mockConversations.filter((c) => c.status === "open").length} ouvertes
+              {openCount} ouvertes
             </span>
           </div>
           <ConversationList
-            conversations={mockConversations.filter((c) => c.status === "open")}
+            conversations={conversations}
             selectedId={selectedId}
             onSelect={setSelectedId}
+            loading={loading}
           />
         </div>
 
-        {/* Detail column */}
         <div className="flex-1 flex flex-col min-w-0">
           <ConversationDetail
-            conversation={selectedConv}
-            onStatusChange={(id, status) => toast.info(`Statut → ${status}`)}
-            onReply={(id, body) => toast.success("Réponse envoyée")}
-            onComment={(id, body) => toast.success("Note ajoutée")}
+            conversation={selectedDetail}
+            onStatusChange={handleStatusChange}
+            onReply={handleReply}
+            onComment={handleComment}
           />
         </div>
       </div>
