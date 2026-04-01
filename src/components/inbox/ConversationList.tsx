@@ -44,7 +44,7 @@ export function ConversationList({ conversations, selectedId, onSelect, loading 
   }
 
   return (
-    <ScrollArea className="flex-1">
+    <div className="flex-1 overflow-y-auto">
       <div className="divide-y divide-border">
         {conversations.map((conv) => {
           const initials = conv.from_name
@@ -128,6 +128,6 @@ export function ConversationList({ conversations, selectedId, onSelect, loading 
           );
         })}
       </div>
-    </ScrollArea>
+    </div>
   );
 }
