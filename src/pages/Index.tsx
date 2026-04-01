@@ -91,7 +91,7 @@ const mockMessages = [
   {
     id: "m2",
     from_email: "alex@yourcompany.com",
-    from_name: "Alex (You)",
+    from_name: "Alex (Vous)",
     to_email: "jean@example.com",
     body_html: null,
     body_text:
