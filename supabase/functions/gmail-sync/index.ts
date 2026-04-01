@@ -66,12 +66,15 @@ async function getAccessToken(serviceAccountKey: any, userEmail: string): Promis
   return tokenData.access_token;
 }
 
-// Decode base64url email body
+// Decode base64url email body with proper UTF-8 handling
 function decodeBody(data: string | undefined): string {
   if (!data) return "";
   try {
-    const decoded = atob(data.replace(/-/g, "+").replace(/_/g, "/"));
-    return decoded;
+    const b64 = data.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = b64.padEnd(Math.ceil(b64.length / 4) * 4, "=");
+    const binary = atob(padded);
+    const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+    return new TextDecoder("utf-8").decode(bytes);
   } catch {
     return "";
   }
