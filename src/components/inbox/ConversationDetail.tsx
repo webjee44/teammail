@@ -133,7 +133,10 @@ export function ConversationDetail({ conversation, onStatusChange, onReply, onCo
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<FileToUpload[]>([]);
-
+  const [editingSubject, setEditingSubject] = useState(false);
+  const [subjectDraft, setSubjectDraft] = useState("");
+  const [savingSubject, setSavingSubject] = useState(false);
+  const subjectInputRef = useRef<HTMLInputElement>(null);
   if (!conversation) {
     return (
       <div className="flex-1 flex items-center justify-center text-muted-foreground">
