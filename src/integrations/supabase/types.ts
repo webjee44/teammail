@@ -288,6 +288,56 @@ export type Database = {
           },
         ]
       }
+      email_templates: {
+        Row: {
+          body: string
+          category: string | null
+          created_at: string
+          created_by: string
+          id: string
+          is_shared: boolean
+          name: string
+          subject: string
+          team_id: string
+          updated_at: string
+          usage_count: number
+        }
+        Insert: {
+          body?: string
+          category?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          is_shared?: boolean
+          name: string
+          subject?: string
+          team_id: string
+          updated_at?: string
+          usage_count?: number
+        }
+        Update: {
+          body?: string
+          category?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_shared?: boolean
+          name?: string
+          subject?: string
+          team_id?: string
+          updated_at?: string
+          usage_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_templates_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mailbox_signatures: {
         Row: {
           mailbox_id: string
