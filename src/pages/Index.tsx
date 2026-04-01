@@ -62,6 +62,10 @@ const Index = () => {
         query = query.eq("status", "open");
       }
 
+      if (mailboxId) {
+        query = query.eq("mailbox_id", mailboxId);
+      }
+
       const { data, error } = await query;
 
       if (error) {
