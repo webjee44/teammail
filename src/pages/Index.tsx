@@ -367,6 +367,7 @@ const Index = () => {
             onStatusChange={handleStatusChange}
             onReply={handleReply}
             onComment={handleComment}
+            onDelete={handleDelete}
           />
         </div>
 
