@@ -10,6 +10,7 @@ import Rules from "./pages/Rules.tsx";
 import Analytics from "./pages/Analytics.tsx";
 import Settings from "./pages/Settings.tsx";
 import Compose from "./pages/Compose.tsx";
+import Contacts from "./pages/Contacts.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import { ReactNode } from "react";
 
@@ -42,6 +43,8 @@ const App = () => (
             <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/compose" element={<ProtectedRoute><Compose /></ProtectedRoute>} />
+            <Route path="/contacts" element={<ProtectedRoute><Contacts /></ProtectedRoute>} />
+            <Route path="/contacts/:id" element={<ProtectedRoute><Contacts /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
