@@ -84,6 +84,86 @@ export type Database = {
           },
         ]
       }
+      contact_conversations: {
+        Row: {
+          contact_id: string
+          conversation_id: string
+        }
+        Insert: {
+          contact_id: string
+          conversation_id: string
+        }
+        Update: {
+          contact_id?: string
+          conversation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_conversations_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_conversations_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contacts: {
+        Row: {
+          avatar_url: string | null
+          company: string | null
+          created_at: string
+          custom_fields: Json | null
+          email: string
+          id: string
+          name: string | null
+          notes: string | null
+          phone: string | null
+          team_id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          company?: string | null
+          created_at?: string
+          custom_fields?: Json | null
+          email: string
+          id?: string
+          name?: string | null
+          notes?: string | null
+          phone?: string | null
+          team_id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          company?: string | null
+          created_at?: string
+          custom_fields?: Json | null
+          email?: string
+          id?: string
+          name?: string | null
+          notes?: string | null
+          phone?: string | null
+          team_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contacts_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversation_tags: {
         Row: {
           conversation_id: string
@@ -119,6 +199,7 @@ export type Database = {
           ai_summary: string | null
           assigned_to: string | null
           category: string | null
+          contact_id: string | null
           created_at: string
           entities: Json | null
           from_email: string | null
@@ -141,6 +222,7 @@ export type Database = {
           ai_summary?: string | null
           assigned_to?: string | null
           category?: string | null
+          contact_id?: string | null
           created_at?: string
           entities?: Json | null
           from_email?: string | null
@@ -163,6 +245,7 @@ export type Database = {
           ai_summary?: string | null
           assigned_to?: string | null
           category?: string | null
+          contact_id?: string | null
           created_at?: string
           entities?: Json | null
           from_email?: string | null
@@ -182,6 +265,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "conversations_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "conversations_mailbox_id_fkey"
             columns: ["mailbox_id"]
