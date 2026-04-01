@@ -184,7 +184,7 @@ serve(async (req) => {
         let synced = 0;
 
         for (const thread of threads) {
-          // Check if conversation already exists
+          // Check if conversation already exists for this thread_id
           const { data: existing } = await supabase
             .from("conversations")
             .select("id")
@@ -232,29 +232,54 @@ serve(async (req) => {
               })
               .eq("id", conversationId);
           } else {
-            // Create conversation
-            const { data: newConv, error: convError } = await supabase
-              .from("conversations")
-              .insert({
-                team_id: mailbox.team_id,
-                gmail_thread_id: thread.id,
-                subject,
-                snippet,
-                from_email: fromEmail,
-                from_name: fromName,
-                is_read: isRead,
-                last_message_at: lastMessageAt,
-                status: "open",
-                mailbox_id: mailbox.id,
-              })
-              .select("id")
-              .single();
+            // Before creating a new conversation, check if any message in this
+            // thread already exists in another conversation (cross-account thread
+            // deduplication: Gmail uses different thread IDs per account).
+            const msgIds = gmailMessages.map((m: any) => m.id);
+            const { data: existingMsgs } = await supabase
+              .from("messages")
+              .select("conversation_id, gmail_message_id")
+              .in("gmail_message_id", msgIds)
+              .limit(1);
 
-            if (convError) {
-              console.error("Failed to create conversation:", convError);
-              continue;
+            if (existingMsgs && existingMsgs.length > 0) {
+              // Merge into the existing conversation instead of creating a duplicate
+              conversationId = existingMsgs[0].conversation_id;
+              // Update mailbox_id if not set, and refresh metadata
+              await supabase
+                .from("conversations")
+                .update({
+                  snippet,
+                  is_read: isRead,
+                  last_message_at: lastMessageAt,
+                  mailbox_id: mailbox.id,
+                })
+                .eq("id", conversationId);
+            } else {
+              // Create conversation
+              const { data: newConv, error: convError } = await supabase
+                .from("conversations")
+                .insert({
+                  team_id: mailbox.team_id,
+                  gmail_thread_id: thread.id,
+                  subject,
+                  snippet,
+                  from_email: fromEmail,
+                  from_name: fromName,
+                  is_read: isRead,
+                  last_message_at: lastMessageAt,
+                  status: "open",
+                  mailbox_id: mailbox.id,
+                })
+                .select("id")
+                .single();
+
+              if (convError) {
+                console.error("Failed to create conversation:", convError);
+                continue;
+              }
+              conversationId = newConv.id;
             }
-            conversationId = newConv.id;
           }
 
           // Sync messages
