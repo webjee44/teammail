@@ -170,6 +170,24 @@ const Index = () => {
       return;
     }
 
+    // Save outbound message to DB
+    await supabase.from("messages").insert({
+      conversation_id: id,
+      from_email: fromEmail,
+      from_name: user?.user_metadata?.full_name || fromEmail,
+      to_email: conv.from_email,
+      body_text: body,
+      body_html: body.replace(/\n/g, "<br>"),
+      is_outbound: true,
+      gmail_message_id: data?.messageId || null,
+    });
+
+    // Update conversation timestamp
+    await supabase
+      .from("conversations")
+      .update({ last_message_at: new Date().toISOString() })
+      .eq("id", id);
+
     toast.success("Réponse envoyée");
     fetchDetail(id);
   };
