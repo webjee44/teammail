@@ -97,7 +97,7 @@ serve(async (req) => {
   }
 
   try {
-    const { to, subject, body, from_email } = await req.json();
+    const { to, subject, body, from_email, from_name } = await req.json();
 
     if (!to || !subject || !body || !from_email) {
       return new Response(
@@ -145,7 +145,8 @@ serve(async (req) => {
     const accessToken = await getAccessToken(serviceAccountKey, from_email.toLowerCase());
 
     // Build and send the email
-    const rawEmail = buildRawEmail(from_email, to, subject, body);
+    const fromHeader = from_name ? `"${from_name}" <${from_email}>` : from_email;
+    const rawEmail = buildRawEmail(fromHeader, to, subject, body);
     const encodedMessage = btoa(unescape(encodeURIComponent(rawEmail)))
       .replace(/\+/g, "-")
       .replace(/\//g, "_")
