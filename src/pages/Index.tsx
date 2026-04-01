@@ -128,9 +128,9 @@ const Index = () => {
         <div className="w-[340px] border-r border-border flex flex-col shrink-0">
           <div className="h-12 flex items-center px-3 border-b border-border gap-2 shrink-0">
             <SidebarTrigger />
-            <h2 className="text-sm font-semibold text-foreground">Inbox</h2>
+            <h2 className="text-sm font-semibold text-foreground">Boîte de réception</h2>
             <span className="text-xs text-muted-foreground ml-auto">
-              {mockConversations.filter((c) => c.status === "open").length} open
+              {mockConversations.filter((c) => c.status === "open").length} ouvertes
             </span>
           </div>
           <ConversationList
