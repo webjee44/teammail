@@ -1,43 +1,73 @@
 
-# Envoyer plus tard — Emails programmés
+
+# Moteur de Templates Email
 
 ## Résumé
-Permettre de rédiger un email et programmer son envoi à une date/heure future. Un bouton "Envoyer plus tard" avec sélecteur de date/heure s'ajoute à côté du bouton "Envoyer".
+
+Système complet de templates email réutilisables : créer, organiser et insérer des modèles pré-rédigés lors de la rédaction. Support de variables dynamiques (`{{nom}}`, `{{entreprise}}`, etc.) qui se remplissent automatiquement.
 
 ## Base de données
 
-**Nouvelle table `scheduled_emails`** :
-- `id` (uuid), `team_id` (uuid), `created_by` (uuid — user_id)
-- `to_email` (text), `subject` (text), `body` (text), `from_email` (text)
-- `attachments` (jsonb, nullable — stocke les pièces jointes en base64)
-- `scheduled_at` (timestamptz — quand envoyer)
-- `status` (text — `pending`, `sent`, `failed`, `cancelled`)
-- `error_message` (text, nullable)
-- `sent_at` (timestamptz, nullable)
+**Nouvelle table `email_templates`** :
+- `id` (uuid), `team_id` (uuid)
+- `name` (text) — nom du template ("Relance devis", "Bienvenue client")
+- `subject` (text) — objet pré-rempli
+- `body` (text) — corps avec variables `{{variable}}`
+- `category` (text, nullable) — catégorie libre ("Commercial", "Support", "RH"…)
+- `created_by` (uuid)
+- `is_shared` (boolean, default true) — visible par toute l'équipe ou personnel
+- `usage_count` (integer, default 0) — pour trier par popularité
 - `created_at`, `updated_at`
-- RLS : les membres de l'équipe peuvent CRUD leurs emails programmés
+- RLS : membres de l'équipe peuvent voir les templates partagés + les leurs ; CRUD pour les créateurs et admins
 
-## Interface — Compose.tsx
+## Interface
 
-- Ajout d'un bouton "Envoyer plus tard" (icône horloge) à côté de "Envoyer"
-- Clic → Popover avec un date picker + time picker
-- Validation : la date doit être dans le futur
-- Confirmation → sauvegarde dans `scheduled_emails` avec status `pending`
-- Toast de confirmation avec l'heure programmée
-- Redirection vers l'inbox
+### 1. Gestion des templates — Settings (nouvel onglet "Templates")
 
-## Edge Function — `process-scheduled-emails`
+- Liste des templates existants avec nom, catégorie, aperçu du corps
+- Formulaire de création/édition :
+  - Nom, catégorie (select libre), objet, corps (textarea)
+  - Aide visuelle : liste des variables disponibles (`{{nom}}`, `{{email}}`, `{{entreprise}}`, `{{date}}`) avec boutons pour les insérer
+  - Toggle "Partagé avec l'équipe"
+  - Aperçu en temps réel avec remplacement des variables par des exemples
+- Suppression avec confirmation
 
-- Fonction invoquée par pg_cron toutes les minutes
-- Requête les emails avec `status = 'pending'` ET `scheduled_at <= now()`
-- Pour chaque email, appelle la fonction `gmail-send` existante
-- Met à jour le status en `sent` ou `failed`
+### 2. Insertion dans Compose.tsx
+
+- Nouveau bouton icône `FileText` ("Utiliser un template") à côté de "Envoyer plus tard"
+- Clic → Dialog/Popover avec :
+  - Barre de recherche pour filtrer par nom/catégorie
+  - Templates groupés par catégorie
+  - Compteur d'utilisation pour indiquer les plus populaires
+  - Aperçu au survol
+- Sélection d'un template → remplit le sujet et le corps
+- Si le corps contient des variables `{{…}}`, affiche un petit formulaire inline pour renseigner les valeurs avant insertion
+- Incrémente `usage_count`
+
+### 3. Variables dynamiques
+
+Variables supportées avec remplacement automatique quand les données sont disponibles :
+- `{{nom}}` — nom du destinataire (depuis le champ "À" ou le contact associé)
+- `{{email}}` — email du destinataire
+- `{{entreprise}}` — entreprise du contact
+- `{{date}}` — date du jour formatée
+- `{{expediteur}}` — nom de l'expéditeur (profil connecté)
+- Variables personnalisées libres → saisie manuelle
 
 ## Fichiers impactés
 
 | Fichier | Action |
 |---------|--------|
-| Migration SQL | Table `scheduled_emails` + RLS |
-| `src/pages/Compose.tsx` | Bouton "Envoyer plus tard" + date/time picker |
-| `supabase/functions/process-scheduled-emails/index.ts` | Nouveau — traitement cron |
-| pg_cron job | Planifier l'exécution toutes les minutes |
+| Migration SQL | Table `email_templates` + RLS |
+| `src/pages/Settings.tsx` | Nouvel onglet "Templates" avec CRUD complet |
+| `src/pages/Compose.tsx` | Bouton + dialog d'insertion de template |
+| `src/components/inbox/TemplatePickerDialog.tsx` | Nouveau — composant de sélection avec recherche, catégories, aperçu et résolution des variables |
+
+## Détails techniques
+
+- Les variables sont parsées avec un regex `/\{\{(\w+)\}\}/g`
+- Résolution automatique : on tente de résoudre les variables connues (date, expéditeur, info contact si email du destinataire matche un contact existant)
+- Variables non résolues → champ de saisie dans le dialog avant insertion
+- `usage_count` incrémenté via un `update` après insertion (pas besoin d'edge function)
+- Catégories libres (pas d'enum) — on récupère les catégories existantes pour les proposer en autocomplétion
+
