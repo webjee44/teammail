@@ -334,6 +334,47 @@ export type Database = {
           },
         ]
       }
+      team_mailboxes: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          label: string | null
+          last_sync_at: string | null
+          sync_enabled: boolean
+          team_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          label?: string | null
+          last_sync_at?: string | null
+          sync_enabled?: boolean
+          team_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          label?: string | null
+          last_sync_at?: string | null
+          sync_enabled?: boolean
+          team_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_mailboxes_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teams: {
         Row: {
           created_at: string
