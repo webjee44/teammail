@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
@@ -21,6 +21,9 @@ import {
   ArrowDown,
   Loader2,
   Trash2,
+  Pencil,
+  Check,
+  X,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -130,6 +133,40 @@ export function ConversationDetail({ conversation, onStatusChange, onReply, onCo
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<FileToUpload[]>([]);
+  const [editingSubject, setEditingSubject] = useState(false);
+  const [subjectDraft, setSubjectDraft] = useState("");
+  const [savingSubject, setSavingSubject] = useState(false);
+  const subjectInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (editingSubject && subjectInputRef.current) {
+      subjectInputRef.current.focus();
+      subjectInputRef.current.select();
+    }
+  }, [editingSubject]);
+
+  const handleStartEditSubject = () => {
+    setSubjectDraft(decodeHtml(conversation?.subject || ""));
+    setEditingSubject(true);
+  };
+
+  const handleSaveSubject = async () => {
+    if (!conversation || !subjectDraft.trim()) return;
+    setSavingSubject(true);
+    try {
+      const { error } = await supabase
+        .from("conversations")
+        .update({ subject: subjectDraft.trim() })
+        .eq("id", conversation.id);
+      if (error) throw error;
+      conversation.subject = subjectDraft.trim();
+      toast.success("Objet mis à jour");
+      setEditingSubject(false);
+    } catch (err: any) {
+      toast.error("Erreur : " + (err.message || String(err)));
+    } finally {
+      setSavingSubject(false);
+    }
+  };
 
   if (!conversation) {
     return (
@@ -180,10 +217,37 @@ export function ConversationDetail({ conversation, onStatusChange, onReply, onCo
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="px-4 py-3 border-b border-border space-y-2">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-foreground truncate">
-            {decodeHtml(conversation.subject)}
-          </h2>
+        <div className="flex items-center justify-between gap-2">
+          {editingSubject ? (
+            <div className="flex items-center gap-1 flex-1 min-w-0">
+              <input
+                ref={subjectInputRef}
+                value={subjectDraft}
+                onChange={(e) => setSubjectDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSaveSubject();
+                  if (e.key === "Escape") setEditingSubject(false);
+                }}
+                className="flex-1 min-w-0 text-lg font-semibold bg-transparent border-b-2 border-primary outline-none text-foreground"
+                disabled={savingSubject}
+              />
+              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={handleSaveSubject} disabled={savingSubject || !subjectDraft.trim()}>
+                {savingSubject ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 text-green-600" />}
+              </Button>
+              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => setEditingSubject(false)} disabled={savingSubject}>
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          ) : (
+            <h2
+              className="text-lg font-semibold text-foreground truncate cursor-pointer group flex items-center gap-1.5 hover:text-primary transition-colors"
+              onClick={handleStartEditSubject}
+              title="Cliquer pour modifier l'objet"
+            >
+              {decodeHtml(conversation.subject)}
+              <Pencil className="h-3.5 w-3.5 opacity-0 group-hover:opacity-50 transition-opacity shrink-0" />
+            </h2>
+          )}
           <div className="flex items-center gap-1 shrink-0">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
