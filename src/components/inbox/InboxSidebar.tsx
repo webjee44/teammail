@@ -32,11 +32,11 @@ import { Badge } from "@/components/ui/badge";
 import { Mail } from "lucide-react";
 
 const inboxItems = [
-  { title: "Inbox", url: "/", icon: Inbox, count: 12 },
-  { title: "Assigned to me", url: "/?filter=mine", icon: User, count: 3 },
-  { title: "Unassigned", url: "/?filter=unassigned", icon: Users, count: 5 },
-  { title: "Snoozed", url: "/?filter=snoozed", icon: Clock, count: 2 },
-  { title: "Closed", url: "/?filter=closed", icon: CheckCircle, count: 0 },
+  { title: "Boîte de réception", url: "/", icon: Inbox, count: 12 },
+  { title: "Assigné à moi", url: "/?filter=mine", icon: User, count: 3 },
+  { title: "Non assigné", url: "/?filter=unassigned", icon: Users, count: 5 },
+  { title: "En pause", url: "/?filter=snoozed", icon: Clock, count: 2 },
+  { title: "Fermé", url: "/?filter=closed", icon: CheckCircle, count: 0 },
 ];
 
 const toolItems = [
