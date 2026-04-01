@@ -145,7 +145,8 @@ serve(async (req) => {
     const accessToken = await getAccessToken(serviceAccountKey, from_email.toLowerCase());
 
     // Build and send the email
-    const rawEmail = buildRawEmail(from_email, to, subject, body);
+    const fromHeader = from_name ? `"${from_name}" <${from_email}>` : from_email;
+    const rawEmail = buildRawEmail(fromHeader, to, subject, body);
     const encodedMessage = btoa(unescape(encodeURIComponent(rawEmail)))
       .replace(/\+/g, "-")
       .replace(/\//g, "_")
