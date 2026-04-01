@@ -32,17 +32,17 @@ import { Badge } from "@/components/ui/badge";
 import { Mail } from "lucide-react";
 
 const inboxItems = [
-  { title: "Inbox", url: "/", icon: Inbox, count: 12 },
-  { title: "Assigned to me", url: "/?filter=mine", icon: User, count: 3 },
-  { title: "Unassigned", url: "/?filter=unassigned", icon: Users, count: 5 },
-  { title: "Snoozed", url: "/?filter=snoozed", icon: Clock, count: 2 },
-  { title: "Closed", url: "/?filter=closed", icon: CheckCircle, count: 0 },
+  { title: "Boîte de réception", url: "/", icon: Inbox, count: 12 },
+  { title: "Assigné à moi", url: "/?filter=mine", icon: User, count: 3 },
+  { title: "Non assigné", url: "/?filter=unassigned", icon: Users, count: 5 },
+  { title: "En pause", url: "/?filter=snoozed", icon: Clock, count: 2 },
+  { title: "Fermé", url: "/?filter=closed", icon: CheckCircle, count: 0 },
 ];
 
 const toolItems = [
-  { title: "Rules", url: "/rules", icon: Zap },
-  { title: "Analytics", url: "/analytics", icon: BarChart3 },
-  { title: "Settings", url: "/settings", icon: Settings },
+  { title: "Règles", url: "/rules", icon: Zap },
+  { title: "Statistiques", url: "/analytics", icon: BarChart3 },
+  { title: "Paramètres", url: "/settings", icon: Settings },
 ];
 
 export function InboxSidebar() {
@@ -78,7 +78,7 @@ export function InboxSidebar() {
             <Button size="sm" className="w-full gap-2" asChild>
               <NavLink to="/compose" activeClassName="">
                 <PenSquare className="h-4 w-4" />
-                Compose
+                Rédiger
               </NavLink>
             </Button>
           </div>
@@ -115,12 +115,12 @@ export function InboxSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>Tags</SidebarGroupLabel>
+          <SidebarGroupLabel>Étiquettes</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {[
                 { name: "Bug", color: "hsl(0, 84%, 60%)" },
-                { name: "Feature", color: "hsl(236, 72%, 58%)" },
+                { name: "Fonctionnalité", color: "hsl(236, 72%, 58%)" },
                 { name: "Urgent", color: "hsl(38, 92%, 50%)" },
               ].map((tag) => (
                 <SidebarMenuItem key={tag.name}>
@@ -140,7 +140,7 @@ export function InboxSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>Tools</SidebarGroupLabel>
+          <SidebarGroupLabel>Outils</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {toolItems.map((item) => (

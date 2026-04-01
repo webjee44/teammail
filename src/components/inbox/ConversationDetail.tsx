@@ -83,9 +83,9 @@ export function ConversationDetail({ conversation, onStatusChange, onReply, onCo
   }
 
   const statusConfig = {
-    open: { label: "Open", icon: MessageSquare, className: "text-green-600" },
-    snoozed: { label: "Snoozed", icon: Clock, className: "text-amber-500" },
-    closed: { label: "Closed", icon: CheckCircle, className: "text-muted-foreground" },
+    open: { label: "Ouvert", icon: MessageSquare, className: "text-green-600" },
+    snoozed: { label: "En pause", icon: Clock, className: "text-amber-500" },
+    closed: { label: "Fermé", icon: CheckCircle, className: "text-muted-foreground" },
   };
 
   const status = statusConfig[conversation.status];
@@ -107,13 +107,13 @@ export function ConversationDetail({ conversation, onStatusChange, onReply, onCo
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => onStatusChange?.(conversation.id, "open")}>
-                  <MessageSquare className="h-4 w-4 mr-2 text-green-600" /> Open
+                  <MessageSquare className="h-4 w-4 mr-2 text-green-600" /> Ouvrir
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onStatusChange?.(conversation.id, "snoozed")}>
-                  <Clock className="h-4 w-4 mr-2 text-amber-500" /> Snooze
+                  <Clock className="h-4 w-4 mr-2 text-amber-500" /> Mettre en pause
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onStatusChange?.(conversation.id, "closed")}>
-                  <CheckCircle className="h-4 w-4 mr-2" /> Close
+                  <CheckCircle className="h-4 w-4 mr-2" /> Fermer
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

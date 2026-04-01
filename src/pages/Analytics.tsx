@@ -38,9 +38,9 @@ const responseTimeData = [
 ];
 
 const statusData = [
-  { name: "Open", value: 12, color: "hsl(142, 72%, 40%)" },
-  { name: "Snoozed", value: 5, color: "hsl(38, 92%, 50%)" },
-  { name: "Closed", value: 28, color: "hsl(220, 10%, 46%)" },
+  { name: "Ouvert", value: 12, color: "hsl(142, 72%, 40%)" },
+  { name: "En pause", value: 5, color: "hsl(38, 92%, 50%)" },
+  { name: "Fermé", value: 28, color: "hsl(220, 10%, 46%)" },
 ];
 
 const teamData = [
@@ -54,7 +54,7 @@ const Analytics = () => {
     <AppLayout>
       <div className="flex-1 p-6 max-w-6xl mx-auto space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Analytics</h1>
+          <h1 className="text-2xl font-bold text-foreground">Statistiques</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Vue d'ensemble des performances de votre équipe
           </p>

@@ -13,16 +13,16 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
 const mockMembers = [
-  { id: "1", name: "Alex Moreau", email: "alex@company.com", role: "admin", avatar: "" },
-  { id: "2", name: "Sarah Chen", email: "sarah@company.com", role: "member", avatar: "" },
-  { id: "3", name: "Thomas Petit", email: "thomas@company.com", role: "member", avatar: "" },
+  { id: "1", name: "Alex Moreau", email: "alex@company.com", role: "admin" as const, avatar: "" },
+  { id: "2", name: "Sarah Chen", email: "sarah@company.com", role: "membre" as const, avatar: "" },
+  { id: "3", name: "Thomas Petit", email: "thomas@company.com", role: "membre" as const, avatar: "" },
 ];
 
 const mockTags = [
   { id: "1", name: "Bug", color: "#ef4444" },
-  { id: "2", name: "Feature", color: "#6366f1" },
+  { id: "2", name: "Fonctionnalité", color: "#6366f1" },
   { id: "3", name: "Urgent", color: "#f59e0b" },
-  { id: "4", name: "Sales", color: "#22c55e" },
+  { id: "4", name: "Ventes", color: "#22c55e" },
 ];
 
 const Settings = () => {
@@ -35,7 +35,7 @@ const Settings = () => {
     <AppLayout>
       <div className="flex-1 p-6 max-w-4xl mx-auto space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Settings</h1>
+          <h1 className="text-2xl font-bold text-foreground">Paramètres</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Gérez votre équipe, tags et comptes connectés
           </p>
@@ -190,11 +190,11 @@ const Settings = () => {
                     </div>
                     <div>
                       <p className="text-sm font-medium">{user?.email || "team@company.com"}</p>
-                      <p className="text-xs text-muted-foreground">Connected via Google OAuth</p>
+                      <p className="text-xs text-muted-foreground">Connecté via Google OAuth</p>
                     </div>
                   </div>
                   <Badge variant="outline" className="text-green-600 border-green-600">
-                    Active
+                    Actif
                   </Badge>
                 </div>
               </CardContent>

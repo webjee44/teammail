@@ -11,20 +11,20 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 const mockConversations: Conversation[] = [
   {
     id: "1",
-    subject: "Question about pricing plans",
-    snippet: "Hi, I wanted to know more about your enterprise pricing...",
+    subject: "Question sur les tarifs",
+    snippet: "Bonjour, je voulais en savoir plus sur vos tarifs entreprise...",
     from_email: "jean@example.com",
     from_name: "Jean Dupont",
     status: "open",
     assigned_to: null,
     is_read: false,
     last_message_at: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
-    tags: [{ id: "1", name: "Sales", color: "#6366f1" }],
+    tags: [{ id: "1", name: "Ventes", color: "#6366f1" }],
   },
   {
     id: "2",
-    subject: "Bug report: Login not working",
-    snippet: "When I try to login with my Google account, I get an error...",
+    subject: "Rapport de bug : Connexion impossible",
+    snippet: "Quand j'essaie de me connecter avec mon compte Google, j'obtiens une erreur...",
     from_email: "marie@startup.io",
     from_name: "Marie Martin",
     status: "open",
@@ -39,8 +39,8 @@ const mockConversations: Conversation[] = [
   },
   {
     id: "3",
-    subject: "Partnership opportunity",
-    snippet: "We'd love to discuss a potential partnership between our companies...",
+    subject: "Opportunité de partenariat",
+    snippet: "Nous aimerions discuter d'un partenariat potentiel entre nos entreprises...",
     from_email: "thomas@bigcorp.com",
     from_name: "Thomas Bernard",
     status: "open",
@@ -51,8 +51,8 @@ const mockConversations: Conversation[] = [
   },
   {
     id: "4",
-    subject: "Invoice #2024-0142",
-    snippet: "Please find attached the invoice for last month's services...",
+    subject: "Facture #2024-0142",
+    snippet: "Veuillez trouver ci-joint la facture pour les services du mois dernier...",
     from_email: "billing@vendor.com",
     from_name: "Vendor Billing",
     status: "snoozed",
@@ -63,8 +63,8 @@ const mockConversations: Conversation[] = [
   },
   {
     id: "5",
-    subject: "Re: Feature request - Dark mode",
-    snippet: "Thank you for your suggestion! We've added it to our roadmap...",
+    subject: "Re: Demande de fonctionnalité - Mode sombre",
+    snippet: "Merci pour votre suggestion ! Nous l'avons ajoutée à notre feuille de route...",
     from_email: "support@app.com",
     from_name: "Support Team",
     status: "closed",
@@ -72,7 +72,7 @@ const mockConversations: Conversation[] = [
     assignee_name: "Sarah",
     is_read: true,
     last_message_at: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
-    tags: [{ id: "4", name: "Feature", color: "#6366f1" }],
+    tags: [{ id: "4", name: "Fonctionnalité", color: "#6366f1" }],
   },
 ];
 
@@ -91,7 +91,7 @@ const mockMessages = [
   {
     id: "m2",
     from_email: "alex@yourcompany.com",
-    from_name: "Alex (You)",
+    from_name: "Alex (Vous)",
     to_email: "jean@example.com",
     body_html: null,
     body_text:
@@ -128,9 +128,9 @@ const Index = () => {
         <div className="w-[340px] border-r border-border flex flex-col shrink-0">
           <div className="h-12 flex items-center px-3 border-b border-border gap-2 shrink-0">
             <SidebarTrigger />
-            <h2 className="text-sm font-semibold text-foreground">Inbox</h2>
+            <h2 className="text-sm font-semibold text-foreground">Boîte de réception</h2>
             <span className="text-xs text-muted-foreground ml-auto">
-              {mockConversations.filter((c) => c.status === "open").length} open
+              {mockConversations.filter((c) => c.status === "open").length} ouvertes
             </span>
           </div>
           <ConversationList
@@ -144,7 +144,7 @@ const Index = () => {
         <div className="flex-1 flex flex-col min-w-0">
           <ConversationDetail
             conversation={selectedConv}
-            onStatusChange={(id, status) => toast.info(`Status → ${status}`)}
+            onStatusChange={(id, status) => toast.info(`Statut → ${status}`)}
             onReply={(id, body) => toast.success("Réponse envoyée")}
             onComment={(id, body) => toast.success("Note ajoutée")}
           />
