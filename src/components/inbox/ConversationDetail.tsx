@@ -50,6 +50,14 @@ const decodeHtml = (s = "") => {
   return t.value.replace(/\u00A0/g, " ").replace(/\s+/g, " ").trim();
 };
 
+type MessageAttachment = {
+  id: string;
+  filename: string;
+  mime_type: string;
+  size_bytes: number;
+  storage_path: string;
+};
+
 type Message = {
   id: string;
   from_email: string | null;
@@ -59,6 +67,7 @@ type Message = {
   body_text: string | null;
   sent_at: string;
   is_outbound: boolean;
+  attachments?: MessageAttachment[];
 };
 
 type Comment = {
