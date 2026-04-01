@@ -83,9 +83,9 @@ export function ConversationDetail({ conversation, onStatusChange, onReply, onCo
   }
 
   const statusConfig = {
-    open: { label: "Open", icon: MessageSquare, className: "text-green-600" },
-    snoozed: { label: "Snoozed", icon: Clock, className: "text-amber-500" },
-    closed: { label: "Closed", icon: CheckCircle, className: "text-muted-foreground" },
+    open: { label: "Ouvert", icon: MessageSquare, className: "text-green-600" },
+    snoozed: { label: "En pause", icon: Clock, className: "text-amber-500" },
+    closed: { label: "Fermé", icon: CheckCircle, className: "text-muted-foreground" },
   };
 
   const status = statusConfig[conversation.status];
