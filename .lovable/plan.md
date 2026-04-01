@@ -1,56 +1,95 @@
 
-# Boîte Mail Collaborative (Front.com Clone)
 
-## Vue d'ensemble
-Application de boîte mail collaborative connectée à Gmail via Google OAuth, permettant à une petite équipe (2-5 personnes) de gérer les emails ensemble.
+# Plan : IA pour l'analyse des emails (priorité, bruit, réponses, entités)
 
-## Pages & Navigation
+## Fonctionnalités retenues
 
-### 1. Page de connexion
-- Bouton "Se connecter avec Google" (Google OAuth avec accès Gmail)
-- Design épuré, branding personnalisé
+| # | Fonctionnalité | Description |
+|---|---------------|-------------|
+| 4 | **Score de priorité + filtrage du bruit** | Chaque conversation reçoit un score (haute/moyenne/basse) et un flag `is_noise` (newsletters, notifications auto). Toggle "Masquer le bruit" dans l'inbox. |
+| 5 | **Suggestions de réponses IA** | En lisant une conversation, 2-3 brouillons de réponse sont générés et cliquables pour pré-remplir le champ de réponse. |
+| 6 | **Extraction d'entités** | Noms, entreprises, montants, dates extraits automatiquement et affichés dans un panneau latéral de la conversation. |
 
-### 2. Inbox principal (vue à 3 colonnes style Front)
-- **Colonne gauche (sidebar)** : Navigation avec sections Inbox, Assigned to me, Unassigned, Snoozed, Closed, Tags/Labels
-- **Colonne centrale** : Liste des conversations avec aperçu (expéditeur, objet, début du message, date, assigné à, tags)
-- **Colonne droite** : Détail de la conversation sélectionnée avec historique complet des messages
+## Architecture technique
 
-### 3. Fonctionnalités de collaboration
-- **Assignation** : Assigner une conversation à un membre de l'équipe
-- **Commentaires internes** : Ajouter des notes/commentaires visibles uniquement par l'équipe (pas envoyés au client)
-- **Tags/Labels** : Créer et appliquer des tags colorés aux conversations
-- **Statuts** : Open → Snoozed (avec date de rappel) → Closed
+```text
+┌─────────────┐     ┌──────────────────────┐     ┌────────────────┐
+│ gmail-sync  │────▶│ ai-analyze-email     │────▶│ conversations  │
+│ (existant)  │     │ (nouvelle edge fn)   │     │ + messages DB  │
+└─────────────┘     │  Lovable AI Gateway  │     │ nouveaux champs│
+                    │  gemini-3-flash      │     └────────────────┘
+                    └──────────────────────┘
+                              ▲
+┌─────────────┐               │
+│ ai-suggest  │───────────────┘  (appel à la demande)
+│ -reply      │
+│ (edge fn)   │
+└─────────────┘
+```
 
-### 4. Composition & Réponse
-- Répondre directement depuis le panneau de détail
-- Composer un nouvel email
-- Éditeur rich text basique (gras, italique, liens)
+**Modele IA** : `google/gemini-3-flash-preview` via Lovable AI Gateway (LOVABLE_API_KEY deja configuree).
 
-### 5. Règles d'automatisation (page dédiée)
-- Créer des règles simples : "Si l'email contient X → assigner à Y / ajouter tag Z"
-- Conditions : expéditeur, objet, contenu
-- Actions : assigner, taguer, déplacer
+## Etapes d'implementation
 
-### 6. Analytics basiques (page dédiée)
-- Temps de réponse moyen
-- Nombre de conversations par statut
-- Répartition par membre de l'équipe
-- Graphiques simples sur les 7/30 derniers jours
+### 1. Migration DB — nouveaux champs sur `conversations`
 
-### 7. Settings
-- Gestion des membres de l'équipe (inviter par email)
-- Gestion des comptes Gmail connectés
-- Gestion des tags
+Ajouter a la table `conversations` :
+- `priority` (text, nullable) — `high` / `medium` / `low`
+- `is_noise` (boolean, default false) — newsletters, notifs auto
+- `ai_summary` (text, nullable) — resume court
+- `entities` (jsonb, nullable) — `{people:[], companies:[], amounts:[], dates:[]}`
+- `category` (text, nullable) — `support`, `billing`, `commercial`, `notification`, `other`
 
-## Design
-- Interface sombre/claire inspirée de Front.com
-- Sidebar compacte avec icônes + texte
-- Transitions fluides entre les conversations
-- Badges de notification sur les conversations non lues
-- Avatars des membres d'équipe
+### 2. Edge Function `ai-analyze-email`
 
-## Backend (Supabase)
-- Auth via Google OAuth (avec scopes Gmail)
-- Tables : profiles, teams, conversations, messages, comments, tags, rules, assignments
-- Row Level Security par équipe
-- Edge Functions pour synchroniser Gmail (lecture/envoi via Gmail API)
+- Recoit `{conversation_id}` ou `{batch: true}` pour traiter toutes les conversations non analysees
+- Recupere le sujet + snippet + body_text du dernier message
+- Appelle Lovable AI avec tool calling pour extraire en une seule requete :
+  - `priority`, `is_noise`, `summary`, `category`, `entities`
+- Met a jour la conversation en DB
+- Appelee automatiquement depuis `gmail-sync` apres chaque sync
+
+### 3. Edge Function `ai-suggest-reply`
+
+- Recoit `{conversation_id}`
+- Recupere l'historique des messages
+- Appelle Lovable AI pour generer 2-3 brouillons de reponse courts
+- Retourne les suggestions au frontend (pas de persistence)
+
+### 4. UI — Filtrage du bruit dans l'inbox
+
+- Ajouter un toggle "Masquer le bruit" en haut de `ConversationList`
+- Badge de priorite (rouge/orange/gris) sur chaque conversation
+- Badge de categorie a cote du sujet
+- Filtre cote client : `conversations.filter(c => !showNoise ? !c.is_noise : true)`
+
+### 5. UI — Suggestions de reponse dans ConversationDetail
+
+- Bouton "Suggerer des reponses" sous le panneau de reponse
+- Appel a `ai-suggest-reply` au clic
+- Affichage de 2-3 chips cliquables qui pre-remplissent le `replyText`
+- Indicateur de chargement pendant la generation
+
+### 6. UI — Panneau d'entites dans ConversationDetail
+
+- Section pliable "Informations extraites" dans le header de conversation
+- Affiche : priorite, categorie, resume IA, entites (personnes, entreprises, montants, dates)
+- Badges colores pour chaque type d'entite
+
+### 7. Integration dans gmail-sync
+
+- Apres la boucle de sync, appeler `ai-analyze-email` avec `{batch: true}` pour analyser les nouvelles conversations
+- Ou appeler conversation par conversation dans la boucle existante
+
+## Fichiers concernes
+
+| Fichier | Action |
+|---------|--------|
+| `supabase/migrations/` | Migration pour les 5 nouveaux champs |
+| `supabase/functions/ai-analyze-email/index.ts` | Nouvelle edge function |
+| `supabase/functions/ai-suggest-reply/index.ts` | Nouvelle edge function |
+| `supabase/functions/gmail-sync/index.ts` | Appel post-sync a l'analyse |
+| `src/pages/Index.tsx` | Fetch des nouveaux champs, toggle bruit, passer aux composants |
+| `src/components/inbox/ConversationList.tsx` | Toggle bruit, badges priorite/categorie |
+| `src/components/inbox/ConversationDetail.tsx` | Panneau entites, bouton suggestions reponse |
+
