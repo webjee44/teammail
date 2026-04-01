@@ -54,7 +54,7 @@ const Analytics = () => {
     <AppLayout>
       <div className="flex-1 p-6 max-w-6xl mx-auto space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Analytics</h1>
+          <h1 className="text-2xl font-bold text-foreground">Statistiques</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Vue d'ensemble des performances de votre équipe
           </p>
