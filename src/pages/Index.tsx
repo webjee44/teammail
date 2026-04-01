@@ -182,12 +182,14 @@ const Index = () => {
       return;
     }
 
+    const senderName = user?.user_metadata?.full_name || "";
     const { data, error } = await supabase.functions.invoke("gmail-send", {
       body: {
         to: conv.from_email,
         subject: `Re: ${conv.subject}`,
         body,
         from_email: fromEmail,
+        from_name: senderName,
       },
     });
 
