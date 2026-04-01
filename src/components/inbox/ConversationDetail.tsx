@@ -107,13 +107,13 @@ export function ConversationDetail({ conversation, onStatusChange, onReply, onCo
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => onStatusChange?.(conversation.id, "open")}>
-                  <MessageSquare className="h-4 w-4 mr-2 text-green-600" /> Open
+                  <MessageSquare className="h-4 w-4 mr-2 text-green-600" /> Ouvrir
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onStatusChange?.(conversation.id, "snoozed")}>
-                  <Clock className="h-4 w-4 mr-2 text-amber-500" /> Snooze
+                  <Clock className="h-4 w-4 mr-2 text-amber-500" /> Mettre en pause
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onStatusChange?.(conversation.id, "closed")}>
-                  <CheckCircle className="h-4 w-4 mr-2" /> Close
+                  <CheckCircle className="h-4 w-4 mr-2" /> Fermer
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
