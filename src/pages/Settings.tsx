@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Mail, Users, Tag, RefreshCw, Loader2, PenTool, Eye, Star } from "lucide-react";
+import { Plus, Trash2, Mail, Users, Tag, RefreshCw, Loader2, PenTool, Eye, Star, FileText } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
