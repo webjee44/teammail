@@ -240,6 +240,26 @@ const Compose = () => {
                 Annuler
               </Button>
 
+              <Button
+                variant="outline"
+                onClick={() => setTemplateOpen(true)}
+                disabled={false}
+                className="gap-2"
+              >
+                <FileText className="h-4 w-4" />
+                Template
+              </Button>
+
+              <TemplatePickerDialog
+                open={templateOpen}
+                onOpenChange={setTemplateOpen}
+                onInsert={(tplSubject, tplBody) => {
+                  if (tplSubject) setSubject(tplSubject);
+                  setBody(tplBody);
+                }}
+                recipientEmail={to}
+              />
+
               <Popover open={scheduleOpen} onOpenChange={setScheduleOpen}>
                 <PopoverTrigger asChild>
                   <Button
