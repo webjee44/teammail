@@ -140,7 +140,7 @@ export function InboxSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>Tools</SidebarGroupLabel>
+          <SidebarGroupLabel>Outils</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {toolItems.map((item) => (
