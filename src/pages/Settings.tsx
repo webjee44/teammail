@@ -194,7 +194,7 @@ const Settings = () => {
                     </div>
                   </div>
                   <Badge variant="outline" className="text-green-600 border-green-600">
-                    Active
+                    Actif
                   </Badge>
                 </div>
               </CardContent>
