@@ -97,7 +97,7 @@ serve(async (req) => {
   }
 
   try {
-    const { to, subject, body, from_email } = await req.json();
+    const { to, subject, body, from_email, from_name } = await req.json();
 
     if (!to || !subject || !body || !from_email) {
       return new Response(
