@@ -3,10 +3,13 @@ import { useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ConversationList, Conversation } from "@/components/inbox/ConversationList";
 import { ConversationDetail } from "@/components/inbox/ConversationDetail";
+import { CommandMenu } from "@/components/inbox/CommandMenu";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 type Message = {
   id: string;
