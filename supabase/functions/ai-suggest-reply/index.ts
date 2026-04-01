@@ -1,0 +1,165 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  try {
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const { conversation_id } = await req.json();
+    if (!conversation_id) {
+      return new Response(JSON.stringify({ error: "conversation_id required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Get conversation info
+    const { data: conv, error: convError } = await supabase
+      .from("conversations")
+      .select("subject, from_name, from_email, ai_summary, category")
+      .eq("id", conversation_id)
+      .single();
+
+    if (convError) throw new Error(`Conversation not found: ${convError.message}`);
+
+    // Get message history
+    const { data: messages } = await supabase
+      .from("messages")
+      .select("body_text, body_html, from_name, from_email, is_outbound, sent_at")
+      .eq("conversation_id", conversation_id)
+      .order("sent_at", { ascending: true })
+      .limit(10);
+
+    const history = (messages || [])
+      .map((m: any) => {
+        const body = m.body_text || (m.body_html ? m.body_html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() : "");
+        const direction = m.is_outbound ? "NOUS" : "CLIENT";
+        return `[${direction} - ${m.from_name || m.from_email}]: ${body.slice(0, 800)}`;
+      })
+      .join("\n\n");
+
+    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          {
+            role: "system",
+            content: `Tu es un assistant de support client professionnel francophone. Génère exactement 3 suggestions de réponses courtes et professionnelles. Chaque réponse doit être prête à envoyer, entre 2-4 phrases. Adapte le ton selon le contexte (formel pour facturation, empathique pour support, etc.). Réponds via l'appel de fonction fourni.`,
+          },
+          {
+            role: "user",
+            content: `Sujet: ${conv.subject}
+Client: ${conv.from_name || conv.from_email}
+Catégorie: ${conv.category || "inconnue"}
+Résumé IA: ${conv.ai_summary || "non disponible"}
+
+Historique:
+${history}
+
+Génère 3 suggestions de réponses différentes.`,
+          },
+        ],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "suggest_replies",
+              description: "Génère des suggestions de réponses professionnelles",
+              parameters: {
+                type: "object",
+                properties: {
+                  suggestions: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        label: {
+                          type: "string",
+                          description: "Titre court de la suggestion (3-5 mots)",
+                        },
+                        body: {
+                          type: "string",
+                          description: "Texte complet de la réponse suggérée",
+                        },
+                      },
+                      required: ["label", "body"],
+                      additionalProperties: false,
+                    },
+                  },
+                },
+                required: ["suggestions"],
+                additionalProperties: false,
+              },
+            },
+          },
+        ],
+        tool_choice: { type: "function", function: { name: "suggest_replies" } },
+      }),
+    });
+
+    if (!aiResponse.ok) {
+      const status = aiResponse.status;
+      const errText = await aiResponse.text();
+      console.error("AI suggest error:", status, errText);
+
+      if (status === 429) {
+        return new Response(JSON.stringify({ error: "Trop de requêtes, réessayez dans un instant." }), {
+          status: 429,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (status === 402) {
+        return new Response(JSON.stringify({ error: "Crédits IA épuisés. Rechargez dans Paramètres > Espace de travail > Usage." }), {
+          status: 402,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ error: "Erreur IA" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const aiData = await aiResponse.json();
+    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+
+    if (!toolCall?.function?.arguments) {
+      return new Response(JSON.stringify({ error: "No suggestions generated" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { suggestions } = JSON.parse(toolCall.function.arguments);
+
+    return new Response(JSON.stringify({ suggestions }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (error) {
+    console.error("ai-suggest-reply error:", error);
+    return new Response(JSON.stringify({ error: String(error) }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+});

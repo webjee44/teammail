@@ -33,6 +33,7 @@ const Index = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [hideNoise, setHideNoise] = useState(false);
   const { user } = useAuth();
 
   // Fetch conversations
@@ -50,7 +51,7 @@ const Index = () => {
         toast.error("Erreur lors du chargement des conversations");
       } else {
         setConversations(
-          (data || []).map((c) => ({
+          (data || []).map((c: any) => ({
             id: c.id,
             subject: c.subject,
             snippet: c.snippet,
@@ -61,6 +62,11 @@ const Index = () => {
             is_read: c.is_read,
             last_message_at: c.last_message_at,
             tags: [],
+            priority: c.priority,
+            is_noise: c.is_noise,
+            ai_summary: c.ai_summary,
+            category: c.category,
+            entities: c.entities,
           }))
         );
       }
@@ -103,7 +109,6 @@ const Index = () => {
   useEffect(() => {
     if (selectedId) {
       fetchDetail(selectedId);
-      // Mark as read
       supabase
         .from("conversations")
         .update({ is_read: true })
@@ -143,7 +148,6 @@ const Index = () => {
     const conv = conversations.find((c) => c.id === id);
     if (!conv?.from_email) return;
 
-    // Get a mailbox to send from
     const { data: mailboxes } = await supabase
       .from("team_mailboxes")
       .select("email")
@@ -170,7 +174,6 @@ const Index = () => {
       return;
     }
 
-    // Save outbound message to DB
     await supabase.from("messages").insert({
       conversation_id: id,
       from_email: fromEmail,
@@ -182,7 +185,6 @@ const Index = () => {
       gmail_message_id: data?.messageId || null,
     });
 
-    // Update conversation timestamp
     await supabase
       .from("conversations")
       .update({ last_message_at: new Date().toISOString() })
@@ -207,7 +209,12 @@ const Index = () => {
     fetchDetail(id);
   };
 
+  const filteredConversations = hideNoise
+    ? conversations.filter((c) => !c.is_noise)
+    : conversations;
+
   const openCount = conversations.filter((c) => c.status === "open").length;
+  const noiseCount = conversations.filter((c) => c.is_noise).length;
 
   return (
     <AppLayout hideHeader>
@@ -221,10 +228,13 @@ const Index = () => {
             </span>
           </div>
           <ConversationList
-            conversations={conversations}
+            conversations={filteredConversations}
             selectedId={selectedId}
             onSelect={setSelectedId}
             loading={loading}
+            hideNoise={hideNoise}
+            onToggleNoise={() => setHideNoise(!hideNoise)}
+            noiseCount={noiseCount}
           />
         </div>
 
