@@ -64,29 +64,87 @@ async function getAccessToken(serviceAccountKey: any, senderEmail: string): Prom
   return tokenData.access_token;
 }
 
-function buildRawEmail(from: string, to: string, subject: string, body: string): string {
+type Attachment = {
+  filename: string;
+  mime_type: string;
+  data: string; // base64 encoded
+};
+
+function buildRawEmail(
+  from: string,
+  to: string,
+  subject: string,
+  body: string,
+  attachments?: Attachment[]
+): string {
   const boundary = `boundary_${crypto.randomUUID()}`;
-  const lines = [
+  const hasAttachments = attachments && attachments.length > 0;
+
+  const lines: string[] = [
     `From: ${from}`,
     `To: ${to}`,
     `Subject: =?UTF-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`,
     `MIME-Version: 1.0`,
-    `Content-Type: multipart/alternative; boundary="${boundary}"`,
-    ``,
-    `--${boundary}`,
-    `Content-Type: text/plain; charset="UTF-8"`,
-    `Content-Transfer-Encoding: base64`,
-    ``,
-    btoa(unescape(encodeURIComponent(body))),
-    ``,
-    `--${boundary}`,
-    `Content-Type: text/html; charset="UTF-8"`,
-    `Content-Transfer-Encoding: base64`,
-    ``,
-    btoa(unescape(encodeURIComponent(body.replace(/\n/g, "<br>")))),
-    ``,
-    `--${boundary}--`,
   ];
+
+  if (hasAttachments) {
+    lines.push(`Content-Type: multipart/mixed; boundary="${boundary}"`);
+    lines.push(``);
+    lines.push(`--${boundary}`);
+
+    // Text/HTML part in a nested alternative boundary
+    const altBoundary = `alt_${crypto.randomUUID()}`;
+    lines.push(`Content-Type: multipart/alternative; boundary="${altBoundary}"`);
+    lines.push(``);
+
+    lines.push(`--${altBoundary}`);
+    lines.push(`Content-Type: text/plain; charset="UTF-8"`);
+    lines.push(`Content-Transfer-Encoding: base64`);
+    lines.push(``);
+    lines.push(btoa(unescape(encodeURIComponent(body))));
+    lines.push(``);
+
+    lines.push(`--${altBoundary}`);
+    lines.push(`Content-Type: text/html; charset="UTF-8"`);
+    lines.push(`Content-Transfer-Encoding: base64`);
+    lines.push(``);
+    lines.push(btoa(unescape(encodeURIComponent(body.replace(/\n/g, "<br>")))));
+    lines.push(``);
+    lines.push(`--${altBoundary}--`);
+
+    // Attachments
+    for (const att of attachments!) {
+      lines.push(``);
+      lines.push(`--${boundary}`);
+      lines.push(`Content-Type: ${att.mime_type}; name="${att.filename}"`);
+      lines.push(`Content-Disposition: attachment; filename="${att.filename}"`);
+      lines.push(`Content-Transfer-Encoding: base64`);
+      lines.push(``);
+      // Split base64 into 76-char lines
+      const b64 = att.data;
+      for (let i = 0; i < b64.length; i += 76) {
+        lines.push(b64.substring(i, i + 76));
+      }
+    }
+    lines.push(``);
+    lines.push(`--${boundary}--`);
+  } else {
+    lines.push(`Content-Type: multipart/alternative; boundary="${boundary}"`);
+    lines.push(``);
+    lines.push(`--${boundary}`);
+    lines.push(`Content-Type: text/plain; charset="UTF-8"`);
+    lines.push(`Content-Transfer-Encoding: base64`);
+    lines.push(``);
+    lines.push(btoa(unescape(encodeURIComponent(body))));
+    lines.push(``);
+    lines.push(`--${boundary}`);
+    lines.push(`Content-Type: text/html; charset="UTF-8"`);
+    lines.push(`Content-Transfer-Encoding: base64`);
+    lines.push(``);
+    lines.push(btoa(unescape(encodeURIComponent(body.replace(/\n/g, "<br>")))));
+    lines.push(``);
+    lines.push(`--${boundary}--`);
+  }
 
   return lines.join("\r\n");
 }
@@ -97,7 +155,7 @@ serve(async (req) => {
   }
 
   try {
-    const { to, subject, body, from_email, from_name } = await req.json();
+    const { to, subject, body, from_email, from_name, attachments } = await req.json();
 
     if (!to || !subject || !body || !from_email) {
       return new Response(
@@ -106,7 +164,6 @@ serve(async (req) => {
       );
     }
 
-    // Validate that from_email is a configured mailbox
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -125,7 +182,6 @@ serve(async (req) => {
       );
     }
 
-    // Parse service account key
     let serviceAccountKeyStr = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
     if (!serviceAccountKeyStr) throw new Error("GOOGLE_SERVICE_ACCOUNT_KEY not configured");
 
@@ -141,12 +197,10 @@ serve(async (req) => {
       }
     }
 
-    // Get access token impersonating the sender
     const accessToken = await getAccessToken(serviceAccountKey, from_email.toLowerCase());
 
-    // Build and send the email
     const fromHeader = from_name ? `"${from_name}" <${from_email}>` : from_email;
-    const rawEmail = buildRawEmail(fromHeader, to, subject, body);
+    const rawEmail = buildRawEmail(fromHeader, to, subject, body, attachments);
     const encodedMessage = btoa(unescape(encodeURIComponent(rawEmail)))
       .replace(/\+/g, "-")
       .replace(/\//g, "_")

@@ -6,13 +6,12 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Google Auth via Service Account with Domain-Wide Delegation
 async function getAccessToken(serviceAccountKey: any, userEmail: string): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const header = { alg: "RS256", typ: "JWT" };
   const payload = {
     iss: serviceAccountKey.client_email,
-    sub: userEmail, // impersonate this user
+    sub: userEmail,
     scope: "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.modify",
     aud: "https://oauth2.googleapis.com/token",
     iat: now,
@@ -22,7 +21,6 @@ async function getAccessToken(serviceAccountKey: any, userEmail: string): Promis
   const encode = (obj: any) => btoa(JSON.stringify(obj)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
   const unsignedToken = `${encode(header)}.${encode(payload)}`;
 
-  // Import the private key
   const pemContents = serviceAccountKey.private_key
     .replace(/-----BEGIN PRIVATE KEY-----/, "")
     .replace(/-----END PRIVATE KEY-----/, "")
@@ -50,7 +48,6 @@ async function getAccessToken(serviceAccountKey: any, userEmail: string): Promis
 
   const jwt = `${unsignedToken}.${sig}`;
 
-  // Exchange JWT for access token
   const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -66,7 +63,6 @@ async function getAccessToken(serviceAccountKey: any, userEmail: string): Promis
   return tokenData.access_token;
 }
 
-// Decode base64url email body with proper UTF-8 handling
 function decodeBody(data: string | undefined): string {
   if (!data) return "";
   try {
@@ -80,17 +76,14 @@ function decodeBody(data: string | undefined): string {
   }
 }
 
-// Extract header value from Gmail message headers
 function getHeader(headers: any[], name: string): string | null {
   const h = headers?.find((h: any) => h.name.toLowerCase() === name.toLowerCase());
   return h?.value ?? null;
 }
 
-// Parse email body from Gmail message payload
 function parseBody(payload: any): { html: string | null; text: string | null } {
   if (!payload) return { html: null, text: null };
 
-  // Simple message (no parts)
   if (payload.body?.data && !payload.parts) {
     const mimeType = payload.mimeType || "";
     const decoded = decodeBody(payload.body.data);
@@ -98,7 +91,6 @@ function parseBody(payload: any): { html: string | null; text: string | null } {
     return { html: null, text: decoded };
   }
 
-  // Multipart message
   let html: string | null = null;
   let text: string | null = null;
 
@@ -118,6 +110,38 @@ function parseBody(payload: any): { html: string | null; text: string | null } {
   return { html, text };
 }
 
+// Extract attachment metadata from Gmail message parts
+type AttachmentInfo = {
+  partId: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  attachmentId: string;
+};
+
+function extractAttachments(payload: any): AttachmentInfo[] {
+  const attachments: AttachmentInfo[] = [];
+
+  function walkParts(parts: any[]) {
+    if (!parts) return;
+    for (const part of parts) {
+      if (part.filename && part.filename.length > 0 && part.body?.attachmentId) {
+        attachments.push({
+          partId: part.partId || "",
+          filename: part.filename,
+          mimeType: part.mimeType || "application/octet-stream",
+          size: part.body.size || 0,
+          attachmentId: part.body.attachmentId,
+        });
+      }
+      if (part.parts) walkParts(part.parts);
+    }
+  }
+
+  if (payload.parts) walkParts(payload.parts);
+  return attachments;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -127,13 +151,11 @@ serve(async (req) => {
     let serviceAccountKeyStr = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
     if (!serviceAccountKeyStr) throw new Error("GOOGLE_SERVICE_ACCOUNT_KEY not configured");
 
-    // Try to handle base64-encoded secrets
     serviceAccountKeyStr = serviceAccountKeyStr.trim();
     let serviceAccountKey: any;
     try {
       serviceAccountKey = JSON.parse(serviceAccountKeyStr);
     } catch {
-      // Maybe it's base64 encoded
       try {
         serviceAccountKey = JSON.parse(atob(serviceAccountKeyStr));
       } catch (e2) {
@@ -145,9 +167,7 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    
 
-    // Get all enabled mailboxes
     const { data: mailboxes, error: mbError } = await supabase
       .from("team_mailboxes")
       .select("*")
@@ -166,7 +186,6 @@ serve(async (req) => {
       try {
         const accessToken = await getAccessToken(serviceAccountKey, mailbox.email);
 
-        // Fetch recent threads (last 50)
         const threadsRes = await fetch(
           `https://gmail.googleapis.com/gmail/v1/users/me/threads?maxResults=50&labelIds=INBOX`,
           { headers: { Authorization: `Bearer ${accessToken}` } }
@@ -184,7 +203,6 @@ serve(async (req) => {
         let synced = 0;
 
         for (const thread of threads) {
-          // Check if conversation already exists for this thread_id
           const { data: existing } = await supabase
             .from("conversations")
             .select("id")
@@ -192,7 +210,6 @@ serve(async (req) => {
             .eq("team_id", mailbox.team_id)
             .maybeSingle();
 
-          // Fetch full thread
           const threadRes = await fetch(
             `https://gmail.googleapis.com/gmail/v1/users/me/threads/${thread.id}?format=full`,
             { headers: { Authorization: `Bearer ${accessToken}` } }
@@ -208,7 +225,6 @@ serve(async (req) => {
           const subject = getHeader(firstMsg.payload?.headers, "Subject") || "(sans objet)";
           const fromHeader = getHeader(firstMsg.payload?.headers, "From") || "";
           
-          // Parse "Name <email>" format
           const fromMatch = fromHeader.match(/^(.+?)\s*<(.+?)>$/);
           const fromName = fromMatch ? fromMatch[1].replace(/"/g, "").trim() : null;
           const fromEmail = fromMatch ? fromMatch[2] : fromHeader;
@@ -222,7 +238,6 @@ serve(async (req) => {
 
           if (existing) {
             conversationId = existing.id;
-            // Update conversation
             await supabase
               .from("conversations")
               .update({
@@ -232,9 +247,6 @@ serve(async (req) => {
               })
               .eq("id", conversationId);
           } else {
-            // Before creating a new conversation, check if any message in this
-            // thread already exists in another conversation (cross-account thread
-            // deduplication: Gmail uses different thread IDs per account).
             const msgIds = gmailMessages.map((m: any) => m.id);
             const { data: existingMsgs } = await supabase
               .from("messages")
@@ -243,9 +255,7 @@ serve(async (req) => {
               .limit(1);
 
             if (existingMsgs && existingMsgs.length > 0) {
-              // Merge into the existing conversation instead of creating a duplicate
               conversationId = existingMsgs[0].conversation_id;
-              // Update mailbox_id if not set, and refresh metadata
               await supabase
                 .from("conversations")
                 .update({
@@ -256,7 +266,6 @@ serve(async (req) => {
                 })
                 .eq("id", conversationId);
             } else {
-              // Create conversation
               const { data: newConv, error: convError } = await supabase
                 .from("conversations")
                 .insert({
@@ -282,7 +291,7 @@ serve(async (req) => {
             }
           }
 
-          // Sync messages
+          // Sync messages + attachments
           for (const gMsg of gmailMessages) {
             const { data: existingMsg } = await supabase
               .from("messages")
@@ -301,7 +310,7 @@ serve(async (req) => {
             const sentAt = new Date(parseInt(gMsg.internalDate)).toISOString();
             const isOutbound = msgFromEmail.toLowerCase() === mailbox.email.toLowerCase();
 
-            await supabase.from("messages").insert({
+            const { data: newMsg, error: msgErr } = await supabase.from("messages").insert({
               conversation_id: conversationId,
               gmail_message_id: gMsg.id,
               from_email: msgFromEmail,
@@ -311,13 +320,58 @@ serve(async (req) => {
               body_text: body.text,
               sent_at: sentAt,
               is_outbound: isOutbound,
-            });
+            }).select("id").single();
+
+            if (msgErr || !newMsg) continue;
+
+            // Download and store attachments
+            const attachmentInfos = extractAttachments(gMsg.payload);
+            for (const att of attachmentInfos) {
+              try {
+                const attRes = await fetch(
+                  `https://gmail.googleapis.com/gmail/v1/users/me/messages/${gMsg.id}/attachments/${att.attachmentId}`,
+                  { headers: { Authorization: `Bearer ${accessToken}` } }
+                );
+                if (!attRes.ok) {
+                  console.error(`Failed to download attachment ${att.filename}:`, await attRes.text());
+                  continue;
+                }
+                const attData = await attRes.json();
+                const b64 = (attData.data || "").replace(/-/g, "+").replace(/_/g, "/");
+                const padded = b64.padEnd(Math.ceil(b64.length / 4) * 4, "=");
+                const binary = atob(padded);
+                const bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+
+                const storagePath = `${conversationId}/${newMsg.id}/${att.filename}`;
+                const { error: uploadErr } = await supabase.storage
+                  .from("attachments")
+                  .upload(storagePath, bytes, {
+                    contentType: att.mimeType,
+                    upsert: true,
+                  });
+
+                if (uploadErr) {
+                  console.error(`Failed to upload attachment ${att.filename}:`, uploadErr);
+                  continue;
+                }
+
+                await supabase.from("attachments").insert({
+                  message_id: newMsg.id,
+                  filename: att.filename,
+                  mime_type: att.mimeType,
+                  size_bytes: att.size,
+                  storage_path: storagePath,
+                });
+              } catch (attErr) {
+                console.error(`Error processing attachment ${att.filename}:`, attErr);
+              }
+            }
           }
 
           synced++;
         }
 
-        // Update last sync time
         await supabase
           .from("team_mailboxes")
           .update({ last_sync_at: new Date().toISOString() })
@@ -325,7 +379,6 @@ serve(async (req) => {
 
         results.push({ email: mailbox.email, synced });
 
-        // Trigger AI analysis for new/unanalyzed conversations
         try {
           const analyzeUrl = `${supabaseUrl}/functions/v1/ai-analyze-email`;
           await fetch(analyzeUrl, {
