@@ -20,6 +20,7 @@ import {
   ArrowRight,
   ArrowDown,
   Loader2,
+  Trash2,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -102,6 +103,7 @@ type Props = {
   onStatusChange?: (id: string, status: "open" | "snoozed" | "closed") => void;
   onReply?: (id: string, body: string, attachments?: FileToUpload[]) => void;
   onComment?: (id: string, body: string) => void;
+  onDelete?: (id: string) => void;
 };
 
 type Suggestion = { label: string; body: string };
@@ -120,7 +122,7 @@ const categoryLabels: Record<string, string> = {
   other: "Autre",
 };
 
-export function ConversationDetail({ conversation, onStatusChange, onReply, onComment }: Props) {
+export function ConversationDetail({ conversation, onStatusChange, onReply, onComment, onDelete }: Props) {
   const [replyText, setReplyText] = useState("");
   const [commentText, setCommentText] = useState("");
   const [activeTab, setActiveTab] = useState("reply");
@@ -198,6 +200,12 @@ export function ConversationDetail({ conversation, onStatusChange, onReply, onCo
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onStatusChange?.(conversation.id, "closed")}>
                   <CheckCircle className="h-4 w-4 mr-2" /> Fermer
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => onDelete?.(conversation.id)}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" /> Supprimer
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
