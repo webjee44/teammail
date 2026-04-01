@@ -16,6 +16,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
+import { TemplatesSettings } from "@/components/settings/TemplatesSettings";
 
 const mockMembers = [
   { id: "1", name: "Alex Moreau", email: "alex@company.com", role: "admin" as const, avatar: "" },
