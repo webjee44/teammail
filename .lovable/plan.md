@@ -1,65 +1,74 @@
 
 
-# Plan : Filtre par boîte mail dans la sidebar
+# Plan : Barre de recherche globale ⌘K façon Boldy
 
-## Contexte
+## Concept
 
-Actuellement les conversations n'ont pas de lien vers la boîte mail qui les a reçues. La table `team_mailboxes` existe déjà avec `email` et `label`. Il faut relier les conversations aux mailboxes, puis ajouter une section dans la sidebar pour filtrer.
+Ajouter une barre de recherche globale (Command Menu) accessible via un bouton dans le header de la liste de conversations et via le raccourci ⌘K. Elle cherche dans les conversations (sujet, expéditeur) et les messages (contenu) puis affiche les résultats groupés. Cliquer sur un résultat ouvre la conversation correspondante.
 
 ## Architecture
 
 ```text
-Sidebar                          Index.tsx
-┌──────────────────┐             ┌─────────────────┐
-│ Boîtes mail      │             │ ?filter=mine     │
-│  📧 Toutes       │  ──────▶   │ &mailbox=<id>    │
-│  📧 Finance      │             │                  │
-│  📧 Support      │             │ WHERE mailbox_id │
-│ ─────────────────│             │ = <id>           │
-│ Conversations    │             └─────────────────┘
-│  Boîte de récep. │
-│  Assigné à moi   │
-│  ...             │
-└──────────────────┘
+Header conversation list
+┌──────────────────────────────────┐
+│ ☰  Boîte de réception  [🔍 ⌘K] │  ← bouton qui ouvre le CommandDialog
+└──────────────────────────────────┘
+
+CommandDialog (overlay modal)
+┌──────────────────────────────────┐
+│ 🔍  Rechercher dans les mails…   │
+│──────────────────────────────────│
+│ Conversations                    │
+│   📧 Candidature spontanée …    │
+│   📧 Facture décembre …         │
+│ Messages                         │
+│   💬 "…texte trouvé…"           │
+└──────────────────────────────────┘
 ```
 
 ## Etapes
 
-### 1. Migration DB — lier conversations aux mailboxes
+### 1. Migration DB — fonction de recherche full-text
 
-- Ajouter `mailbox_id` (uuid, nullable, references team_mailboxes.id) sur `conversations`
-- Remplir les mailbox_id existants en matchant `from_email` / domaine avec les mailboxes configurées (ou laisser null pour les anciennes)
+Créer une fonction RPC `search_inbox` qui :
+- Prend `p_query text` et `p_limit int`
+- Cherche dans `conversations.subject`, `conversations.from_email`, `conversations.from_name` via `ILIKE`
+- Cherche dans `messages.body_text` via `ILIKE`
+- Retourne `type` (conversation/message), `id`, `conversation_id`, `label`, `subtitle`
+- Respecte le `team_id` de l'utilisateur via `SECURITY DEFINER` + `get_user_team_id(auth.uid())`
 
-### 2. Mise à jour de `gmail-sync`
+### 2. Composant `CommandMenu.tsx`
 
-- Lors de la création d'une conversation, renseigner `mailbox_id` à partir de la mailbox qui a déclenché la sync
+Nouveau fichier `src/components/inbox/CommandMenu.tsx` inspiré du pattern Boldy :
+- Utilise `CommandDialog`, `CommandInput`, `CommandList`, `CommandGroup`, `CommandItem` (shadcn déjà installé)
+- State: `query`, `results`, `searching`
+- Debounce 200ms, appel RPC `search_inbox`
+- Résultats groupés : "Conversations" et "Messages"
+- `onSelect` → appelle un callback pour sélectionner la conversation
 
-### 3. Sidebar — section "Boîtes mail" en haut
+### 3. Raccourci ⌘K global
 
-- Nouvelle section `SidebarGroup` "Boîtes mail" placée **au-dessus** de "Conversations"
-- Fetch les `team_mailboxes` et afficher chaque boîte avec une icône Mail et le label (ou l'email tronqué)
-- Chaque entrée est un lien `/?mailbox=<id>` qui s'ajoute au filtre existant
-- Entrée "Toutes les boîtes" pour retirer le filtre
-- Badge avec le nombre de conversations ouvertes par boîte
-- Le filtre `mailbox` se **combine** avec le filtre `filter` (ex: `/?filter=mine&mailbox=abc`)
+Dans `Index.tsx` ou `AppLayout.tsx` :
+- `useEffect` pour écouter `Cmd+K` / `Ctrl+K`
+- Toggle l'état `commandOpen`
 
-### 4. Index.tsx — filtrer par mailbox
+### 4. Bouton search dans le header
 
-- Lire le paramètre `mailbox` depuis `searchParams`
-- Si présent, ajouter `.eq("mailbox_id", mailboxId)` à la requête Supabase
-- Mettre à jour le titre du header pour inclure le nom de la boîte
+Dans `Index.tsx`, dans le header de la liste de conversations (le div `h-12` existant) :
+- Ajouter un bouton stylisé comme Boldy : icône Search + badge `⌘K`
+- Click → ouvre le CommandDialog
 
-### 5. Sidebar — highlight actif
+### 5. Navigation vers le résultat
 
-- Le lien de la boîte active prend le style `activeClassName`
-- Quand on clique sur un filtre de statut, le paramètre `mailbox` est conservé dans l'URL
+Quand l'utilisateur clique sur un résultat :
+- Extraire le `conversation_id`
+- Appeler `setSelectedId(conversation_id)` pour ouvrir la conversation dans le panneau de droite
 
 ## Fichiers concernés
 
 | Fichier | Action |
 |---------|--------|
-| `supabase/migrations/` | Ajouter `mailbox_id` sur `conversations` |
-| `supabase/functions/gmail-sync/index.ts` | Renseigner `mailbox_id` à la création |
-| `src/components/inbox/InboxSidebar.tsx` | Ajouter section "Boîtes mail", fetch mailboxes, liens combinés |
-| `src/pages/Index.tsx` | Lire `mailbox` param, filtrer la requête, adapter le titre |
+| `supabase/migrations/` | Fonction RPC `search_inbox` |
+| `src/components/inbox/CommandMenu.tsx` | Nouveau composant |
+| `src/pages/Index.tsx` | Bouton search + raccourci ⌘K + state `commandOpen` |
 
