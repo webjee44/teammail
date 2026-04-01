@@ -28,7 +28,7 @@ type Rule = {
 const mockRules: Rule[] = [
   {
     id: "1",
-    name: "Assign billing emails to Sarah",
+    name: "Assigner les emails de facturation à Sarah",
     is_active: true,
     conditions: [{ field: "from_email", operator: "contains", value: "billing" }],
     actions: [{ type: "assign", value: "Sarah" }],
