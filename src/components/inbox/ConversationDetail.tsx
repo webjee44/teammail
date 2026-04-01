@@ -201,6 +201,12 @@ export function ConversationDetail({ conversation, onStatusChange, onReply, onCo
                 <DropdownMenuItem onClick={() => onStatusChange?.(conversation.id, "closed")}>
                   <CheckCircle className="h-4 w-4 mr-2" /> Fermer
                 </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => onDelete?.(conversation.id)}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" /> Supprimer
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
