@@ -5,6 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
+const decodeHtml = (s = "") => {
+  const t = document.createElement("textarea");
+  t.innerHTML = s;
+  return t.value.replace(/\u00A0/g, " ").replace(/\s+/g, " ").trim();
+};
+
 export type Conversation = {
   id: string;
   subject: string;
@@ -95,10 +101,10 @@ export function ConversationList({ conversations, selectedId, onSelect, loading 
                       !conv.is_read ? "font-medium text-foreground" : "text-muted-foreground"
                     )}
                   >
-                    {conv.subject}
+                    {decodeHtml(conv.subject)}
                   </p>
                   {conv.snippet && (
-                    <p className="text-xs text-muted-foreground truncate">{(() => { const t = document.createElement("textarea"); t.innerHTML = conv.snippet; return t.value.replace(/\u00A0/g, " ").trim(); })()}</p>
+                    <p className="text-xs text-muted-foreground truncate">{decodeHtml(conv.snippet)}</p>
                   )}
                   <div className="flex items-center gap-1.5 mt-1">
                     {conv.tags?.map((tag) => (

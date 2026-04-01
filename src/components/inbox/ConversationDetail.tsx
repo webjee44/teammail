@@ -26,6 +26,12 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
+const decodeHtml = (s = "") => {
+  const t = document.createElement("textarea");
+  t.innerHTML = s;
+  return t.value.replace(/\u00A0/g, " ").replace(/\s+/g, " ").trim();
+};
+
 type Message = {
   id: string;
   from_email: string | null;
@@ -96,7 +102,7 @@ export function ConversationDetail({ conversation, onStatusChange, onReply, onCo
       <div className="px-4 py-3 border-b border-border space-y-2">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-foreground truncate">
-            {conversation.subject}
+            {decodeHtml(conversation.subject)}
           </h2>
           <div className="flex items-center gap-1 shrink-0">
             <DropdownMenu>
