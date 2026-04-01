@@ -40,9 +40,9 @@ const inboxItems = [
 ];
 
 const toolItems = [
-  { title: "Rules", url: "/rules", icon: Zap },
-  { title: "Analytics", url: "/analytics", icon: BarChart3 },
-  { title: "Settings", url: "/settings", icon: Settings },
+  { title: "Règles", url: "/rules", icon: Zap },
+  { title: "Statistiques", url: "/analytics", icon: BarChart3 },
+  { title: "Paramètres", url: "/settings", icon: Settings },
 ];
 
 export function InboxSidebar() {
