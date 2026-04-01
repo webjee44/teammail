@@ -21,6 +21,10 @@ const Login = () => {
     try {
       const result = await lovable.auth.signInWithOAuth("google", {
         redirect_uri: window.location.origin,
+        extraParams: {
+          hd: "cloudvapor.com",
+          prompt: "select_account",
+        },
       });
       if (result.error) {
         toast.error("Erreur de connexion : " + result.error.message);
@@ -59,7 +63,8 @@ const Login = () => {
         <Button
           onClick={handleGoogleLogin}
           disabled={signingIn}
-          className="w-full gap-2"
+          className="w-full gap-2 h-12 text-base"
+          variant="outline"
           size="lg"
         >
           <svg className="h-5 w-5" viewBox="0 0 24 24">
@@ -72,7 +77,7 @@ const Login = () => {
         </Button>
 
         <p className="text-center text-xs text-muted-foreground">
-          Contactez votre administrateur pour obtenir un accès.
+          Réservé aux adresses @cloudvapor.com
         </p>
       </div>
     </div>
