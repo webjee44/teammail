@@ -120,7 +120,7 @@ export function InboxSidebar() {
             <SidebarMenu>
               {[
                 { name: "Bug", color: "hsl(0, 84%, 60%)" },
-                { name: "Feature", color: "hsl(236, 72%, 58%)" },
+                { name: "Fonctionnalité", color: "hsl(236, 72%, 58%)" },
                 { name: "Urgent", color: "hsl(38, 92%, 50%)" },
               ].map((tag) => (
                 <SidebarMenuItem key={tag.name}>

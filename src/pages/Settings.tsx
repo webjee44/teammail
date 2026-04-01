@@ -20,9 +20,9 @@ const mockMembers = [
 
 const mockTags = [
   { id: "1", name: "Bug", color: "#ef4444" },
-  { id: "2", name: "Feature", color: "#6366f1" },
+  { id: "2", name: "Fonctionnalité", color: "#6366f1" },
   { id: "3", name: "Urgent", color: "#f59e0b" },
-  { id: "4", name: "Sales", color: "#22c55e" },
+  { id: "4", name: "Ventes", color: "#22c55e" },
 ];
 
 const Settings = () => {
