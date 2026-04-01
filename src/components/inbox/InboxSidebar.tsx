@@ -134,6 +134,59 @@ export function InboxSidebar() {
           </div>
         )}
 
+        {mailboxes.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Boîtes mail</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink
+                      to={searchParams.get("filter") ? `/?filter=${searchParams.get("filter")}` : "/"}
+                      end={!searchParams.get("filter")}
+                      className={`hover:bg-sidebar-accent/50 flex items-center justify-between ${!activeMailbox ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" : ""}`}
+                      activeClassName=""
+                    >
+                      <span className="flex items-center gap-2">
+                        <Inbox className="h-4 w-4" />
+                        {!collapsed && <span>Toutes</span>}
+                      </span>
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                {mailboxes.map((mb) => {
+                  const filterParam = searchParams.get("filter");
+                  const mbUrl = filterParam
+                    ? `/?filter=${filterParam}&mailbox=${mb.id}`
+                    : `/?mailbox=${mb.id}`;
+                  const isActive = activeMailbox === mb.id;
+                  return (
+                    <SidebarMenuItem key={mb.id}>
+                      <SidebarMenuButton asChild>
+                        <NavLink
+                          to={mbUrl}
+                          className={`hover:bg-sidebar-accent/50 flex items-center justify-between ${isActive ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" : ""}`}
+                          activeClassName=""
+                        >
+                          <span className="flex items-center gap-2">
+                            <AtSign className="h-4 w-4" />
+                            {!collapsed && <span className="truncate">{mb.label || mb.email.split("@")[0]}</span>}
+                          </span>
+                          {!collapsed && mb.openCount > 0 && (
+                            <Badge variant="secondary" className="text-xs h-5 min-w-[20px] justify-center">
+                              {mb.openCount}
+                            </Badge>
+                          )}
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
         <SidebarGroup>
           <SidebarGroupLabel>Conversations</SidebarGroupLabel>
           <SidebarGroupContent>
