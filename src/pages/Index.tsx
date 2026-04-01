@@ -118,7 +118,7 @@ const Index = () => {
   // Fetch messages & comments when conversation is selected
   const fetchDetail = useCallback(async (convId: string) => {
     setLoadingDetail(true);
-    const [msgRes, commentRes] = await Promise.all([
+    const [msgRes, commentRes, attRes] = await Promise.all([
       supabase
         .from("messages")
         .select("*")
