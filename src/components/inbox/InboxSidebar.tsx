@@ -90,12 +90,14 @@ export function InboxSidebar() {
     fetchTags();
   }, [user]);
 
+  // Build URLs preserving the mailbox param
+  const mbSuffix = activeMailbox ? `&mailbox=${activeMailbox}` : "";
   const inboxItems = [
-    { title: "Boîte de réception", url: "/", icon: Inbox, count: counts.open },
-    { title: "Assigné à moi", url: "/?filter=mine", icon: User, count: counts.mine },
-    { title: "Non assigné", url: "/?filter=unassigned", icon: Users, count: counts.unassigned },
-    { title: "En pause", url: "/?filter=snoozed", icon: Clock, count: counts.snoozed },
-    { title: "Fermé", url: "/?filter=closed", icon: CheckCircle, count: counts.closed },
+    { title: "Boîte de réception", url: `/${activeMailbox ? `?mailbox=${activeMailbox}` : ""}`, icon: Inbox, count: counts.open },
+    { title: "Assigné à moi", url: `/?filter=mine${mbSuffix}`, icon: User, count: counts.mine },
+    { title: "Non assigné", url: `/?filter=unassigned${mbSuffix}`, icon: Users, count: counts.unassigned },
+    { title: "En pause", url: `/?filter=snoozed${mbSuffix}`, icon: Clock, count: counts.snoozed },
+    { title: "Fermé", url: `/?filter=closed${mbSuffix}`, icon: CheckCircle, count: counts.closed },
   ];
 
   const initials = user?.user_metadata?.full_name
