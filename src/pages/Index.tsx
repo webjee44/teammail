@@ -307,6 +307,12 @@ const Index = () => {
             onComment={handleComment}
           />
         </div>
+
+        <CommandMenu
+          open={commandOpen}
+          onOpenChange={setCommandOpen}
+          onSelect={setSelectedId}
+        />
       </div>
     </AppLayout>
   );
