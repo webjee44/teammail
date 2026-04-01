@@ -452,6 +452,16 @@ export type Database = {
         }
         Returns: boolean
       }
+      search_inbox: {
+        Args: { p_limit?: number; p_query: string }
+        Returns: {
+          conversation_id: string
+          id: string
+          label: string
+          result_type: string
+          subtitle: string
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "member"

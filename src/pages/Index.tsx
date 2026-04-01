@@ -3,10 +3,13 @@ import { useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ConversationList, Conversation } from "@/components/inbox/ConversationList";
 import { ConversationDetail } from "@/components/inbox/ConversationDetail";
+import { CommandMenu } from "@/components/inbox/CommandMenu";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 type Message = {
   id: string;
@@ -35,10 +38,23 @@ const Index = () => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [hideNoise, setHideNoise] = useState(false);
+  const [commandOpen, setCommandOpen] = useState(false);
   const [searchParams] = useSearchParams();
   const filter = searchParams.get("filter");
   const mailboxId = searchParams.get("mailbox");
   const { user } = useAuth();
+
+  // ⌘K / Ctrl+K shortcut
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setCommandOpen((prev) => !prev);
+      }
+    };
+    document.addEventListener("keydown", down);
+    return () => document.removeEventListener("keydown", down);
+  }, []);
 
   // Fetch conversations based on filter
   useEffect(() => {
@@ -255,9 +271,22 @@ const Index = () => {
           <div className="h-12 flex items-center px-3 border-b border-border gap-2 shrink-0">
             <SidebarTrigger />
             <h2 className="text-sm font-semibold text-foreground">{headerTitle}</h2>
-            <span className="text-xs text-muted-foreground ml-auto">
-              {totalCount} conversation{totalCount !== 1 ? "s" : ""}
-            </span>
+            <div className="ml-auto flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 gap-1.5 text-muted-foreground"
+                onClick={() => setCommandOpen(true)}
+              >
+                <Search className="h-3.5 w-3.5" />
+                <kbd className="pointer-events-none hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                  ⌘K
+                </kbd>
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                {totalCount} conversation{totalCount !== 1 ? "s" : ""}
+              </span>
+            </div>
           </div>
           <ConversationList
             conversations={filteredConversations}
@@ -278,6 +307,12 @@ const Index = () => {
             onComment={handleComment}
           />
         </div>
+
+        <CommandMenu
+          open={commandOpen}
+          onOpenChange={setCommandOpen}
+          onSelect={setSelectedId}
+        />
       </div>
     </AppLayout>
   );
