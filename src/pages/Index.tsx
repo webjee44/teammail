@@ -144,7 +144,7 @@ const Index = () => {
         <div className="flex-1 flex flex-col min-w-0">
           <ConversationDetail
             conversation={selectedConv}
-            onStatusChange={(id, status) => toast.info(`Status → ${status}`)}
+            onStatusChange={(id, status) => toast.info(`Statut → ${status}`)}
             onReply={(id, body) => toast.success("Réponse envoyée")}
             onComment={(id, body) => toast.success("Note ajoutée")}
           />
