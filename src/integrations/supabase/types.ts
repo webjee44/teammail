@@ -78,14 +78,19 @@ export type Database = {
       }
       conversations: {
         Row: {
+          ai_summary: string | null
           assigned_to: string | null
+          category: string | null
           created_at: string
+          entities: Json | null
           from_email: string | null
           from_name: string | null
           gmail_thread_id: string | null
           id: string
+          is_noise: boolean
           is_read: boolean
           last_message_at: string
+          priority: string | null
           snippet: string | null
           snoozed_until: string | null
           status: Database["public"]["Enums"]["conversation_status"]
@@ -94,14 +99,19 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          ai_summary?: string | null
           assigned_to?: string | null
+          category?: string | null
           created_at?: string
+          entities?: Json | null
           from_email?: string | null
           from_name?: string | null
           gmail_thread_id?: string | null
           id?: string
+          is_noise?: boolean
           is_read?: boolean
           last_message_at?: string
+          priority?: string | null
           snippet?: string | null
           snoozed_until?: string | null
           status?: Database["public"]["Enums"]["conversation_status"]
@@ -110,14 +120,19 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          ai_summary?: string | null
           assigned_to?: string | null
+          category?: string | null
           created_at?: string
+          entities?: Json | null
           from_email?: string | null
           from_name?: string | null
           gmail_thread_id?: string | null
           id?: string
+          is_noise?: boolean
           is_read?: boolean
           last_message_at?: string
+          priority?: string | null
           snippet?: string | null
           snoozed_until?: string | null
           status?: Database["public"]["Enums"]["conversation_status"]
