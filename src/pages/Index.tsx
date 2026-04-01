@@ -372,6 +372,13 @@ const Index = () => {
           />
         </div>
 
+        {selectedConv?.from_email && (
+          <ContactPanel
+            contactEmail={selectedConv.from_email}
+            onSelectConversation={setSelectedId}
+          />
+        )}
+
         <CommandMenu
           open={commandOpen}
           onOpenChange={setCommandOpen}
