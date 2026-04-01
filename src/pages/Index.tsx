@@ -129,9 +129,28 @@ const Index = () => {
         .select("*")
         .eq("conversation_id", convId)
         .order("created_at", { ascending: true }),
+      supabase
+        .from("attachments")
+        .select("*"),
     ]);
 
-    if (msgRes.data) setMessages(msgRes.data);
+    if (msgRes.data) {
+      // Build a map of attachments by message_id
+      const attMap = new Map<string, any[]>();
+      if (attRes.data) {
+        for (const att of attRes.data) {
+          const list = attMap.get(att.message_id) || [];
+          list.push(att);
+          attMap.set(att.message_id, list);
+        }
+      }
+      setMessages(
+        msgRes.data.map((m: any) => ({
+          ...m,
+          attachments: attMap.get(m.id) || [],
+        }))
+      );
+    }
     if (commentRes.data) {
       setComments(
         commentRes.data.map((c) => ({
