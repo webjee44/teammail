@@ -72,7 +72,7 @@ const mockConversations: Conversation[] = [
     assignee_name: "Sarah",
     is_read: true,
     last_message_at: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
-    tags: [{ id: "4", name: "Feature", color: "#6366f1" }],
+    tags: [{ id: "4", name: "Fonctionnalité", color: "#6366f1" }],
   },
 ];
 
