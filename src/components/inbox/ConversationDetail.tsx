@@ -103,6 +103,7 @@ type Props = {
   onStatusChange?: (id: string, status: "open" | "snoozed" | "closed") => void;
   onReply?: (id: string, body: string, attachments?: FileToUpload[]) => void;
   onComment?: (id: string, body: string) => void;
+  onDelete?: (id: string) => void;
 };
 
 type Suggestion = { label: string; body: string };
