@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ContactPanel } from "@/components/inbox/ContactPanel";
+
 import type { FileToUpload } from "@/components/inbox/Attachments";
 
 type Message = {
@@ -372,12 +372,6 @@ const Index = () => {
           />
         </div>
 
-        {selectedConv?.from_email && (
-          <ContactPanel
-            contactEmail={selectedConv.from_email}
-            onSelectConversation={setSelectedId}
-          />
-        )}
 
         <CommandMenu
           open={commandOpen}
