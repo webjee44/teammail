@@ -57,7 +57,7 @@ const Rules = () => {
       <div className="flex-1 p-6 max-w-4xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Automation Rules</h1>
+            <h1 className="text-2xl font-bold text-foreground">Règles d'automatisation</h1>
             <p className="text-sm text-muted-foreground mt-1">
               Automatisez le tri et l'assignation de vos conversations
             </p>
