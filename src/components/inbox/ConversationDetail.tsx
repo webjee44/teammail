@@ -102,7 +102,7 @@ export function ConversationDetail({ conversation, onStatusChange, onReply, onCo
       <div className="px-4 py-3 border-b border-border space-y-2">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-foreground truncate">
-            {conversation.subject}
+            {decodeHtml(conversation.subject)}
           </h2>
           <div className="flex items-center gap-1 shrink-0">
             <DropdownMenu>
