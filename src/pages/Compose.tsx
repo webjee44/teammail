@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -6,18 +6,51 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Send, X } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Send, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const Compose = () => {
   const navigate = useNavigate();
   const [to, setTo] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
+  const [fromEmail, setFromEmail] = useState("");
+  const [mailboxes, setMailboxes] = useState<{ id: string; email: string; label: string | null }[]>([]);
+  const [sending, setSending] = useState(false);
 
-  const handleSend = () => {
-    toast.success("Email envoyé !");
-    navigate("/");
+  useEffect(() => {
+    const fetchMailboxes = async () => {
+      const { data } = await supabase
+        .from("team_mailboxes")
+        .select("id, email, label")
+        .eq("sync_enabled", true)
+        .order("created_at");
+      if (data && data.length > 0) {
+        setMailboxes(data);
+        setFromEmail(data[0].email);
+      }
+    };
+    fetchMailboxes();
+  }, []);
+
+  const handleSend = async () => {
+    if (!to || !subject || !body || !fromEmail) return;
+    setSending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("gmail-send", {
+        body: { to, subject, body, from_email: fromEmail },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success("Email envoyé !");
+      navigate("/");
+    } catch (err: any) {
+      toast.error("Erreur : " + (err.message || String(err)));
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -34,10 +67,26 @@ const Compose = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
+              <Label htmlFor="from">De</Label>
+              <Select value={fromEmail} onValueChange={setFromEmail}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionner une boîte mail" />
+                </SelectTrigger>
+                <SelectContent>
+                  {mailboxes.map((mb) => (
+                    <SelectItem key={mb.id} value={mb.email}>
+                      {mb.email}{mb.label ? ` (${mb.label})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="to">À</Label>
               <Input
                 id="to"
                 placeholder="destinataire@example.com"
+                type="email"
                 value={to}
                 onChange={(e) => setTo(e.target.value)}
               />
@@ -65,8 +114,17 @@ const Compose = () => {
               <Button variant="outline" onClick={() => navigate("/")}>
                 Annuler
               </Button>
-              <Button onClick={handleSend} disabled={!to || !subject || !body} className="gap-2">
-                <Send className="h-4 w-4" /> Envoyer
+              <Button
+                onClick={handleSend}
+                disabled={!to || !subject || !body || !fromEmail || sending}
+                className="gap-2"
+              >
+                {sending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+                Envoyer
               </Button>
             </div>
           </CardContent>
