@@ -11,8 +11,8 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 const mockConversations: Conversation[] = [
   {
     id: "1",
-    subject: "Question about pricing plans",
-    snippet: "Hi, I wanted to know more about your enterprise pricing...",
+    subject: "Question sur les tarifs",
+    snippet: "Bonjour, je voulais en savoir plus sur vos tarifs entreprise...",
     from_email: "jean@example.com",
     from_name: "Jean Dupont",
     status: "open",
