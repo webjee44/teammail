@@ -42,7 +42,7 @@ const mockRules: Rule[] = [
   },
   {
     id: "3",
-    name: "Auto-close newsletters",
+    name: "Fermer automatiquement les newsletters",
     is_active: false,
     conditions: [{ field: "from_email", operator: "contains", value: "newsletter" }],
     actions: [{ type: "status", value: "closed" }],
