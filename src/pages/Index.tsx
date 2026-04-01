@@ -35,17 +35,33 @@ const Index = () => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [hideNoise, setHideNoise] = useState(false);
+  const [searchParams] = useSearchParams();
+  const filter = searchParams.get("filter");
   const { user } = useAuth();
 
-  // Fetch conversations
+  // Fetch conversations based on filter
   useEffect(() => {
     const fetchConversations = async () => {
       setLoading(true);
-      const { data, error } = await supabase
+      let query = supabase
         .from("conversations")
         .select("*")
-        .eq("status", "open")
         .order("last_message_at", { ascending: false });
+
+      // Apply filter
+      if (filter === "snoozed") {
+        query = query.eq("status", "snoozed");
+      } else if (filter === "closed") {
+        query = query.eq("status", "closed");
+      } else if (filter === "mine") {
+        query = query.eq("status", "open").eq("assigned_to", user?.id ?? "");
+      } else if (filter === "unassigned") {
+        query = query.eq("status", "open").is("assigned_to", null);
+      } else {
+        query = query.eq("status", "open");
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error("Failed to fetch conversations:", error);
@@ -75,7 +91,7 @@ const Index = () => {
     };
 
     fetchConversations();
-  }, []);
+  }, [filter, user?.id]);
 
   // Fetch messages & comments when conversation is selected
   const fetchDetail = useCallback(async (convId: string) => {
