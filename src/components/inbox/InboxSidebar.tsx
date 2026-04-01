@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Inbox,
   User,
@@ -11,6 +12,7 @@ import {
   Zap,
   LogOut,
   PenSquare,
+  AtSign,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
@@ -43,16 +45,19 @@ export function InboxSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const { user, signOut } = useAuth();
+  const [searchParams] = useSearchParams();
+  const activeMailbox = searchParams.get("mailbox");
 
   const [counts, setCounts] = useState({ open: 0, mine: 0, unassigned: 0, snoozed: 0, closed: 0 });
   const [tags, setTags] = useState<{ id: string; name: string; color: string }[]>([]);
+  const [mailboxes, setMailboxes] = useState<{ id: string; email: string; label: string | null; openCount: number }[]>([]);
 
   useEffect(() => {
     const fetchCounts = async () => {
       if (!user) return;
       const { data } = await supabase
         .from("conversations")
-        .select("id, status, assigned_to");
+        .select("id, status, assigned_to, mailbox_id");
 
       if (!data) return;
       setCounts({
@@ -62,6 +67,18 @@ export function InboxSidebar() {
         snoozed: data.filter((c) => c.status === "snoozed").length,
         closed: data.filter((c) => c.status === "closed").length,
       });
+
+      // Count open conversations per mailbox
+      const mbCounts = new Map<string, number>();
+      data.filter((c) => c.status === "open" && c.mailbox_id).forEach((c) => {
+        mbCounts.set(c.mailbox_id!, (mbCounts.get(c.mailbox_id!) || 0) + 1);
+      });
+
+      // Fetch mailboxes
+      const { data: mbData } = await supabase.from("team_mailboxes").select("id, email, label").order("email");
+      if (mbData) {
+        setMailboxes(mbData.map((mb) => ({ ...mb, openCount: mbCounts.get(mb.id) || 0 })));
+      }
     };
 
     const fetchTags = async () => {
@@ -73,12 +90,14 @@ export function InboxSidebar() {
     fetchTags();
   }, [user]);
 
+  // Build URLs preserving the mailbox param
+  const mbSuffix = activeMailbox ? `&mailbox=${activeMailbox}` : "";
   const inboxItems = [
-    { title: "Boîte de réception", url: "/", icon: Inbox, count: counts.open },
-    { title: "Assigné à moi", url: "/?filter=mine", icon: User, count: counts.mine },
-    { title: "Non assigné", url: "/?filter=unassigned", icon: Users, count: counts.unassigned },
-    { title: "En pause", url: "/?filter=snoozed", icon: Clock, count: counts.snoozed },
-    { title: "Fermé", url: "/?filter=closed", icon: CheckCircle, count: counts.closed },
+    { title: "Boîte de réception", url: `/${activeMailbox ? `?mailbox=${activeMailbox}` : ""}`, icon: Inbox, count: counts.open },
+    { title: "Assigné à moi", url: `/?filter=mine${mbSuffix}`, icon: User, count: counts.mine },
+    { title: "Non assigné", url: `/?filter=unassigned${mbSuffix}`, icon: Users, count: counts.unassigned },
+    { title: "En pause", url: `/?filter=snoozed${mbSuffix}`, icon: Clock, count: counts.snoozed },
+    { title: "Fermé", url: `/?filter=closed${mbSuffix}`, icon: CheckCircle, count: counts.closed },
   ];
 
   const initials = user?.user_metadata?.full_name
@@ -113,6 +132,59 @@ export function InboxSidebar() {
               </NavLink>
             </Button>
           </div>
+        )}
+
+        {mailboxes.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Boîtes mail</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink
+                      to={searchParams.get("filter") ? `/?filter=${searchParams.get("filter")}` : "/"}
+                      end={!searchParams.get("filter")}
+                      className={`hover:bg-sidebar-accent/50 flex items-center justify-between ${!activeMailbox ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" : ""}`}
+                      activeClassName=""
+                    >
+                      <span className="flex items-center gap-2">
+                        <Inbox className="h-4 w-4" />
+                        {!collapsed && <span>Toutes</span>}
+                      </span>
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                {mailboxes.map((mb) => {
+                  const filterParam = searchParams.get("filter");
+                  const mbUrl = filterParam
+                    ? `/?filter=${filterParam}&mailbox=${mb.id}`
+                    : `/?mailbox=${mb.id}`;
+                  const isActive = activeMailbox === mb.id;
+                  return (
+                    <SidebarMenuItem key={mb.id}>
+                      <SidebarMenuButton asChild>
+                        <NavLink
+                          to={mbUrl}
+                          className={`hover:bg-sidebar-accent/50 flex items-center justify-between ${isActive ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" : ""}`}
+                          activeClassName=""
+                        >
+                          <span className="flex items-center gap-2">
+                            <AtSign className="h-4 w-4" />
+                            {!collapsed && <span className="truncate">{mb.label || mb.email.split("@")[0]}</span>}
+                          </span>
+                          {!collapsed && mb.openCount > 0 && (
+                            <Badge variant="secondary" className="text-xs h-5 min-w-[20px] justify-center">
+                              {mb.openCount}
+                            </Badge>
+                          )}
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
         )}
 
         <SidebarGroup>

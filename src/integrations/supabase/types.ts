@@ -90,6 +90,7 @@ export type Database = {
           is_noise: boolean
           is_read: boolean
           last_message_at: string
+          mailbox_id: string | null
           priority: string | null
           snippet: string | null
           snoozed_until: string | null
@@ -111,6 +112,7 @@ export type Database = {
           is_noise?: boolean
           is_read?: boolean
           last_message_at?: string
+          mailbox_id?: string | null
           priority?: string | null
           snippet?: string | null
           snoozed_until?: string | null
@@ -132,6 +134,7 @@ export type Database = {
           is_noise?: boolean
           is_read?: boolean
           last_message_at?: string
+          mailbox_id?: string | null
           priority?: string | null
           snippet?: string | null
           snoozed_until?: string | null
@@ -141,6 +144,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "conversations_mailbox_id_fkey"
+            columns: ["mailbox_id"]
+            isOneToOne: false
+            referencedRelation: "team_mailboxes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "conversations_team_id_fkey"
             columns: ["team_id"]

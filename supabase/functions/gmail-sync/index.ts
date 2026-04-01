@@ -245,6 +245,7 @@ serve(async (req) => {
                 is_read: isRead,
                 last_message_at: lastMessageAt,
                 status: "open",
+                mailbox_id: mailbox.id,
               })
               .select("id")
               .single();

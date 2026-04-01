@@ -37,6 +37,7 @@ const Index = () => {
   const [hideNoise, setHideNoise] = useState(false);
   const [searchParams] = useSearchParams();
   const filter = searchParams.get("filter");
+  const mailboxId = searchParams.get("mailbox");
   const { user } = useAuth();
 
   // Fetch conversations based on filter
@@ -59,6 +60,10 @@ const Index = () => {
         query = query.eq("status", "open").is("assigned_to", null);
       } else {
         query = query.eq("status", "open");
+      }
+
+      if (mailboxId) {
+        query = query.eq("mailbox_id", mailboxId);
       }
 
       const { data, error } = await query;
@@ -91,7 +96,7 @@ const Index = () => {
     };
 
     fetchConversations();
-  }, [filter, user?.id]);
+  }, [filter, mailboxId, user?.id]);
 
   // Fetch messages & comments when conversation is selected
   const fetchDetail = useCallback(async (convId: string) => {
