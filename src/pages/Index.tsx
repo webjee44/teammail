@@ -38,10 +38,23 @@ const Index = () => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [hideNoise, setHideNoise] = useState(false);
+  const [commandOpen, setCommandOpen] = useState(false);
   const [searchParams] = useSearchParams();
   const filter = searchParams.get("filter");
   const mailboxId = searchParams.get("mailbox");
   const { user } = useAuth();
+
+  // ⌘K / Ctrl+K shortcut
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setCommandOpen((prev) => !prev);
+      }
+    };
+    document.addEventListener("keydown", down);
+    return () => document.removeEventListener("keydown", down);
+  }, []);
 
   // Fetch conversations based on filter
   useEffect(() => {
