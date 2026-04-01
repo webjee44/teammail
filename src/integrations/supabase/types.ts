@@ -288,6 +288,36 @@ export type Database = {
           },
         ]
       }
+      mailbox_signatures: {
+        Row: {
+          mailbox_id: string
+          signature_id: string
+        }
+        Insert: {
+          mailbox_id: string
+          signature_id: string
+        }
+        Update: {
+          mailbox_id?: string
+          signature_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mailbox_signatures_mailbox_id_fkey"
+            columns: ["mailbox_id"]
+            isOneToOne: false
+            referencedRelation: "team_mailboxes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mailbox_signatures_signature_id_fkey"
+            columns: ["signature_id"]
+            isOneToOne: false
+            referencedRelation: "signatures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           body_html: string | null
@@ -419,6 +449,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      signatures: {
+        Row: {
+          body_html: string
+          created_at: string
+          id: string
+          is_default: boolean
+          name: string
+          team_id: string
+          updated_at: string
+        }
+        Insert: {
+          body_html?: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name: string
+          team_id: string
+          updated_at?: string
+        }
+        Update: {
+          body_html?: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name?: string
+          team_id?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       tags: {
         Row: {
