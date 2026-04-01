@@ -9,7 +9,17 @@ import {
   MessageSquare,
   Send,
   MoreHorizontal,
-  X,
+  Sparkles,
+  ChevronDown,
+  ChevronUp,
+  User,
+  Building2,
+  DollarSign,
+  CalendarDays,
+  ArrowUp,
+  ArrowRight,
+  ArrowDown,
+  Loader2,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -24,7 +34,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const decodeHtml = (s = "") => {
   const t = document.createElement("textarea");
@@ -63,6 +80,11 @@ type ConversationDetailData = {
   tags?: { id: string; name: string; color: string }[];
   messages: Message[];
   comments: Comment[];
+  priority?: string | null;
+  is_noise?: boolean;
+  ai_summary?: string | null;
+  category?: string | null;
+  entities?: any;
 };
 
 type Props = {
@@ -72,10 +94,29 @@ type Props = {
   onComment?: (id: string, body: string) => void;
 };
 
+type Suggestion = { label: string; body: string };
+
+const priorityConfig: Record<string, { icon: typeof ArrowUp; className: string; label: string }> = {
+  high: { icon: ArrowUp, className: "text-destructive", label: "Haute" },
+  medium: { icon: ArrowRight, className: "text-amber-500", label: "Moyenne" },
+  low: { icon: ArrowDown, className: "text-muted-foreground", label: "Basse" },
+};
+
+const categoryLabels: Record<string, string> = {
+  support: "Support",
+  billing: "Facturation",
+  commercial: "Commercial",
+  notification: "Notification",
+  other: "Autre",
+};
+
 export function ConversationDetail({ conversation, onStatusChange, onReply, onComment }: Props) {
   const [replyText, setReplyText] = useState("");
   const [commentText, setCommentText] = useState("");
   const [activeTab, setActiveTab] = useState("reply");
+  const [infoOpen, setInfoOpen] = useState(false);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 
   if (!conversation) {
     return (
@@ -95,6 +136,32 @@ export function ConversationDetail({ conversation, onStatusChange, onReply, onCo
   };
 
   const status = statusConfig[conversation.status];
+  const prio = conversation.priority ? priorityConfig[conversation.priority] : null;
+  const entities = conversation.entities || {};
+  const hasEntities =
+    entities.people?.length || entities.companies?.length || entities.amounts?.length || entities.dates?.length;
+  const hasAiInfo = conversation.ai_summary || conversation.category || hasEntities;
+
+  const handleSuggestReplies = async () => {
+    setLoadingSuggestions(true);
+    setSuggestions([]);
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-suggest-reply", {
+        body: { conversation_id: conversation.id },
+      });
+      if (error) throw error;
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
+      setSuggestions(data.suggestions || []);
+    } catch (err: any) {
+      toast.error("Erreur lors de la génération des suggestions");
+      console.error(err);
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -130,6 +197,22 @@ export function ConversationDetail({ conversation, onStatusChange, onReply, onCo
             <status.icon className="h-3 w-3" />
             {status.label}
           </Badge>
+          {prio && (
+            <Badge variant="outline" className={cn("gap-1", prio.className)}>
+              <prio.icon className="h-3 w-3" />
+              {prio.label}
+            </Badge>
+          )}
+          {conversation.category && (
+            <Badge variant="secondary" className="gap-1">
+              {categoryLabels[conversation.category] || conversation.category}
+            </Badge>
+          )}
+          {conversation.is_noise && (
+            <Badge variant="secondary" className="gap-1 text-muted-foreground">
+              🔇 Bruit
+            </Badge>
+          )}
           {conversation.assignee_name && (
             <Badge variant="secondary" className="gap-1">
               <UserPlus className="h-3 w-3" />
@@ -148,6 +231,51 @@ export function ConversationDetail({ conversation, onStatusChange, onReply, onCo
             </Badge>
           ))}
         </div>
+
+        {/* AI Info Panel */}
+        {hasAiInfo && (
+          <Collapsible open={infoOpen} onOpenChange={setInfoOpen}>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="sm" className="w-full justify-between h-7 text-xs text-muted-foreground hover:text-foreground">
+                <span className="flex items-center gap-1">
+                  <Sparkles className="h-3 w-3" /> Informations IA
+                </span>
+                {infoOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-2 space-y-2">
+              {conversation.ai_summary && (
+                <p className="text-xs text-muted-foreground bg-muted/50 rounded p-2">
+                  💡 {conversation.ai_summary}
+                </p>
+              )}
+              {hasEntities && (
+                <div className="flex flex-wrap gap-1.5">
+                  {entities.people?.map((p: string, i: number) => (
+                    <Badge key={`p-${i}`} variant="outline" className="text-[10px] gap-1">
+                      <User className="h-2.5 w-2.5" /> {p}
+                    </Badge>
+                  ))}
+                  {entities.companies?.map((c: string, i: number) => (
+                    <Badge key={`c-${i}`} variant="outline" className="text-[10px] gap-1 border-blue-300 text-blue-600">
+                      <Building2 className="h-2.5 w-2.5" /> {c}
+                    </Badge>
+                  ))}
+                  {entities.amounts?.map((a: string, i: number) => (
+                    <Badge key={`a-${i}`} variant="outline" className="text-[10px] gap-1 border-green-300 text-green-600">
+                      <DollarSign className="h-2.5 w-2.5" /> {a}
+                    </Badge>
+                  ))}
+                  {entities.dates?.map((d: string, i: number) => (
+                    <Badge key={`d-${i}`} variant="outline" className="text-[10px] gap-1 border-amber-300 text-amber-600">
+                      <CalendarDays className="h-2.5 w-2.5" /> {d}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </CollapsibleContent>
+          </Collapsible>
+        )}
       </div>
 
       {/* Messages */}
@@ -238,18 +366,51 @@ export function ConversationDetail({ conversation, onStatusChange, onReply, onCo
           </TabsList>
           <TabsContent value="reply" className="mt-0">
             <div className="space-y-2">
+              {/* AI Suggestions */}
+              {suggestions.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {suggestions.map((s, i) => (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        setReplyText(s.body);
+                        setSuggestions([]);
+                      }}
+                      className="text-xs px-2.5 py-1.5 rounded-full border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors"
+                    >
+                      <Sparkles className="h-3 w-3 inline mr-1" />
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              )}
               <Textarea
                 placeholder="Tapez votre réponse..."
                 value={replyText}
                 onChange={(e) => setReplyText(e.target.value)}
                 className="min-h-[80px] text-sm resize-none"
               />
-              <div className="flex justify-end">
+              <div className="flex justify-between">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleSuggestReplies}
+                  disabled={loadingSuggestions}
+                  className="gap-1"
+                >
+                  {loadingSuggestions ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-3 w-3" />
+                  )}
+                  Suggérer
+                </Button>
                 <Button
                   size="sm"
                   onClick={() => {
                     onReply?.(conversation.id, replyText);
                     setReplyText("");
+                    setSuggestions([]);
                   }}
                   disabled={!replyText.trim()}
                 >
