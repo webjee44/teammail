@@ -1,48 +1,43 @@
 
-
-# Signatures d'équipe centralisées
+# Envoyer plus tard — Emails programmés
 
 ## Résumé
-
-Ajouter un onglet "Signatures" dans Paramètres permettant de créer des signatures HTML partagées par l'équipe, assignables par boîte mail. Les signatures sont automatiquement ajoutées aux emails envoyés.
+Permettre de rédiger un email et programmer son envoi à une date/heure future. Un bouton "Envoyer plus tard" avec sélecteur de date/heure s'ajoute à côté du bouton "Envoyer".
 
 ## Base de données
 
-**Nouvelle table `signatures`** :
-- `id` (uuid), `team_id` (uuid), `name` (text), `body_html` (text — le contenu HTML de la signature), `is_default` (boolean, default false), `created_at`, `updated_at`
-- RLS : CRUD pour les admins de l'équipe, SELECT pour tous les membres
+**Nouvelle table `scheduled_emails`** :
+- `id` (uuid), `team_id` (uuid), `created_by` (uuid — user_id)
+- `to_email` (text), `subject` (text), `body` (text), `from_email` (text)
+- `attachments` (jsonb, nullable — stocke les pièces jointes en base64)
+- `scheduled_at` (timestamptz — quand envoyer)
+- `status` (text — `pending`, `sent`, `failed`, `cancelled`)
+- `error_message` (text, nullable)
+- `sent_at` (timestamptz, nullable)
+- `created_at`, `updated_at`
+- RLS : les membres de l'équipe peuvent CRUD leurs emails programmés
 
-**Nouvelle table `mailbox_signatures`** (liaison mailbox ↔ signature) :
-- `mailbox_id` (uuid), `signature_id` (uuid), primary key composite
-- RLS : même logique que team_mailboxes (admins gèrent, membres lisent)
+## Interface — Compose.tsx
 
-## Interface — Onglet Signatures dans Settings
+- Ajout d'un bouton "Envoyer plus tard" (icône horloge) à côté de "Envoyer"
+- Clic → Popover avec un date picker + time picker
+- Validation : la date doit être dans le futur
+- Confirmation → sauvegarde dans `scheduled_emails` avec status `pending`
+- Toast de confirmation avec l'heure programmée
+- Redirection vers l'inbox
 
-Nouvel onglet dans `Settings.tsx` :
-- Liste des signatures existantes avec aperçu
-- Formulaire de création/édition : nom + éditeur HTML rich-text (textarea avec preview)
-- Possibilité de marquer une signature comme "par défaut"
-- Association signature ↔ boîte mail (dropdown)
-- Bouton supprimer
+## Edge Function — `process-scheduled-emails`
 
-## Envoi d'email — Injection automatique
-
-Modification de `gmail-send/index.ts` :
-1. Après avoir vérifié le mailbox, récupérer la signature associée via `mailbox_signatures` → `signatures`
-2. Si pas de signature spécifique, utiliser la signature par défaut de l'équipe
-3. Ajouter le HTML de la signature en bas du body avant l'encodage (séparateur `--` + signature)
-
-## Compose — Prévisualisation
-
-Modification de `Compose.tsx` :
-- Quand l'utilisateur sélectionne une boîte d'envoi, charger et afficher la signature correspondante sous le champ de texte (non éditable, juste preview)
+- Fonction invoquée par pg_cron toutes les minutes
+- Requête les emails avec `status = 'pending'` ET `scheduled_at <= now()`
+- Pour chaque email, appelle la fonction `gmail-send` existante
+- Met à jour le status en `sent` ou `failed`
 
 ## Fichiers impactés
 
 | Fichier | Action |
 |---------|--------|
-| Migration SQL | Tables `signatures` et `mailbox_signatures` + RLS |
-| `src/pages/Settings.tsx` | Nouvel onglet "Signatures" avec CRUD |
-| `supabase/functions/gmail-send/index.ts` | Injecter signature dans l'email |
-| `src/pages/Compose.tsx` | Aperçu de la signature sous le corps du mail |
-
+| Migration SQL | Table `scheduled_emails` + RLS |
+| `src/pages/Compose.tsx` | Bouton "Envoyer plus tard" + date/time picker |
+| `supabase/functions/process-scheduled-emails/index.ts` | Nouveau — traitement cron |
+| pg_cron job | Planifier l'exécution toutes les minutes |
