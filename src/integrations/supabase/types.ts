@@ -450,6 +450,65 @@ export type Database = {
           },
         ]
       }
+      scheduled_emails: {
+        Row: {
+          attachments: Json | null
+          body: string
+          created_at: string
+          created_by: string
+          error_message: string | null
+          from_email: string
+          id: string
+          scheduled_at: string
+          sent_at: string | null
+          status: string
+          subject: string
+          team_id: string
+          to_email: string
+          updated_at: string
+        }
+        Insert: {
+          attachments?: Json | null
+          body: string
+          created_at?: string
+          created_by: string
+          error_message?: string | null
+          from_email: string
+          id?: string
+          scheduled_at: string
+          sent_at?: string | null
+          status?: string
+          subject: string
+          team_id: string
+          to_email: string
+          updated_at?: string
+        }
+        Update: {
+          attachments?: Json | null
+          body?: string
+          created_at?: string
+          created_by?: string
+          error_message?: string | null
+          from_email?: string
+          id?: string
+          scheduled_at?: string
+          sent_at?: string | null
+          status?: string
+          subject?: string
+          team_id?: string
+          to_email?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_emails_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       signatures: {
         Row: {
           body_html: string
