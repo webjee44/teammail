@@ -271,9 +271,22 @@ const Index = () => {
           <div className="h-12 flex items-center px-3 border-b border-border gap-2 shrink-0">
             <SidebarTrigger />
             <h2 className="text-sm font-semibold text-foreground">{headerTitle}</h2>
-            <span className="text-xs text-muted-foreground ml-auto">
-              {totalCount} conversation{totalCount !== 1 ? "s" : ""}
-            </span>
+            <div className="ml-auto flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 gap-1.5 text-muted-foreground"
+                onClick={() => setCommandOpen(true)}
+              >
+                <Search className="h-3.5 w-3.5" />
+                <kbd className="pointer-events-none hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                  ⌘K
+                </kbd>
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                {totalCount} conversation{totalCount !== 1 ? "s" : ""}
+              </span>
+            </div>
           </div>
           <ConversationList
             conversations={filteredConversations}
