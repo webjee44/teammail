@@ -294,6 +294,23 @@ const Index = () => {
     fetchDetail(id);
   };
 
+  const handleDelete = async (id: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke("gmail-archive", {
+        body: { conversation_id: id },
+      });
+      if (error || data?.error) {
+        toast.error("Erreur : " + (data?.error || error?.message));
+        return;
+      }
+      setConversations((prev) => prev.filter((c) => c.id !== id));
+      if (selectedId === id) setSelectedId(null);
+      toast.success("Conversation supprimée et archivée sur Gmail");
+    } catch (err: any) {
+      toast.error("Erreur : " + (err.message || String(err)));
+    }
+  };
+
   const filteredConversations = hideNoise
     ? conversations.filter((c) => !c.is_noise)
     : conversations;
