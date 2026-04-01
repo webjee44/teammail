@@ -121,13 +121,27 @@ serve(async (req) => {
   }
 
   try {
-    const serviceAccountKeyStr = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
+    let serviceAccountKeyStr = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
     if (!serviceAccountKeyStr) throw new Error("GOOGLE_SERVICE_ACCOUNT_KEY not configured");
+
+    // Try to handle base64-encoded secrets
+    serviceAccountKeyStr = serviceAccountKeyStr.trim();
+    let serviceAccountKey: any;
+    try {
+      serviceAccountKey = JSON.parse(serviceAccountKeyStr);
+    } catch {
+      // Maybe it's base64 encoded
+      try {
+        serviceAccountKey = JSON.parse(atob(serviceAccountKeyStr));
+      } catch (e2) {
+        console.error("Failed to parse service account key. First 20 chars:", serviceAccountKeyStr.substring(0, 20));
+        throw new Error(`Invalid GOOGLE_SERVICE_ACCOUNT_KEY format: ${e2}`);
+      }
+    }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
     const serviceAccountKey = JSON.parse(serviceAccountKeyStr);
 
     // Get all enabled mailboxes
