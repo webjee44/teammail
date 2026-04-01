@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,9 +8,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Plus, Trash2, Mail, Users, Tag, Palette } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Plus, Trash2, Mail, Users, Tag, RefreshCw, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import type { Tables } from "@/integrations/supabase/types";
 
 const mockMembers = [
   { id: "1", name: "Alex Moreau", email: "alex@company.com", role: "admin" as const, avatar: "" },
@@ -25,11 +28,116 @@ const mockTags = [
   { id: "4", name: "Ventes", color: "#22c55e" },
 ];
 
+type Mailbox = Tables<"team_mailboxes">;
+
 const Settings = () => {
   const { user } = useAuth();
   const [inviteEmail, setInviteEmail] = useState("");
   const [newTagName, setNewTagName] = useState("");
   const [newTagColor, setNewTagColor] = useState("#6366f1");
+
+  // Mailbox state
+  const [mailboxes, setMailboxes] = useState<Mailbox[]>([]);
+  const [newMailboxEmail, setNewMailboxEmail] = useState("");
+  const [newMailboxLabel, setNewMailboxLabel] = useState("");
+  const [loadingMailboxes, setLoadingMailboxes] = useState(true);
+  const [addingMailbox, setAddingMailbox] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+
+  const fetchMailboxes = async () => {
+    const { data, error } = await supabase
+      .from("team_mailboxes")
+      .select("*")
+      .order("created_at", { ascending: true });
+    if (error) {
+      console.error("Failed to fetch mailboxes:", error);
+    } else {
+      setMailboxes(data || []);
+    }
+    setLoadingMailboxes(false);
+  };
+
+  useEffect(() => {
+    fetchMailboxes();
+  }, []);
+
+  const addMailbox = async () => {
+    if (!newMailboxEmail) return;
+    setAddingMailbox(true);
+    try {
+      // Get user's team_id from profile
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("team_id")
+        .eq("user_id", user?.id ?? "")
+        .single();
+
+      if (!profile?.team_id) {
+        toast.error("Aucune équipe trouvée. Créez d'abord une équipe.");
+        return;
+      }
+
+      const { error } = await supabase.from("team_mailboxes").insert({
+        email: newMailboxEmail.trim().toLowerCase(),
+        label: newMailboxLabel.trim() || null,
+        team_id: profile.team_id,
+      });
+
+      if (error) {
+        if (error.code === "23505") {
+          toast.error("Cette adresse email est déjà configurée");
+        } else {
+          toast.error("Erreur lors de l'ajout : " + error.message);
+        }
+        return;
+      }
+
+      toast.success(`Boîte mail ${newMailboxEmail} ajoutée`);
+      setNewMailboxEmail("");
+      setNewMailboxLabel("");
+      fetchMailboxes();
+    } finally {
+      setAddingMailbox(false);
+    }
+  };
+
+  const deleteMailbox = async (id: string, email: string) => {
+    const { error } = await supabase.from("team_mailboxes").delete().eq("id", id);
+    if (error) {
+      toast.error("Erreur lors de la suppression : " + error.message);
+      return;
+    }
+    toast.success(`Boîte mail ${email} supprimée`);
+    setMailboxes((prev) => prev.filter((m) => m.id !== id));
+  };
+
+  const toggleSync = async (id: string, enabled: boolean) => {
+    const { error } = await supabase
+      .from("team_mailboxes")
+      .update({ sync_enabled: enabled })
+      .eq("id", id);
+    if (error) {
+      toast.error("Erreur : " + error.message);
+      return;
+    }
+    setMailboxes((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, sync_enabled: enabled } : m))
+    );
+  };
+
+  const triggerSync = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("gmail-sync");
+      if (error) throw error;
+      toast.success("Synchronisation terminée");
+      fetchMailboxes();
+    } catch (err: any) {
+      toast.error("Erreur de synchronisation : " + (err.message || String(err)));
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   return (
     <AppLayout>
@@ -176,27 +284,118 @@ const Settings = () => {
 
           <TabsContent value="accounts" className="space-y-4 mt-4">
             <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Comptes Gmail connectés</CardTitle>
-                <CardDescription>
-                  Gérez les comptes Gmail synchronisés avec votre boîte collaborative
-                </CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                <div>
+                  <CardTitle className="text-base">Boîtes mail synchronisées</CardTitle>
+                  <CardDescription>
+                    Ajoutez les adresses email de votre domaine à synchroniser via Gmail
+                  </CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={triggerSync}
+                  disabled={syncing || mailboxes.length === 0}
+                >
+                  {syncing ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                  Synchroniser
+                </Button>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between p-3 rounded-lg border border-border">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-primary/10">
-                      <Mail className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">{user?.email || "team@company.com"}</p>
-                      <p className="text-xs text-muted-foreground">Connecté via Google OAuth</p>
-                    </div>
-                  </div>
-                  <Badge variant="outline" className="text-green-600 border-green-600">
-                    Actif
-                  </Badge>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="contact@votredomaine.com"
+                    type="email"
+                    value={newMailboxEmail}
+                    onChange={(e) => setNewMailboxEmail(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Input
+                    placeholder="Label (optionnel)"
+                    value={newMailboxLabel}
+                    onChange={(e) => setNewMailboxLabel(e.target.value)}
+                    className="w-40"
+                  />
+                  <Button
+                    onClick={addMailbox}
+                    disabled={!newMailboxEmail || addingMailbox}
+                    className="gap-2"
+                  >
+                    {addingMailbox ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Plus className="h-4 w-4" />
+                    )}
+                    Ajouter
+                  </Button>
                 </div>
+
+                <Separator />
+
+                {loadingMailboxes ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : mailboxes.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground text-sm">
+                    Aucune boîte mail configurée. Ajoutez une adresse email pour commencer la synchronisation.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {mailboxes.map((mailbox) => (
+                      <div
+                        key={mailbox.id}
+                        className="flex items-center justify-between p-3 rounded-lg border border-border"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-lg bg-primary/10">
+                            <Mail className="h-5 w-5 text-primary" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">
+                              {mailbox.email}
+                              {mailbox.label && (
+                                <span className="ml-2 text-muted-foreground font-normal">
+                                  ({mailbox.label})
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {mailbox.last_sync_at
+                                ? `Dernière sync : ${new Date(mailbox.last_sync_at).toLocaleString("fr-FR")}`
+                                : "Jamais synchronisé"}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2">
+                            <Label htmlFor={`sync-${mailbox.id}`} className="text-xs text-muted-foreground">
+                              Sync
+                            </Label>
+                            <Switch
+                              id={`sync-${mailbox.id}`}
+                              checked={mailbox.sync_enabled}
+                              onCheckedChange={(checked) => toggleSync(mailbox.id, checked)}
+                            />
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => deleteMailbox(mailbox.id, mailbox.email)}
+                          >
+                            <Trash2 className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
