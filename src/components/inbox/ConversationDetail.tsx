@@ -402,6 +402,7 @@ export function ConversationDetail({ conversation, onStatusChange, onReply, onCo
                 onChange={(e) => setReplyText(e.target.value)}
                 className="min-h-[80px] text-sm resize-none"
               />
+              <AttachmentUpload files={attachedFiles} onFilesChange={setAttachedFiles} />
               <div className="flex justify-between">
                 <Button
                   size="sm"
@@ -420,9 +421,10 @@ export function ConversationDetail({ conversation, onStatusChange, onReply, onCo
                 <Button
                   size="sm"
                   onClick={() => {
-                    onReply?.(conversation.id, replyText);
+                    onReply?.(conversation.id, replyText, attachedFiles);
                     setReplyText("");
                     setSuggestions([]);
+                    setAttachedFiles([]);
                   }}
                   disabled={!replyText.trim()}
                 >
