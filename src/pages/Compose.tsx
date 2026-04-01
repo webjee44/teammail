@@ -32,6 +32,7 @@ const Compose = () => {
   const [scheduleDate, setScheduleDate] = useState<Date | undefined>();
   const [scheduleTime, setScheduleTime] = useState("09:00");
   const [scheduling, setScheduling] = useState(false);
+  const [templateOpen, setTemplateOpen] = useState(false);
 
   useEffect(() => {
     const fetchMailboxes = async () => {
