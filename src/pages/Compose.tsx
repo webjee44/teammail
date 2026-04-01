@@ -9,13 +9,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Send, X, Loader2, Clock, CalendarIcon } from "lucide-react";
+import { Send, X, Loader2, Clock, CalendarIcon, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { AttachmentUpload, FileToUpload } from "@/components/inbox/Attachments";
+import { TemplatePickerDialog } from "@/components/inbox/TemplatePickerDialog";
 
 const Compose = () => {
   const navigate = useNavigate();
@@ -31,6 +32,7 @@ const Compose = () => {
   const [scheduleDate, setScheduleDate] = useState<Date | undefined>();
   const [scheduleTime, setScheduleTime] = useState("09:00");
   const [scheduling, setScheduling] = useState(false);
+  const [templateOpen, setTemplateOpen] = useState(false);
 
   useEffect(() => {
     const fetchMailboxes = async () => {
@@ -237,6 +239,26 @@ const Compose = () => {
               <Button variant="outline" onClick={() => navigate("/")}>
                 Annuler
               </Button>
+
+              <Button
+                variant="outline"
+                onClick={() => setTemplateOpen(true)}
+                disabled={false}
+                className="gap-2"
+              >
+                <FileText className="h-4 w-4" />
+                Template
+              </Button>
+
+              <TemplatePickerDialog
+                open={templateOpen}
+                onOpenChange={setTemplateOpen}
+                onInsert={(tplSubject, tplBody) => {
+                  if (tplSubject) setSubject(tplSubject);
+                  setBody(tplBody);
+                }}
+                recipientEmail={to}
+              />
 
               <Popover open={scheduleOpen} onOpenChange={setScheduleOpen}>
                 <PopoverTrigger asChild>

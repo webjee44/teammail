@@ -11,11 +11,12 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Mail, Users, Tag, RefreshCw, Loader2, PenTool, Eye, Star } from "lucide-react";
+import { Plus, Trash2, Mail, Users, Tag, RefreshCw, Loader2, PenTool, Eye, Star, FileText } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
+import { TemplatesSettings } from "@/components/settings/TemplatesSettings";
 
 const mockMembers = [
   { id: "1", name: "Alex Moreau", email: "alex@company.com", role: "admin" as const, avatar: "" },
@@ -285,6 +286,9 @@ const Settings = () => {
             </TabsTrigger>
             <TabsTrigger value="signatures" className="gap-2">
               <PenTool className="h-4 w-4" /> Signatures
+            </TabsTrigger>
+            <TabsTrigger value="templates" className="gap-2">
+              <FileText className="h-4 w-4" /> Templates
             </TabsTrigger>
           </TabsList>
 
@@ -714,6 +718,9 @@ const Settings = () => {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+          <TabsContent value="templates" className="space-y-4 mt-4">
+            <TemplatesSettings />
           </TabsContent>
         </Tabs>
       </div>
