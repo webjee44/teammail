@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Send, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { AttachmentUpload, FileToUpload } from "@/components/inbox/Attachments";
 
 const Compose = () => {
   const navigate = useNavigate();
