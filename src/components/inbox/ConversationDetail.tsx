@@ -100,7 +100,7 @@ type ConversationDetailData = {
 type Props = {
   conversation: ConversationDetailData | null;
   onStatusChange?: (id: string, status: "open" | "snoozed" | "closed") => void;
-  onReply?: (id: string, body: string) => void;
+  onReply?: (id: string, body: string, attachments?: FileToUpload[]) => void;
   onComment?: (id: string, body: string) => void;
 };
 
