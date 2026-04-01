@@ -39,8 +39,8 @@ const mockConversations: Conversation[] = [
   },
   {
     id: "3",
-    subject: "Partnership opportunity",
-    snippet: "We'd love to discuss a potential partnership between our companies...",
+    subject: "Opportunité de partenariat",
+    snippet: "Nous aimerions discuter d'un partenariat potentiel entre nos entreprises...",
     from_email: "thomas@bigcorp.com",
     from_name: "Thomas Bernard",
     status: "open",
