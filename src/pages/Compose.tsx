@@ -21,6 +21,7 @@ const Compose = () => {
   const [mailboxes, setMailboxes] = useState<{ id: string; email: string; label: string | null }[]>([]);
   const [sending, setSending] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<FileToUpload[]>([]);
+  const [signatureHtml, setSignatureHtml] = useState("");
 
   useEffect(() => {
     const fetchMailboxes = async () => {
@@ -36,6 +37,44 @@ const Compose = () => {
     };
     fetchMailboxes();
   }, []);
+
+  // Load signature when mailbox changes
+  useEffect(() => {
+    if (!fromEmail || mailboxes.length === 0) {
+      setSignatureHtml("");
+      return;
+    }
+    const mb = mailboxes.find((m) => m.email === fromEmail);
+    if (!mb) return;
+
+    const loadSignature = async () => {
+      // Try mailbox-specific signature first
+      const { data: ms } = await supabase
+        .from("mailbox_signatures")
+        .select("signature_id")
+        .eq("mailbox_id", mb.id)
+        .maybeSingle();
+
+      if (ms?.signature_id) {
+        const { data: sig } = await supabase
+          .from("signatures")
+          .select("body_html")
+          .eq("id", ms.signature_id)
+          .maybeSingle();
+        setSignatureHtml(sig?.body_html || "");
+        return;
+      }
+
+      // Fallback to team default signature
+      const { data: defaultSig } = await supabase
+        .from("signatures")
+        .select("body_html")
+        .eq("is_default", true)
+        .maybeSingle();
+      setSignatureHtml(defaultSig?.body_html || "");
+    };
+    loadSignature();
+  }, [fromEmail, mailboxes]);
 
   const handleSend = async () => {
     if (!to || !subject || !body || !fromEmail) return;
@@ -117,6 +156,15 @@ const Compose = () => {
                 className="min-h-[250px] resize-none"
               />
             </div>
+            {signatureHtml && (
+              <div className="space-y-2">
+                <Label className="text-muted-foreground text-xs">Signature</Label>
+                <div
+                  className="p-3 rounded-md border border-border bg-muted/30 text-sm"
+                  dangerouslySetInnerHTML={{ __html: signatureHtml }}
+                />
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Pièces jointes</Label>
               <AttachmentUpload files={attachedFiles} onFilesChange={setAttachedFiles} />

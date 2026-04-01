@@ -67,14 +67,15 @@ async function getAccessToken(serviceAccountKey: any, senderEmail: string): Prom
 type Attachment = {
   filename: string;
   mime_type: string;
-  data: string; // base64 encoded
+  data: string;
 };
 
 function buildRawEmail(
   from: string,
   to: string,
   subject: string,
-  body: string,
+  bodyHtml: string,
+  bodyText: string,
   attachments?: Attachment[]
 ): string {
   const boundary = `boundary_${crypto.randomUUID()}`;
@@ -92,7 +93,6 @@ function buildRawEmail(
     lines.push(``);
     lines.push(`--${boundary}`);
 
-    // Text/HTML part in a nested alternative boundary
     const altBoundary = `alt_${crypto.randomUUID()}`;
     lines.push(`Content-Type: multipart/alternative; boundary="${altBoundary}"`);
     lines.push(``);
@@ -101,18 +101,17 @@ function buildRawEmail(
     lines.push(`Content-Type: text/plain; charset="UTF-8"`);
     lines.push(`Content-Transfer-Encoding: base64`);
     lines.push(``);
-    lines.push(btoa(unescape(encodeURIComponent(body))));
+    lines.push(btoa(unescape(encodeURIComponent(bodyText))));
     lines.push(``);
 
     lines.push(`--${altBoundary}`);
     lines.push(`Content-Type: text/html; charset="UTF-8"`);
     lines.push(`Content-Transfer-Encoding: base64`);
     lines.push(``);
-    lines.push(btoa(unescape(encodeURIComponent(body.replace(/\n/g, "<br>")))));
+    lines.push(btoa(unescape(encodeURIComponent(bodyHtml))));
     lines.push(``);
     lines.push(`--${altBoundary}--`);
 
-    // Attachments
     for (const att of attachments!) {
       lines.push(``);
       lines.push(`--${boundary}`);
@@ -120,7 +119,6 @@ function buildRawEmail(
       lines.push(`Content-Disposition: attachment; filename="${att.filename}"`);
       lines.push(`Content-Transfer-Encoding: base64`);
       lines.push(``);
-      // Split base64 into 76-char lines
       const b64 = att.data;
       for (let i = 0; i < b64.length; i += 76) {
         lines.push(b64.substring(i, i + 76));
@@ -135,18 +133,55 @@ function buildRawEmail(
     lines.push(`Content-Type: text/plain; charset="UTF-8"`);
     lines.push(`Content-Transfer-Encoding: base64`);
     lines.push(``);
-    lines.push(btoa(unescape(encodeURIComponent(body))));
+    lines.push(btoa(unescape(encodeURIComponent(bodyText))));
     lines.push(``);
     lines.push(`--${boundary}`);
     lines.push(`Content-Type: text/html; charset="UTF-8"`);
     lines.push(`Content-Transfer-Encoding: base64`);
     lines.push(``);
-    lines.push(btoa(unescape(encodeURIComponent(body.replace(/\n/g, "<br>")))));
+    lines.push(btoa(unescape(encodeURIComponent(bodyHtml))));
     lines.push(``);
     lines.push(`--${boundary}--`);
   }
 
   return lines.join("\r\n");
+}
+
+async function getSignatureHtml(supabase: any, mailboxId: string): Promise<string> {
+  // Try mailbox-specific signature
+  const { data: ms } = await supabase
+    .from("mailbox_signatures")
+    .select("signature_id")
+    .eq("mailbox_id", mailboxId)
+    .maybeSingle();
+
+  if (ms?.signature_id) {
+    const { data: sig } = await supabase
+      .from("signatures")
+      .select("body_html")
+      .eq("id", ms.signature_id)
+      .maybeSingle();
+    if (sig?.body_html) return sig.body_html;
+  }
+
+  // Fallback: team default signature (get team_id from mailbox)
+  const { data: mb } = await supabase
+    .from("team_mailboxes")
+    .select("team_id")
+    .eq("id", mailboxId)
+    .maybeSingle();
+
+  if (mb?.team_id) {
+    const { data: defaultSig } = await supabase
+      .from("signatures")
+      .select("body_html")
+      .eq("team_id", mb.team_id)
+      .eq("is_default", true)
+      .maybeSingle();
+    if (defaultSig?.body_html) return defaultSig.body_html;
+  }
+
+  return "";
 }
 
 serve(async (req) => {
@@ -182,6 +217,9 @@ serve(async (req) => {
       );
     }
 
+    // Get signature for this mailbox
+    const signatureHtml = await getSignatureHtml(supabase, mailbox.id);
+
     let serviceAccountKeyStr = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
     if (!serviceAccountKeyStr) throw new Error("GOOGLE_SERVICE_ACCOUNT_KEY not configured");
 
@@ -199,8 +237,16 @@ serve(async (req) => {
 
     const accessToken = await getAccessToken(serviceAccountKey, from_email.toLowerCase());
 
+    // Build body with signature
+    const bodyText = signatureHtml
+      ? `${body}\n\n--\n${signatureHtml.replace(/<[^>]*>/g, "")}`
+      : body;
+    const bodyHtmlContent = signatureHtml
+      ? `${body.replace(/\n/g, "<br>")}<br><br>--<br>${signatureHtml}`
+      : body.replace(/\n/g, "<br>");
+
     const fromHeader = from_name ? `"${from_name}" <${from_email}>` : from_email;
-    const rawEmail = buildRawEmail(fromHeader, to, subject, body, attachments);
+    const rawEmail = buildRawEmail(fromHeader, to, subject, bodyHtmlContent, bodyText, attachments);
     const encodedMessage = btoa(unescape(encodeURIComponent(rawEmail)))
       .replace(/\+/g, "-")
       .replace(/\//g, "_")

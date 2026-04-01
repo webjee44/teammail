@@ -9,7 +9,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2, Mail, Users, Tag, RefreshCw, Loader2 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Trash2, Mail, Users, Tag, RefreshCw, Loader2, PenTool, Eye, Star } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -29,6 +31,7 @@ const mockTags = [
 ];
 
 type Mailbox = Tables<"team_mailboxes">;
+type Signature = Tables<"signatures">;
 
 const Settings = () => {
   const { user } = useAuth();
@@ -44,6 +47,17 @@ const Settings = () => {
   const [addingMailbox, setAddingMailbox] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
+  // Signature state
+  const [signatures, setSignatures] = useState<Signature[]>([]);
+  const [mailboxSignatures, setMailboxSignatures] = useState<{ mailbox_id: string; signature_id: string }[]>([]);
+  const [loadingSignatures, setLoadingSignatures] = useState(true);
+  const [editingSignature, setEditingSignature] = useState<Signature | null>(null);
+  const [sigName, setSigName] = useState("");
+  const [sigHtml, setSigHtml] = useState("");
+  const [sigIsDefault, setSigIsDefault] = useState(false);
+  const [savingSignature, setSavingSignature] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+
   const fetchMailboxes = async () => {
     const { data, error } = await supabase
       .from("team_mailboxes")
@@ -57,15 +71,25 @@ const Settings = () => {
     setLoadingMailboxes(false);
   };
 
+  const fetchSignatures = async () => {
+    const [sigRes, msRes] = await Promise.all([
+      supabase.from("signatures").select("*").order("created_at"),
+      supabase.from("mailbox_signatures").select("*"),
+    ]);
+    if (sigRes.data) setSignatures(sigRes.data);
+    if (msRes.data) setMailboxSignatures(msRes.data);
+    setLoadingSignatures(false);
+  };
+
   useEffect(() => {
     fetchMailboxes();
+    fetchSignatures();
   }, []);
 
   const addMailbox = async () => {
     if (!newMailboxEmail) return;
     setAddingMailbox(true);
     try {
-      // Get user's team_id from profile
       const { data: profile } = await supabase
         .from("profiles")
         .select("team_id")
@@ -139,6 +163,105 @@ const Settings = () => {
     }
   };
 
+  // Signature CRUD
+  const startNewSignature = () => {
+    setEditingSignature(null);
+    setSigName("");
+    setSigHtml("");
+    setSigIsDefault(false);
+    setShowPreview(false);
+  };
+
+  const startEditSignature = (sig: Signature) => {
+    setEditingSignature(sig);
+    setSigName(sig.name);
+    setSigHtml(sig.body_html);
+    setSigIsDefault(sig.is_default);
+    setShowPreview(false);
+  };
+
+  const saveSignature = async () => {
+    if (!sigName.trim() || !sigHtml.trim()) return;
+    setSavingSignature(true);
+    try {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("team_id")
+        .eq("user_id", user?.id ?? "")
+        .single();
+      if (!profile?.team_id) {
+        toast.error("Aucune équipe trouvée");
+        return;
+      }
+
+      // If marking as default, unset other defaults first
+      if (sigIsDefault) {
+        await supabase
+          .from("signatures")
+          .update({ is_default: false })
+          .eq("team_id", profile.team_id)
+          .eq("is_default", true);
+      }
+
+      if (editingSignature) {
+        const { error } = await supabase
+          .from("signatures")
+          .update({ name: sigName.trim(), body_html: sigHtml, is_default: sigIsDefault })
+          .eq("id", editingSignature.id);
+        if (error) throw error;
+        toast.success("Signature mise à jour");
+      } else {
+        const { error } = await supabase
+          .from("signatures")
+          .insert({ name: sigName.trim(), body_html: sigHtml, is_default: sigIsDefault, team_id: profile.team_id });
+        if (error) throw error;
+        toast.success("Signature créée");
+      }
+
+      setEditingSignature(null);
+      setSigName("");
+      setSigHtml("");
+      setSigIsDefault(false);
+      fetchSignatures();
+    } catch (err: any) {
+      toast.error("Erreur : " + (err.message || String(err)));
+    } finally {
+      setSavingSignature(false);
+    }
+  };
+
+  const deleteSignature = async (id: string) => {
+    const { error } = await supabase.from("signatures").delete().eq("id", id);
+    if (error) {
+      toast.error("Erreur : " + error.message);
+      return;
+    }
+    toast.success("Signature supprimée");
+    fetchSignatures();
+  };
+
+  const assignSignatureToMailbox = async (mailboxId: string, signatureId: string | null) => {
+    // Remove existing assignment for this mailbox
+    await supabase.from("mailbox_signatures").delete().eq("mailbox_id", mailboxId);
+
+    if (signatureId) {
+      const { error } = await supabase.from("mailbox_signatures").insert({
+        mailbox_id: mailboxId,
+        signature_id: signatureId,
+      });
+      if (error) {
+        toast.error("Erreur : " + error.message);
+        return;
+      }
+    }
+    toast.success("Association mise à jour");
+    fetchSignatures();
+  };
+
+  const getMailboxSignatureId = (mailboxId: string) => {
+    return mailboxSignatures.find((ms) => ms.mailbox_id === mailboxId)?.signature_id || "";
+  };
+
   return (
     <AppLayout>
       <div className="flex-1 p-6 max-w-4xl mx-auto space-y-6">
@@ -159,6 +282,9 @@ const Settings = () => {
             </TabsTrigger>
             <TabsTrigger value="accounts" className="gap-2">
               <Mail className="h-4 w-4" /> Comptes
+            </TabsTrigger>
+            <TabsTrigger value="signatures" className="gap-2">
+              <PenTool className="h-4 w-4" /> Signatures
             </TabsTrigger>
           </TabsList>
 
@@ -395,6 +521,196 @@ const Settings = () => {
                       </div>
                     ))}
                   </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Signatures Tab */}
+          <TabsContent value="signatures" className="space-y-4 mt-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                <div>
+                  <CardTitle className="text-base">Signatures d'équipe</CardTitle>
+                  <CardDescription>
+                    Créez des signatures uniformes pour toute l'équipe et assignez-les à vos boîtes mail
+                  </CardDescription>
+                </div>
+                <Button size="sm" className="gap-2" onClick={startNewSignature}>
+                  <Plus className="h-4 w-4" /> Nouvelle signature
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Editor / Creator */}
+                {(sigName !== "" || sigHtml !== "" || editingSignature !== null) ? (
+                  <div className="space-y-4 p-4 rounded-lg border border-border bg-muted/30">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-medium">
+                        {editingSignature ? "Modifier la signature" : "Nouvelle signature"}
+                      </h3>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setEditingSignature(null);
+                          setSigName("");
+                          setSigHtml("");
+                          setSigIsDefault(false);
+                        }}
+                      >
+                        Annuler
+                      </Button>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Nom</Label>
+                      <Input
+                        placeholder="Ex : Signature principale"
+                        value={sigName}
+                        onChange={(e) => setSigName(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label>Contenu HTML</Label>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="gap-1 text-xs"
+                          onClick={() => setShowPreview(!showPreview)}
+                        >
+                          <Eye className="h-3 w-3" />
+                          {showPreview ? "Éditer" : "Aperçu"}
+                        </Button>
+                      </div>
+                      {showPreview ? (
+                        <div
+                          className="min-h-[120px] p-3 rounded-md border border-input bg-background text-sm"
+                          dangerouslySetInnerHTML={{ __html: sigHtml }}
+                        />
+                      ) : (
+                        <Textarea
+                          placeholder='<p>Cordialement,<br><strong>Nom</strong></p>'
+                          value={sigHtml}
+                          onChange={(e) => setSigHtml(e.target.value)}
+                          className="min-h-[120px] font-mono text-xs"
+                        />
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        id="sig-default"
+                        checked={sigIsDefault}
+                        onCheckedChange={setSigIsDefault}
+                      />
+                      <Label htmlFor="sig-default" className="text-sm">
+                        Signature par défaut
+                      </Label>
+                    </div>
+
+                    <Button
+                      onClick={saveSignature}
+                      disabled={!sigName.trim() || !sigHtml.trim() || savingSignature}
+                      className="gap-2"
+                    >
+                      {savingSignature && <Loader2 className="h-4 w-4 animate-spin" />}
+                      {editingSignature ? "Mettre à jour" : "Créer"}
+                    </Button>
+                  </div>
+                ) : null}
+
+                <Separator />
+
+                {/* Signatures list */}
+                {loadingSignatures ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : signatures.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground text-sm">
+                    Aucune signature créée. Cliquez sur "Nouvelle signature" pour commencer.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {signatures.map((sig) => (
+                      <div
+                        key={sig.id}
+                        className="p-4 rounded-lg border border-border space-y-3"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <PenTool className="h-4 w-4 text-primary" />
+                            <span className="text-sm font-medium">{sig.name}</span>
+                            {sig.is_default && (
+                              <Badge variant="secondary" className="gap-1 text-xs">
+                                <Star className="h-3 w-3" /> Par défaut
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => startEditSignature(sig)}
+                            >
+                              Modifier
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => deleteSignature(sig.id)}
+                            >
+                              <Trash2 className="h-4 w-4 text-muted-foreground" />
+                            </Button>
+                          </div>
+                        </div>
+                        <div
+                          className="text-xs text-muted-foreground border-t border-border pt-2"
+                          dangerouslySetInnerHTML={{ __html: sig.body_html }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Mailbox ↔ Signature assignments */}
+                {signatures.length > 0 && mailboxes.length > 0 && (
+                  <>
+                    <Separator />
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-medium">Association boîte mail → signature</h3>
+                      <p className="text-xs text-muted-foreground">
+                        Choisissez la signature à utiliser pour chaque boîte mail. La signature par défaut sera utilisée si aucune n'est assignée.
+                      </p>
+                      {mailboxes.map((mb) => (
+                        <div key={mb.id} className="flex items-center gap-3">
+                          <Mail className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm flex-1">{mb.email}</span>
+                          <Select
+                            value={getMailboxSignatureId(mb.id) || "default"}
+                            onValueChange={(val) =>
+                              assignSignatureToMailbox(mb.id, val === "default" ? null : val)
+                            }
+                          >
+                            <SelectTrigger className="w-[200px]">
+                              <SelectValue placeholder="Par défaut" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="default">Par défaut</SelectItem>
+                              {signatures.map((sig) => (
+                                <SelectItem key={sig.id} value={sig.id}>
+                                  {sig.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ))}
+                    </div>
+                  </>
                 )}
               </CardContent>
             </Card>
