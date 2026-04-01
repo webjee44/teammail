@@ -719,6 +719,9 @@ const Settings = () => {
               </CardContent>
             </Card>
           </TabsContent>
+          <TabsContent value="templates" className="space-y-4 mt-4">
+            <TemplatesSettings />
+          </TabsContent>
         </Tabs>
       </div>
     </AppLayout>
