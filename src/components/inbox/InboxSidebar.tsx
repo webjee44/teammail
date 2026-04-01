@@ -45,16 +45,19 @@ export function InboxSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const { user, signOut } = useAuth();
+  const [searchParams] = useSearchParams();
+  const activeMailbox = searchParams.get("mailbox");
 
   const [counts, setCounts] = useState({ open: 0, mine: 0, unassigned: 0, snoozed: 0, closed: 0 });
   const [tags, setTags] = useState<{ id: string; name: string; color: string }[]>([]);
+  const [mailboxes, setMailboxes] = useState<{ id: string; email: string; label: string | null; openCount: number }[]>([]);
 
   useEffect(() => {
     const fetchCounts = async () => {
       if (!user) return;
       const { data } = await supabase
         .from("conversations")
-        .select("id, status, assigned_to");
+        .select("id, status, assigned_to, mailbox_id");
 
       if (!data) return;
       setCounts({
@@ -64,6 +67,18 @@ export function InboxSidebar() {
         snoozed: data.filter((c) => c.status === "snoozed").length,
         closed: data.filter((c) => c.status === "closed").length,
       });
+
+      // Count open conversations per mailbox
+      const mbCounts = new Map<string, number>();
+      data.filter((c) => c.status === "open" && c.mailbox_id).forEach((c) => {
+        mbCounts.set(c.mailbox_id!, (mbCounts.get(c.mailbox_id!) || 0) + 1);
+      });
+
+      // Fetch mailboxes
+      const { data: mbData } = await supabase.from("team_mailboxes").select("id, email, label").order("email");
+      if (mbData) {
+        setMailboxes(mbData.map((mb) => ({ ...mb, openCount: mbCounts.get(mb.id) || 0 })));
+      }
     };
 
     const fetchTags = async () => {

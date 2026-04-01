@@ -96,7 +96,7 @@ const Index = () => {
     };
 
     fetchConversations();
-  }, [filter, user?.id]);
+  }, [filter, mailboxId, user?.id]);
 
   // Fetch messages & comments when conversation is selected
   const fetchDetail = useCallback(async (convId: string) => {
