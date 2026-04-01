@@ -23,8 +23,8 @@ const mockConversations: Conversation[] = [
   },
   {
     id: "2",
-    subject: "Bug report: Login not working",
-    snippet: "When I try to login with my Google account, I get an error...",
+    subject: "Rapport de bug : Connexion impossible",
+    snippet: "Quand j'essaie de me connecter avec mon compte Google, j'obtiens une erreur...",
     from_email: "marie@startup.io",
     from_name: "Marie Martin",
     status: "open",
