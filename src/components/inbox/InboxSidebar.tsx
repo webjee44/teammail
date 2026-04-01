@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import {
   Inbox,
   User,
@@ -30,14 +31,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
 import { Mail } from "lucide-react";
-
-const inboxItems = [
-  { title: "Boîte de réception", url: "/", icon: Inbox, count: 12 },
-  { title: "Assigné à moi", url: "/?filter=mine", icon: User, count: 3 },
-  { title: "Non assigné", url: "/?filter=unassigned", icon: Users, count: 5 },
-  { title: "En pause", url: "/?filter=snoozed", icon: Clock, count: 2 },
-  { title: "Fermé", url: "/?filter=closed", icon: CheckCircle, count: 0 },
-];
+import { supabase } from "@/integrations/supabase/client";
 
 const toolItems = [
   { title: "Règles", url: "/rules", icon: Zap },
@@ -49,6 +43,43 @@ export function InboxSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const { user, signOut } = useAuth();
+
+  const [counts, setCounts] = useState({ open: 0, mine: 0, unassigned: 0, snoozed: 0, closed: 0 });
+  const [tags, setTags] = useState<{ id: string; name: string; color: string }[]>([]);
+
+  useEffect(() => {
+    const fetchCounts = async () => {
+      if (!user) return;
+      const { data } = await supabase
+        .from("conversations")
+        .select("id, status, assigned_to");
+
+      if (!data) return;
+      setCounts({
+        open: data.filter((c) => c.status === "open").length,
+        mine: data.filter((c) => c.assigned_to === user.id).length,
+        unassigned: data.filter((c) => !c.assigned_to && c.status === "open").length,
+        snoozed: data.filter((c) => c.status === "snoozed").length,
+        closed: data.filter((c) => c.status === "closed").length,
+      });
+    };
+
+    const fetchTags = async () => {
+      const { data } = await supabase.from("tags").select("id, name, color").order("name");
+      if (data) setTags(data);
+    };
+
+    fetchCounts();
+    fetchTags();
+  }, [user]);
+
+  const inboxItems = [
+    { title: "Boîte de réception", url: "/", icon: Inbox, count: counts.open },
+    { title: "Assigné à moi", url: "/?filter=mine", icon: User, count: counts.mine },
+    { title: "Non assigné", url: "/?filter=unassigned", icon: Users, count: counts.unassigned },
+    { title: "En pause", url: "/?filter=snoozed", icon: Clock, count: counts.snoozed },
+    { title: "Fermé", url: "/?filter=closed", icon: CheckCircle, count: counts.closed },
+  ];
 
   const initials = user?.user_metadata?.full_name
     ? user.user_metadata.full_name
@@ -118,12 +149,8 @@ export function InboxSidebar() {
           <SidebarGroupLabel>Étiquettes</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {[
-                { name: "Bug", color: "hsl(0, 84%, 60%)" },
-                { name: "Fonctionnalité", color: "hsl(236, 72%, 58%)" },
-                { name: "Urgent", color: "hsl(38, 92%, 50%)" },
-              ].map((tag) => (
-                <SidebarMenuItem key={tag.name}>
+              {tags.map((tag) => (
+                <SidebarMenuItem key={tag.id}>
                   <SidebarMenuButton asChild>
                     <button className="flex items-center gap-2 w-full hover:bg-sidebar-accent/50 rounded-md px-2 py-1.5 text-sm">
                       <span
