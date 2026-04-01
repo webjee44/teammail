@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Inbox,
   User,
@@ -11,6 +12,7 @@ import {
   Zap,
   LogOut,
   PenSquare,
+  AtSign,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
