@@ -137,6 +137,37 @@ export function ConversationDetail({ conversation, onStatusChange, onReply, onCo
   const [subjectDraft, setSubjectDraft] = useState("");
   const [savingSubject, setSavingSubject] = useState(false);
   const subjectInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (editingSubject && subjectInputRef.current) {
+      subjectInputRef.current.focus();
+      subjectInputRef.current.select();
+    }
+  }, [editingSubject]);
+
+  const handleStartEditSubject = () => {
+    setSubjectDraft(decodeHtml(conversation?.subject || ""));
+    setEditingSubject(true);
+  };
+
+  const handleSaveSubject = async () => {
+    if (!conversation || !subjectDraft.trim()) return;
+    setSavingSubject(true);
+    try {
+      const { error } = await supabase
+        .from("conversations")
+        .update({ subject: subjectDraft.trim() })
+        .eq("id", conversation.id);
+      if (error) throw error;
+      conversation.subject = subjectDraft.trim();
+      toast.success("Objet mis à jour");
+      setEditingSubject(false);
+    } catch (err: any) {
+      toast.error("Erreur : " + (err.message || String(err)));
+    } finally {
+      setSavingSubject(false);
+    }
+  };
+
   if (!conversation) {
     return (
       <div className="flex-1 flex items-center justify-center text-muted-foreground">
