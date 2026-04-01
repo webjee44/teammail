@@ -26,30 +26,29 @@ function getIcon(mimeType: string) {
 export function AttachmentList({ attachments }: { attachments: Attachment[] }) {
   if (!attachments || attachments.length === 0) return null;
 
-  const getUrl = (path: string) => {
-    const { data } = supabase.storage.from("attachments").getPublicUrl(path);
-    return data.publicUrl;
+  const handleDownload = async (path: string, filename: string) => {
+    const { data, error } = await supabase.storage
+      .from("attachments")
+      .createSignedUrl(path, 3600);
+    if (error || !data?.signedUrl) return;
+    window.open(data.signedUrl, "_blank");
   };
 
   return (
     <div className="flex flex-wrap gap-2 mt-2 pt-2 border-t border-border">
       {attachments.map((att) => {
         const Icon = getIcon(att.mime_type);
-        const url = getUrl(att.storage_path);
         return (
-          <a
+          <button
             key={att.id}
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            download={att.filename}
+            onClick={() => handleDownload(att.storage_path, att.filename)}
             className="flex items-center gap-1.5 px-2 py-1.5 rounded-md border border-border bg-muted/50 hover:bg-muted text-xs transition-colors group"
           >
             <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
             <span className="truncate max-w-[140px] text-foreground">{att.filename}</span>
             <span className="text-muted-foreground shrink-0">{formatSize(att.size_bytes)}</span>
             <Download className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 shrink-0" />
-          </a>
+          </button>
         );
       })}
     </div>
