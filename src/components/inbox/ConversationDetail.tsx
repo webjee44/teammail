@@ -122,7 +122,7 @@ const categoryLabels: Record<string, string> = {
   other: "Autre",
 };
 
-export function ConversationDetail({ conversation, onStatusChange, onReply, onComment }: Props) {
+export function ConversationDetail({ conversation, onStatusChange, onReply, onComment, onDelete }: Props) {
   const [replyText, setReplyText] = useState("");
   const [commentText, setCommentText] = useState("");
   const [activeTab, setActiveTab] = useState("reply");
