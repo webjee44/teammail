@@ -287,6 +287,9 @@ const Settings = () => {
             <TabsTrigger value="signatures" className="gap-2">
               <PenTool className="h-4 w-4" /> Signatures
             </TabsTrigger>
+            <TabsTrigger value="templates" className="gap-2">
+              <FileText className="h-4 w-4" /> Templates
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="team" className="space-y-4 mt-4">
