@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import type { FileToUpload } from "@/components/inbox/Attachments";
 
 type Message = {
   id: string;
