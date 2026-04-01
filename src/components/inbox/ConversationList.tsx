@@ -98,7 +98,7 @@ export function ConversationList({ conversations, selectedId, onSelect, loading 
                     {conv.subject}
                   </p>
                   {conv.snippet && (
-                    <p className="text-xs text-muted-foreground truncate">{conv.snippet}</p>
+                    <p className="text-xs text-muted-foreground truncate">{(() => { const t = document.createElement("textarea"); t.innerHTML = conv.snippet; return t.value.replace(/\u00A0/g, " ").trim(); })()}</p>
                   )}
                   <div className="flex items-center gap-1.5 mt-1">
                     {conv.tags?.map((tag) => (
