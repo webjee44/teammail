@@ -326,6 +326,7 @@ export function ConversationDetail({ conversation, onStatusChange, onReply, onCo
                 ) : (
                   <p className="text-sm text-foreground whitespace-pre-wrap">{msg.body_text}</p>
                 )}
+                <AttachmentList attachments={msg.attachments || []} />
               </div>
             );
           })}
