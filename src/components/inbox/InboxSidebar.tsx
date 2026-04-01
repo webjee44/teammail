@@ -78,7 +78,7 @@ export function InboxSidebar() {
             <Button size="sm" className="w-full gap-2" asChild>
               <NavLink to="/compose" activeClassName="">
                 <PenSquare className="h-4 w-4" />
-                Compose
+                Rédiger
               </NavLink>
             </Button>
           </div>
