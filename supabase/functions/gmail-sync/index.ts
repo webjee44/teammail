@@ -298,6 +298,21 @@ serve(async (req) => {
           .eq("id", mailbox.id);
 
         results.push({ email: mailbox.email, synced });
+
+        // Trigger AI analysis for new/unanalyzed conversations
+        try {
+          const analyzeUrl = `${supabaseUrl}/functions/v1/ai-analyze-email`;
+          await fetch(analyzeUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${supabaseServiceKey}`,
+            },
+            body: JSON.stringify({ batch: true }),
+          });
+        } catch (aiErr) {
+          console.error("AI analysis trigger failed:", aiErr);
+        }
       } catch (err) {
         console.error(`Error syncing ${mailbox.email}:`, err);
         results.push({ email: mailbox.email, error: String(err) });
