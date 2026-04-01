@@ -190,7 +190,7 @@ const Settings = () => {
                     </div>
                     <div>
                       <p className="text-sm font-medium">{user?.email || "team@company.com"}</p>
-                      <p className="text-xs text-muted-foreground">Connected via Google OAuth</p>
+                      <p className="text-xs text-muted-foreground">Connecté via Google OAuth</p>
                     </div>
                   </div>
                   <Badge variant="outline" className="text-green-600 border-green-600">
