@@ -456,7 +456,7 @@ export function ConversationDetail({ conversation, onStatusChange, onReply, onCo
       </ScrollArea>
 
       {/* Reply / Comment area */}
-      <div className="border-t border-border p-3">
+      <div className="border-t border-border p-3" data-reply-area>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="h-8 mb-2">
             <TabsTrigger value="reply" className="text-xs h-7 px-3">
