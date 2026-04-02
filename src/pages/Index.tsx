@@ -335,8 +335,8 @@ const Index = () => {
 
   return (
     <AppLayout hideHeader>
-      <div className="flex w-full h-screen">
-        <div className="w-[340px] border-r border-border flex flex-col shrink-0">
+      <ResizablePanelGroup direction="horizontal" className="h-screen w-full">
+        <ResizablePanel defaultSize={25} minSize={18} maxSize={45} className="flex flex-col">
           <div className="h-12 flex items-center px-3 border-b border-border gap-2 shrink-0">
             <SidebarTrigger />
             <h2 className="text-sm font-semibold text-foreground">{headerTitle}</h2>
@@ -379,9 +379,11 @@ const Index = () => {
             onToggleNoise={() => setHideNoise(!hideNoise)}
             noiseCount={noiseCount}
           />
-        </div>
+        </ResizablePanel>
 
-        <div className="flex-1 flex flex-col min-w-0">
+        <ResizableHandle />
+
+        <ResizablePanel defaultSize={75} minSize={40} className="flex flex-col min-w-0">
           <ConversationDetail
             conversation={selectedDetail}
             onStatusChange={handleStatusChange}
@@ -389,15 +391,14 @@ const Index = () => {
             onComment={handleComment}
             onDelete={handleDelete}
           />
-        </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
 
-
-        <CommandMenu
-          open={commandOpen}
-          onOpenChange={setCommandOpen}
-          onSelect={setSelectedId}
-        />
-      </div>
+      <CommandMenu
+        open={commandOpen}
+        onOpenChange={setCommandOpen}
+        onSelect={setSelectedId}
+      />
     </AppLayout>
   );
 };
