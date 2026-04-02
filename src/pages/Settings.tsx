@@ -38,8 +38,18 @@ type Signature = Tables<"signatures">;
 const Settings = () => {
   const { user } = useAuth();
   const [inviteEmail, setInviteEmail] = useState("");
+  const [inviting, setInviting] = useState(false);
   const [newTagName, setNewTagName] = useState("");
   const [newTagColor, setNewTagColor] = useState("#6366f1");
+  const [addingTag, setAddingTag] = useState(false);
+
+  // Team members state
+  const [members, setMembers] = useState<TeamMember[]>([]);
+  const [loadingMembers, setLoadingMembers] = useState(true);
+
+  // Tags state
+  const [tags, setTags] = useState<TagItem[]>([]);
+  const [loadingTags, setLoadingTags] = useState(true);
 
   // Mailbox state
   const [mailboxes, setMailboxes] = useState<Mailbox[]>([]);
