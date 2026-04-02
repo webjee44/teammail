@@ -493,36 +493,51 @@ const Settings = () => {
                       className="w-8 h-8 rounded cursor-pointer border-0"
                     />
                     <Button
-                      onClick={() => {
-                        toast.success(`Tag "${newTagName}" créé`);
-                        setNewTagName("");
-                      }}
-                      disabled={!newTagName}
+                      onClick={handleAddTag}
+                      disabled={!newTagName || addingTag}
                       className="gap-2"
                     >
-                      <Plus className="h-4 w-4" /> Ajouter
+                      {addingTag ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Plus className="h-4 w-4" />
+                      )}
+                      Ajouter
                     </Button>
                   </div>
                 </div>
 
                 <Separator />
 
-                <div className="space-y-2">
-                  {mockTags.map((tag) => (
-                    <div key={tag.id} className="flex items-center justify-between py-1.5">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="w-3 h-3 rounded-full"
-                          style={{ backgroundColor: tag.color }}
-                        />
-                        <span className="text-sm">{tag.name}</span>
+                {loadingTags ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : tags.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">Aucun tag</p>
+                ) : (
+                  <div className="space-y-2">
+                    {tags.map((tag) => (
+                      <div key={tag.id} className="flex items-center justify-between py-1.5">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: tag.color }}
+                          />
+                          <span className="text-sm">{tag.name}</span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => handleDeleteTag(tag.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-muted-foreground" />
+                        </Button>
                       </div>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <Trash2 className="h-4 w-4 text-muted-foreground" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
