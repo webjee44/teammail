@@ -419,14 +419,16 @@ const Settings = () => {
                     className="flex-1"
                   />
                   <Button
-                    onClick={() => {
-                      toast.success(`Invitation envoyée à ${inviteEmail}`);
-                      setInviteEmail("");
-                    }}
-                    disabled={!inviteEmail}
+                    onClick={handleInvite}
+                    disabled={!inviteEmail || inviting}
                     className="gap-2"
                   >
-                    <Plus className="h-4 w-4" /> Inviter
+                    {inviting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Plus className="h-4 w-4" />
+                    )}
+                    Inviter
                   </Button>
                 </div>
 
