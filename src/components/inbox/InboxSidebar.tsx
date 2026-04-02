@@ -37,6 +37,7 @@ import { Mail } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const toolItems = [
+  { title: "Tâches", url: "/tasks", icon: ListTodo },
   { title: "Contacts", url: "/contacts", icon: Users },
   { title: "Règles", url: "/rules", icon: Zap },
   { title: "Statistiques", url: "/analytics", icon: BarChart3 },
