@@ -248,10 +248,37 @@ export function ConversationDetail({ conversation, onStatusChange, onReply, onCo
               <Pencil className="h-3.5 w-3.5 opacity-0 group-hover:opacity-50 transition-opacity shrink-0" />
             </h2>
           )}
-          <div className="flex items-center gap-1 shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              size="sm"
+              className="h-9 px-4 font-semibold gap-1.5"
+              onClick={() => {
+                setActiveTab("reply");
+                // Scroll to reply area
+                document.querySelector('[data-reply-area]')?.scrollIntoView({ behavior: 'smooth' });
+              }}
+            >
+              <Send className="h-4 w-4" /> Répondre
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 px-4 font-semibold gap-1.5"
+              onClick={() => onDelete?.(conversation.id)}
+            >
+              <Trash2 className="h-4 w-4" /> Archiver
+            </Button>
+            <Button
+              variant={conversation.status === "snoozed" ? "secondary" : "outline"}
+              size="sm"
+              className="h-9 px-4 font-semibold gap-1.5"
+              onClick={() => onStatusChange?.(conversation.id, conversation.status === "snoozed" ? "open" : "snoozed")}
+            >
+              <Clock className="h-4 w-4" /> {conversation.status === "snoozed" ? "Reprendre" : "Todo"}
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Button variant="ghost" size="icon" className="h-9 w-9">
                   <MoreHorizontal className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -259,17 +286,8 @@ export function ConversationDetail({ conversation, onStatusChange, onReply, onCo
                 <DropdownMenuItem onClick={() => onStatusChange?.(conversation.id, "open")}>
                   <MessageSquare className="h-4 w-4 mr-2 text-green-600" /> Ouvrir
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onStatusChange?.(conversation.id, "snoozed")}>
-                  <Clock className="h-4 w-4 mr-2 text-amber-500" /> Mettre en pause
-                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onStatusChange?.(conversation.id, "closed")}>
                   <CheckCircle className="h-4 w-4 mr-2" /> Fermer
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => onDelete?.(conversation.id)}
-                  className="text-destructive focus:text-destructive"
-                >
-                  <Trash2 className="h-4 w-4 mr-2" /> Supprimer
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
