@@ -68,8 +68,10 @@ const Index = () => {
         .select("*")
         .order("last_message_at", { ascending: false });
 
-      // Apply filter
-      if (filter === "snoozed") {
+      // Apply filter — skip status filter when showing all mails for a mailbox
+      if (mailboxId && showAllMails) {
+        // No status filter — show all
+      } else if (filter === "snoozed") {
         query = query.eq("status", "snoozed");
       } else if (filter === "closed") {
         query = query.eq("status", "closed");
