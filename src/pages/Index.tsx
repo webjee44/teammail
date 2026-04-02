@@ -41,6 +41,7 @@ const Index = () => {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [hideNoise, setHideNoise] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
+  const [showAllMails, setShowAllMails] = useState(false);
   const [searchParams] = useSearchParams();
   const filter = searchParams.get("filter");
   const mailboxId = searchParams.get("mailbox");
