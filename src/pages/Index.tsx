@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 import type { FileToUpload } from "@/components/inbox/Attachments";
 
@@ -41,6 +43,7 @@ const Index = () => {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [hideNoise, setHideNoise] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
+  const [showAllMails, setShowAllMails] = useState(false);
   const [searchParams] = useSearchParams();
   const filter = searchParams.get("filter");
   const mailboxId = searchParams.get("mailbox");
@@ -67,8 +70,10 @@ const Index = () => {
         .select("*")
         .order("last_message_at", { ascending: false });
 
-      // Apply filter
-      if (filter === "snoozed") {
+      // Apply filter — skip status filter when showing all mails for a mailbox
+      if (mailboxId && showAllMails) {
+        // No status filter — show all
+      } else if (filter === "snoozed") {
         query = query.eq("status", "snoozed");
       } else if (filter === "closed") {
         query = query.eq("status", "closed");
@@ -114,7 +119,7 @@ const Index = () => {
     };
 
     fetchConversations();
-  }, [filter, mailboxId, user?.id]);
+  }, [filter, mailboxId, user?.id, showAllMails]);
 
   // Fetch messages & comments when conversation is selected
   const fetchDetail = useCallback(async (convId: string) => {
@@ -351,6 +356,19 @@ const Index = () => {
               </span>
             </div>
           </div>
+          {mailboxId && (
+            <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border bg-muted/30">
+              <Label htmlFor="show-all" className="text-xs text-muted-foreground cursor-pointer">
+                Tous les mails
+              </Label>
+              <Switch
+                id="show-all"
+                checked={showAllMails}
+                onCheckedChange={setShowAllMails}
+                className="scale-75"
+              />
+            </div>
+          )}
           <ConversationList
             conversations={filteredConversations}
             selectedId={selectedId}
