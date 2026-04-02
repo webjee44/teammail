@@ -11,6 +11,7 @@ import Analytics from "./pages/Analytics.tsx";
 import Settings from "./pages/Settings.tsx";
 import Compose from "./pages/Compose.tsx";
 import Contacts from "./pages/Contacts.tsx";
+import Tasks from "./pages/Tasks.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import { ReactNode } from "react";
 
