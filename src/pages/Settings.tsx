@@ -18,18 +18,19 @@ import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 import { TemplatesSettings } from "@/components/settings/TemplatesSettings";
 
-const mockMembers = [
-  { id: "1", name: "Alex Moreau", email: "alex@company.com", role: "admin" as const, avatar: "" },
-  { id: "2", name: "Sarah Chen", email: "sarah@company.com", role: "membre" as const, avatar: "" },
-  { id: "3", name: "Thomas Petit", email: "thomas@company.com", role: "membre" as const, avatar: "" },
-];
+type TeamMember = {
+  user_id: string;
+  full_name: string | null;
+  email: string | null;
+  avatar_url: string | null;
+  role: "admin" | "member";
+};
 
-const mockTags = [
-  { id: "1", name: "Bug", color: "#ef4444" },
-  { id: "2", name: "Fonctionnalité", color: "#6366f1" },
-  { id: "3", name: "Urgent", color: "#f59e0b" },
-  { id: "4", name: "Ventes", color: "#22c55e" },
-];
+type TagItem = {
+  id: string;
+  name: string;
+  color: string;
+};
 
 type Mailbox = Tables<"team_mailboxes">;
 type Signature = Tables<"signatures">;
