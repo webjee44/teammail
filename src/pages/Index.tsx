@@ -361,19 +361,6 @@ const Index = () => {
               </span>
             </div>
           </div>
-          {mailboxId && (
-            <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border bg-muted/30">
-              <Label htmlFor="show-all" className="text-xs text-muted-foreground cursor-pointer">
-                Tous les mails
-              </Label>
-              <Switch
-                id="show-all"
-                checked={showAllMails}
-                onCheckedChange={setShowAllMails}
-                className="scale-75"
-              />
-            </div>
-          )}
           <ConversationList
             conversations={filteredConversations}
             selectedId={selectedId}
@@ -382,6 +369,8 @@ const Index = () => {
             hideNoise={hideNoise}
             onToggleNoise={() => setHideNoise(!hideNoise)}
             noiseCount={noiseCount}
+            showAllMails={mailboxId ? showAllMails : undefined}
+            onToggleAllMails={mailboxId ? () => setShowAllMails(!showAllMails) : undefined}
           />
         </ResizablePanel>
 

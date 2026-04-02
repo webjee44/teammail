@@ -40,6 +40,8 @@ type Props = {
   hideNoise?: boolean;
   onToggleNoise?: () => void;
   noiseCount?: number;
+  showAllMails?: boolean;
+  onToggleAllMails?: () => void;
 };
 
 const priorityConfig: Record<string, { icon: typeof ArrowUp; className: string; label: string }> = {
@@ -64,6 +66,8 @@ export function ConversationList({
   hideNoise,
   onToggleNoise,
   noiseCount,
+  showAllMails,
+  onToggleAllMails,
 }: Props) {
   if (loading) {
     return (
@@ -73,21 +77,39 @@ export function ConversationList({
     );
   }
 
+  const hasToggles = (noiseCount ?? 0) > 0 || showAllMails !== undefined;
+
   return (
     <>
-      {/* Noise filter toggle */}
-      {(noiseCount ?? 0) > 0 && (
-        <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-muted/30">
-          <VolumeX className="h-3.5 w-3.5 text-muted-foreground" />
-          <Label htmlFor="hide-noise" className="text-xs text-muted-foreground cursor-pointer">
-            Masquer le bruit ({noiseCount})
-          </Label>
-          <Switch
-            id="hide-noise"
-            checked={hideNoise}
-            onCheckedChange={onToggleNoise}
-            className="ml-auto scale-75"
-          />
+      {/* Filter toggles — single row */}
+      {hasToggles && (
+        <div className="flex items-center gap-3 px-3 py-1.5 border-b border-border bg-muted/30">
+          {(noiseCount ?? 0) > 0 && (
+            <label htmlFor="hide-noise" className="flex items-center gap-1.5 cursor-pointer">
+              <Switch
+                id="hide-noise"
+                checked={hideNoise}
+                onCheckedChange={onToggleNoise}
+                className="scale-75"
+              />
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                Bruit ({noiseCount})
+              </span>
+            </label>
+          )}
+          {showAllMails !== undefined && (
+            <label htmlFor="show-all" className="flex items-center gap-1.5 cursor-pointer">
+              <Switch
+                id="show-all"
+                checked={showAllMails}
+                onCheckedChange={onToggleAllMails}
+                className="scale-75"
+              />
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                Tous les mails
+              </span>
+            </label>
+          )}
         </div>
       )}
 
