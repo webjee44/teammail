@@ -148,6 +148,15 @@ serve(async (req) => {
   }
 
   try {
+    // Parse optional mailbox_id from request body
+    let requestedMailboxId: string | null = null;
+    try {
+      const body = await req.json();
+      requestedMailboxId = body?.mailbox_id || null;
+    } catch {
+      // No body or invalid JSON — sync all
+    }
+
     let serviceAccountKeyStr = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
     if (!serviceAccountKeyStr) throw new Error("GOOGLE_SERVICE_ACCOUNT_KEY not configured");
 
@@ -168,10 +177,16 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { data: mailboxes, error: mbError } = await supabase
+    let mbQuery = supabase
       .from("team_mailboxes")
       .select("*")
       .eq("sync_enabled", true);
+
+    if (requestedMailboxId) {
+      mbQuery = mbQuery.eq("id", requestedMailboxId);
+    }
+
+    const { data: mailboxes, error: mbError } = await mbQuery;
 
     if (mbError) throw new Error(`Failed to fetch mailboxes: ${mbError.message}`);
     if (!mailboxes || mailboxes.length === 0) {
