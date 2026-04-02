@@ -42,7 +42,7 @@ const Index = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
-  const [hideNoise, setHideNoise] = useState(false);
+  const [hideNoise, setHideNoise] = useState(true);
   const [commandOpen, setCommandOpen] = useState(false);
   const [showAllMails, setShowAllMails] = useState(false);
   const [searchParams] = useSearchParams();
