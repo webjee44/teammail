@@ -179,6 +179,10 @@ const Index = () => {
         .update({ is_read: true })
         .eq("id", selectedId)
         .then();
+      // Mark as read in Gmail too
+      supabase.functions.invoke("gmail-mark-read", {
+        body: { conversation_id: selectedId },
+      }).catch((err) => console.error("Gmail mark-read failed:", err));
     }
   }, [selectedId, fetchDetail]);
 
