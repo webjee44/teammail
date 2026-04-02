@@ -434,37 +434,39 @@ const Settings = () => {
 
                 <Separator />
 
-                <div className="space-y-3">
-                  {mockMembers.map((member) => (
-                    <div key={member.id} className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-9 w-9">
-                          <AvatarImage src={member.avatar} />
-                          <AvatarFallback className="text-xs bg-muted">
-                            {member.name
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("")}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="text-sm font-medium">{member.name}</p>
-                          <p className="text-xs text-muted-foreground">{member.email}</p>
+                {loadingMembers ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : members.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">Aucun membre</p>
+                ) : (
+                  <div className="space-y-3">
+                    {members.map((member) => (
+                      <div key={member.user_id} className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-9 w-9">
+                            <AvatarImage src={member.avatar_url || undefined} />
+                            <AvatarFallback className="text-xs bg-muted">
+                              {member.full_name
+                                ? member.full_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
+                                : member.email?.slice(0, 2).toUpperCase() ?? "?"}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="text-sm font-medium">{member.full_name || member.email}</p>
+                            {member.full_name && (
+                              <p className="text-xs text-muted-foreground">{member.email}</p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2">
                         <Badge variant={member.role === "admin" ? "default" : "secondary"}>
-                          {member.role}
+                          {member.role === "admin" ? "admin" : "membre"}
                         </Badge>
-                        {member.role !== "admin" && (
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <Trash2 className="h-4 w-4 text-muted-foreground" />
-                          </Button>
-                        )}
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
