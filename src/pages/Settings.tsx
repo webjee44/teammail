@@ -18,18 +18,19 @@ import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 import { TemplatesSettings } from "@/components/settings/TemplatesSettings";
 
-const mockMembers = [
-  { id: "1", name: "Alex Moreau", email: "alex@company.com", role: "admin" as const, avatar: "" },
-  { id: "2", name: "Sarah Chen", email: "sarah@company.com", role: "membre" as const, avatar: "" },
-  { id: "3", name: "Thomas Petit", email: "thomas@company.com", role: "membre" as const, avatar: "" },
-];
+type TeamMember = {
+  user_id: string;
+  full_name: string | null;
+  email: string | null;
+  avatar_url: string | null;
+  role: "admin" | "member";
+};
 
-const mockTags = [
-  { id: "1", name: "Bug", color: "#ef4444" },
-  { id: "2", name: "Fonctionnalité", color: "#6366f1" },
-  { id: "3", name: "Urgent", color: "#f59e0b" },
-  { id: "4", name: "Ventes", color: "#22c55e" },
-];
+type TagItem = {
+  id: string;
+  name: string;
+  color: string;
+};
 
 type Mailbox = Tables<"team_mailboxes">;
 type Signature = Tables<"signatures">;
@@ -37,8 +38,18 @@ type Signature = Tables<"signatures">;
 const Settings = () => {
   const { user } = useAuth();
   const [inviteEmail, setInviteEmail] = useState("");
+  const [inviting, setInviting] = useState(false);
   const [newTagName, setNewTagName] = useState("");
   const [newTagColor, setNewTagColor] = useState("#6366f1");
+  const [addingTag, setAddingTag] = useState(false);
+
+  // Team members state
+  const [members, setMembers] = useState<TeamMember[]>([]);
+  const [loadingMembers, setLoadingMembers] = useState(true);
+
+  // Tags state
+  const [tags, setTags] = useState<TagItem[]>([]);
+  const [loadingTags, setLoadingTags] = useState(true);
 
   // Mailbox state
   const [mailboxes, setMailboxes] = useState<Mailbox[]>([]);
@@ -82,9 +93,109 @@ const Settings = () => {
     setLoadingSignatures(false);
   };
 
+  const fetchMembers = async () => {
+    setLoadingMembers(true);
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("user_id, full_name, email, avatar_url")
+      .order("created_at");
+
+    if (!profiles) { setLoadingMembers(false); return; }
+
+    // Fetch roles for each member
+    const enriched: TeamMember[] = [];
+    for (const p of profiles) {
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", p.user_id);
+      const role = roles?.find((r) => r.role === "admin") ? "admin" : "member";
+      enriched.push({ ...p, role: role as "admin" | "member" });
+    }
+    setMembers(enriched);
+    setLoadingMembers(false);
+  };
+
+  const fetchTags = async () => {
+    setLoadingTags(true);
+    const { data, error } = await supabase
+      .from("tags")
+      .select("id, name, color")
+      .order("created_at");
+    if (!error && data) setTags(data);
+    setLoadingTags(false);
+  };
+
+  const handleInvite = async () => {
+    if (!inviteEmail.trim() || !user) return;
+    setInviting(true);
+    try {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("team_id")
+        .eq("user_id", user.id)
+        .single();
+      if (!profile?.team_id) { toast.error("Aucune équipe trouvée"); return; }
+
+      const { error } = await supabase.from("team_invitations").insert({
+        team_id: profile.team_id,
+        email: inviteEmail.trim().toLowerCase(),
+        invited_by: user.id,
+      });
+      if (error) {
+        toast.error("Erreur : " + error.message);
+        return;
+      }
+      toast.success(`Invitation envoyée à ${inviteEmail}`);
+      setInviteEmail("");
+    } finally {
+      setInviting(false);
+    }
+  };
+
+  const handleAddTag = async () => {
+    if (!newTagName.trim() || !user) return;
+    setAddingTag(true);
+    try {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("team_id")
+        .eq("user_id", user.id)
+        .single();
+      if (!profile?.team_id) { toast.error("Aucune équipe trouvée"); return; }
+
+      const { error } = await supabase.from("tags").insert({
+        team_id: profile.team_id,
+        name: newTagName.trim(),
+        color: newTagColor,
+      });
+      if (error) {
+        toast.error("Erreur : " + error.message);
+        return;
+      }
+      toast.success(`Tag "${newTagName}" créé`);
+      setNewTagName("");
+      fetchTags();
+    } finally {
+      setAddingTag(false);
+    }
+  };
+
+  const handleDeleteTag = async (id: string) => {
+    const { error } = await supabase.from("tags").delete().eq("id", id);
+    if (error) {
+      toast.error("Erreur : " + error.message);
+      return;
+    }
+    toast.success("Tag supprimé");
+    setTags((prev) => prev.filter((t) => t.id !== id));
+  };
+
   useEffect(() => {
     fetchMailboxes();
     fetchSignatures();
+    fetchMembers();
+    fetchTags();
   }, []);
 
   const addMailbox = async () => {
@@ -308,50 +419,54 @@ const Settings = () => {
                     className="flex-1"
                   />
                   <Button
-                    onClick={() => {
-                      toast.success(`Invitation envoyée à ${inviteEmail}`);
-                      setInviteEmail("");
-                    }}
-                    disabled={!inviteEmail}
+                    onClick={handleInvite}
+                    disabled={!inviteEmail || inviting}
                     className="gap-2"
                   >
-                    <Plus className="h-4 w-4" /> Inviter
+                    {inviting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Plus className="h-4 w-4" />
+                    )}
+                    Inviter
                   </Button>
                 </div>
 
                 <Separator />
 
-                <div className="space-y-3">
-                  {mockMembers.map((member) => (
-                    <div key={member.id} className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-9 w-9">
-                          <AvatarImage src={member.avatar} />
-                          <AvatarFallback className="text-xs bg-muted">
-                            {member.name
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("")}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="text-sm font-medium">{member.name}</p>
-                          <p className="text-xs text-muted-foreground">{member.email}</p>
+                {loadingMembers ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : members.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">Aucun membre</p>
+                ) : (
+                  <div className="space-y-3">
+                    {members.map((member) => (
+                      <div key={member.user_id} className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-9 w-9">
+                            <AvatarImage src={member.avatar_url || undefined} />
+                            <AvatarFallback className="text-xs bg-muted">
+                              {member.full_name
+                                ? member.full_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
+                                : member.email?.slice(0, 2).toUpperCase() ?? "?"}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="text-sm font-medium">{member.full_name || member.email}</p>
+                            {member.full_name && (
+                              <p className="text-xs text-muted-foreground">{member.email}</p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2">
                         <Badge variant={member.role === "admin" ? "default" : "secondary"}>
-                          {member.role}
+                          {member.role === "admin" ? "admin" : "membre"}
                         </Badge>
-                        {member.role !== "admin" && (
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <Trash2 className="h-4 w-4 text-muted-foreground" />
-                          </Button>
-                        )}
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -378,36 +493,51 @@ const Settings = () => {
                       className="w-8 h-8 rounded cursor-pointer border-0"
                     />
                     <Button
-                      onClick={() => {
-                        toast.success(`Tag "${newTagName}" créé`);
-                        setNewTagName("");
-                      }}
-                      disabled={!newTagName}
+                      onClick={handleAddTag}
+                      disabled={!newTagName || addingTag}
                       className="gap-2"
                     >
-                      <Plus className="h-4 w-4" /> Ajouter
+                      {addingTag ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Plus className="h-4 w-4" />
+                      )}
+                      Ajouter
                     </Button>
                   </div>
                 </div>
 
                 <Separator />
 
-                <div className="space-y-2">
-                  {mockTags.map((tag) => (
-                    <div key={tag.id} className="flex items-center justify-between py-1.5">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="w-3 h-3 rounded-full"
-                          style={{ backgroundColor: tag.color }}
-                        />
-                        <span className="text-sm">{tag.name}</span>
+                {loadingTags ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : tags.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">Aucun tag</p>
+                ) : (
+                  <div className="space-y-2">
+                    {tags.map((tag) => (
+                      <div key={tag.id} className="flex items-center justify-between py-1.5">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: tag.color }}
+                          />
+                          <span className="text-sm">{tag.name}</span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => handleDeleteTag(tag.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-muted-foreground" />
+                        </Button>
                       </div>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <Trash2 className="h-4 w-4 text-muted-foreground" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
