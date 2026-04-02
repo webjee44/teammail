@@ -93,9 +93,109 @@ const Settings = () => {
     setLoadingSignatures(false);
   };
 
+  const fetchMembers = async () => {
+    setLoadingMembers(true);
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("user_id, full_name, email, avatar_url")
+      .order("created_at");
+
+    if (!profiles) { setLoadingMembers(false); return; }
+
+    // Fetch roles for each member
+    const enriched: TeamMember[] = [];
+    for (const p of profiles) {
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", p.user_id);
+      const role = roles?.find((r) => r.role === "admin") ? "admin" : "member";
+      enriched.push({ ...p, role: role as "admin" | "member" });
+    }
+    setMembers(enriched);
+    setLoadingMembers(false);
+  };
+
+  const fetchTags = async () => {
+    setLoadingTags(true);
+    const { data, error } = await supabase
+      .from("tags")
+      .select("id, name, color")
+      .order("created_at");
+    if (!error && data) setTags(data);
+    setLoadingTags(false);
+  };
+
+  const handleInvite = async () => {
+    if (!inviteEmail.trim() || !user) return;
+    setInviting(true);
+    try {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("team_id")
+        .eq("user_id", user.id)
+        .single();
+      if (!profile?.team_id) { toast.error("Aucune équipe trouvée"); return; }
+
+      const { error } = await supabase.from("team_invitations").insert({
+        team_id: profile.team_id,
+        email: inviteEmail.trim().toLowerCase(),
+        invited_by: user.id,
+      });
+      if (error) {
+        toast.error("Erreur : " + error.message);
+        return;
+      }
+      toast.success(`Invitation envoyée à ${inviteEmail}`);
+      setInviteEmail("");
+    } finally {
+      setInviting(false);
+    }
+  };
+
+  const handleAddTag = async () => {
+    if (!newTagName.trim() || !user) return;
+    setAddingTag(true);
+    try {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("team_id")
+        .eq("user_id", user.id)
+        .single();
+      if (!profile?.team_id) { toast.error("Aucune équipe trouvée"); return; }
+
+      const { error } = await supabase.from("tags").insert({
+        team_id: profile.team_id,
+        name: newTagName.trim(),
+        color: newTagColor,
+      });
+      if (error) {
+        toast.error("Erreur : " + error.message);
+        return;
+      }
+      toast.success(`Tag "${newTagName}" créé`);
+      setNewTagName("");
+      fetchTags();
+    } finally {
+      setAddingTag(false);
+    }
+  };
+
+  const handleDeleteTag = async (id: string) => {
+    const { error } = await supabase.from("tags").delete().eq("id", id);
+    if (error) {
+      toast.error("Erreur : " + error.message);
+      return;
+    }
+    toast.success("Tag supprimé");
+    setTags((prev) => prev.filter((t) => t.id !== id));
+  };
+
   useEffect(() => {
     fetchMailboxes();
     fetchSignatures();
+    fetchMembers();
+    fetchTags();
   }, []);
 
   const addMailbox = async () => {
