@@ -259,6 +259,7 @@ serve(async (req) => {
                 snippet,
                 is_read: isRead,
                 last_message_at: lastMessageAt,
+                mailbox_id: mailbox.id,
               })
               .eq("id", conversationId);
           } else {
