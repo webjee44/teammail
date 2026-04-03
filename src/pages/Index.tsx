@@ -455,9 +455,12 @@ const Index = () => {
         <SheetContent side="right" className="sm:max-w-3xl w-[75vw] p-0 flex flex-col [&>button]:z-50">
           <ConversationDetail
             conversation={selectedDetail}
+            currentUserId={user?.id}
             onStatusChange={handleStatusChange}
             onReply={handleReply}
             onComment={handleComment}
+            onEditComment={handleEditComment}
+            onDeleteComment={handleDeleteComment}
             onDelete={handleDelete}
           />
         </SheetContent>
