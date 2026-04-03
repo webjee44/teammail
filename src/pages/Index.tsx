@@ -139,6 +139,20 @@ const Index = () => {
         console.error("Failed to fetch conversations:", error);
         toast.error("Erreur lors du chargement des conversations");
       } else {
+        // Fetch conversation IDs that have drafts
+        const convIds = (data || []).map((c: any) => c.id);
+        let draftConvIds = new Set<string>();
+        if (convIds.length > 0 && user) {
+          const { data: draftData } = await supabase
+            .from("drafts")
+            .select("conversation_id")
+            .in("conversation_id", convIds)
+            .eq("created_by", user.id);
+          if (draftData) {
+            draftConvIds = new Set(draftData.map((d: any) => d.conversation_id).filter(Boolean));
+          }
+        }
+
         setConversations(
           (data || []).map((c: any) => ({
             id: c.id,
@@ -156,6 +170,7 @@ const Index = () => {
             ai_summary: c.ai_summary,
             category: c.category,
             entities: c.entities,
+            has_draft: draftConvIds.has(c.id),
           }))
         );
       }
