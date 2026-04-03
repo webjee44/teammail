@@ -174,7 +174,7 @@ export function ContactPanel({ contactEmail, onSelectConversation }: Props) {
 
   if (!contact) {
     return (
-      <div className="w-[280px] border-l border-border p-4">
+      <div className="w-full border-border p-4">
         <div className="text-center space-y-2 py-8">
           <User className="h-8 w-8 mx-auto text-muted-foreground/40" />
           <p className="text-xs text-muted-foreground">{contactEmail}</p>
