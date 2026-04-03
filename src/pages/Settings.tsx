@@ -337,6 +337,7 @@ const Settings = () => {
       setSigName("");
       setSigHtml("");
       setSigIsDefault(false);
+      setShowSigEditor(false);
       fetchSignatures();
     } catch (err: any) {
       toast.error("Erreur : " + (err.message || String(err)));
