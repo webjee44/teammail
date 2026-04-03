@@ -422,6 +422,26 @@ const Compose = () => {
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-4" align="end">
                   <div className="space-y-4">
+                    {/* Raccourci J+1 ouvré */}
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="w-full gap-2 text-xs"
+                      onClick={() => {
+                        const now = new Date();
+                        const next = new Date(now);
+                        next.setDate(next.getDate() + 1);
+                        // Avancer au prochain jour ouvré (lun-ven)
+                        const day = next.getDay();
+                        if (day === 0) next.setDate(next.getDate() + 1); // dim → lun
+                        if (day === 6) next.setDate(next.getDate() + 2); // sam → lun
+                        setScheduleDate(next);
+                        setScheduleTime("08:45");
+                      }}
+                    >
+                      <Clock className="h-3 w-3" />
+                      Demain ouvré à 8h45
+                    </Button>
                     <div className="space-y-2">
                       <Label className="text-sm font-medium">Date</Label>
                       <Popover>
