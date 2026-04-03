@@ -1,30 +1,60 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { Pencil, Trash2, Check, X } from "lucide-react";
+import { Pencil, Trash2, Check, X, Clock } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { AttachmentList } from "../Attachments";
 import { renderMentions } from "../MentionTextarea";
+import { supabase } from "@/integrations/supabase/client";
 import type { Message, Comment } from "./types";
+
+type ScheduledEmail = {
+  id: string;
+  to_email: string;
+  from_email: string;
+  subject: string;
+  body: string;
+  scheduled_at: string;
+  status: string;
+};
 
 type Props = {
   messages: Message[];
   comments: Comment[];
+  conversationSubject?: string;
   currentUserId?: string;
   onEditComment?: (commentId: string, newBody: string) => void;
   onDeleteComment?: (commentId: string) => void;
 };
 
-export function MessageList({ messages, comments, currentUserId, onEditComment, onDeleteComment }: Props) {
+export function MessageList({ messages, comments, conversationSubject, currentUserId, onEditComment, onDeleteComment }: Props) {
   const navigate = useNavigate();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editBody, setEditBody] = useState("");
+  const [scheduledEmails, setScheduledEmails] = useState<ScheduledEmail[]>([]);
+
+  // Fetch pending scheduled emails matching this conversation
+  useEffect(() => {
+    if (!conversationSubject) return;
+    const replySubject = conversationSubject.startsWith("Re:") ? conversationSubject : `Re: ${conversationSubject}`;
+    const fetchScheduled = async () => {
+      const { data } = await supabase
+        .from("scheduled_emails")
+        .select("id, to_email, from_email, subject, body, scheduled_at, status")
+        .eq("status", "pending")
+        .or(`subject.eq.${conversationSubject},subject.eq.${replySubject}`)
+        .order("scheduled_at", { ascending: true });
+      setScheduledEmails(data || []);
+    };
+    fetchScheduled();
+  }, [conversationSubject]);
 
   const handleContentClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
@@ -103,6 +133,36 @@ export function MessageList({ messages, comments, currentUserId, onEditComment, 
             </div>
           );
         })}
+
+        {/* Scheduled emails */}
+        {scheduledEmails.map((se) => (
+          <div
+            key={se.id}
+            className="rounded-lg border border-dashed border-amber-400/60 bg-amber-50/50 dark:bg-amber-950/20 p-4 ml-8"
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <Avatar className="h-6 w-6">
+                <AvatarFallback className="text-[10px] bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300">
+                  <Clock className="h-3 w-3" />
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-sm font-medium text-foreground">
+                {se.from_email}
+              </span>
+              <Badge variant="outline" className="text-[10px] h-5 border-amber-400/60 text-amber-600 dark:text-amber-400 bg-amber-100/50 dark:bg-amber-900/30 gap-1">
+                <Clock className="h-2.5 w-2.5" />
+                Programmé · {format(new Date(se.scheduled_at), "d MMM à HH:mm", { locale: fr })}
+              </Badge>
+              <span className="text-xs text-muted-foreground ml-auto">
+                → {se.to_email}
+              </span>
+            </div>
+            <div
+              className="text-sm text-foreground/80 prose prose-sm max-w-none dark:prose-invert"
+              dangerouslySetInnerHTML={{ __html: se.body }}
+            />
+          </div>
+        ))}
 
         {comments.length > 0 && (
           <>
