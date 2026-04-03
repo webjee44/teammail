@@ -414,7 +414,7 @@ const Index = () => {
           <ConversationList
             conversations={filteredConversations}
             selectedId={selectedId}
-            onSelect={setSelectedId}
+            onSelect={handleSelectConversation}
             loading={loading}
             hideNoise={hideNoise}
             onToggleNoise={() => setHideNoise(!hideNoise)}
