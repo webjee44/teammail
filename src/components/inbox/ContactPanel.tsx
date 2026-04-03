@@ -4,6 +4,7 @@ import { fr } from "date-fns/locale";
 import {
   User,
   Building2,
+  MapPin,
   Phone,
   Mail,
   MessageSquare,
