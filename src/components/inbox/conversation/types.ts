@@ -55,9 +55,12 @@ export type ConversationDetailData = {
 
 export type ConversationDetailProps = {
   conversation: ConversationDetailData | null;
+  currentUserId?: string;
   onStatusChange?: (id: string, status: "open" | "snoozed" | "closed") => void;
   onReply?: (id: string, body: string, attachments?: FileToUpload[]) => void;
   onComment?: (id: string, body: string) => void;
+  onEditComment?: (commentId: string, newBody: string) => void;
+  onDeleteComment?: (commentId: string) => void;
   onDelete?: (id: string) => void;
 };
 

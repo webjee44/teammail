@@ -354,6 +354,32 @@ const Index = () => {
     fetchDetail(id);
   };
 
+  const handleEditComment = async (commentId: string, newBody: string) => {
+    const { error } = await supabase
+      .from("comments")
+      .update({ body: newBody })
+      .eq("id", commentId);
+    if (error) {
+      toast.error("Erreur : " + error.message);
+      return;
+    }
+    toast.success("Note modifiée");
+    if (selectedId) fetchDetail(selectedId);
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    const { error } = await supabase
+      .from("comments")
+      .delete()
+      .eq("id", commentId);
+    if (error) {
+      toast.error("Erreur : " + error.message);
+      return;
+    }
+    toast.success("Note supprimée");
+    if (selectedId) fetchDetail(selectedId);
+  };
+
   const handleDelete = async (id: string) => {
     try {
       const { data, error } = await supabase.functions.invoke("gmail-archive", {
@@ -429,9 +455,12 @@ const Index = () => {
         <SheetContent side="right" className="sm:max-w-3xl w-[75vw] p-0 flex flex-col [&>button]:z-50">
           <ConversationDetail
             conversation={selectedDetail}
+            currentUserId={user?.id}
             onStatusChange={handleStatusChange}
             onReply={handleReply}
             onComment={handleComment}
+            onEditComment={handleEditComment}
+            onDeleteComment={handleDeleteComment}
             onDelete={handleDelete}
           />
         </SheetContent>

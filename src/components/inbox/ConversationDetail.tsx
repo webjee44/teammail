@@ -6,7 +6,7 @@ import { ReplyArea } from "./conversation/ReplyArea";
 import type { ConversationDetailProps } from "./conversation/types";
 export type { ConversationDetailData } from "./conversation/types";
 
-export function ConversationDetail({ conversation, onStatusChange, onReply, onComment, onDelete }: ConversationDetailProps) {
+export function ConversationDetail({ conversation, currentUserId, onStatusChange, onReply, onComment, onEditComment, onDeleteComment, onDelete }: ConversationDetailProps) {
   const [activeTab, setActiveTab] = useState("reply");
 
   if (!conversation) {
@@ -31,7 +31,13 @@ export function ConversationDetail({ conversation, onStatusChange, onReply, onCo
           document.querySelector("[data-reply-area]")?.scrollIntoView({ behavior: "smooth" });
         }}
       />
-      <MessageList messages={conversation.messages} comments={conversation.comments} />
+      <MessageList
+        messages={conversation.messages}
+        comments={conversation.comments}
+        currentUserId={currentUserId}
+        onEditComment={onEditComment}
+        onDeleteComment={onDeleteComment}
+      />
       <ReplyArea
         conversation={conversation}
         activeTab={activeTab}
