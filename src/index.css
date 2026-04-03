@@ -121,3 +121,35 @@
   content: '';
   @apply absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-primary;
 }
+
+/* TipTap Editor */
+.tiptap {
+  outline: none;
+}
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: hsl(var(--muted-foreground));
+  pointer-events: none;
+  height: 0;
+}
+.tiptap ul,
+.tiptap ol {
+  padding-left: 1.5rem;
+}
+.tiptap ul {
+  list-style-type: disc;
+}
+.tiptap ol {
+  list-style-type: decimal;
+}
+.tiptap a {
+  color: hsl(var(--primary));
+  text-decoration: underline;
+}
+.tiptap code {
+  background: hsl(var(--muted));
+  padding: 0.15rem 0.3rem;
+  border-radius: 0.25rem;
+  font-size: 0.875em;
+}
