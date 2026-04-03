@@ -42,6 +42,7 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
   const [scheduleDate, setScheduleDate] = useState<Date | undefined>();
   const [scheduleTime, setScheduleTime] = useState("09:00");
   const [scheduling, setScheduling] = useState(false);
+  const [polishing, setPolishing] = useState(false);
   const [signatureHtml, setSignatureHtml] = useState("");
   const [draftInitialized, setDraftInitialized] = useState(false);
 
