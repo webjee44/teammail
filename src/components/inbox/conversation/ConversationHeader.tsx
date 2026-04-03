@@ -235,6 +235,19 @@ export function ConversationHeader({ conversation, onStatusChange, onDelete, onR
           </CollapsibleContent>
         </Collapsible>
       )}
+
+      <Sheet open={contactOpen} onOpenChange={setContactOpen}>
+        <SheetContent side="right" className="p-0 w-[320px] sm:max-w-[320px]">
+          <SheetTitle className="sr-only">Fiche contact</SheetTitle>
+          <ContactPanel
+            contactEmail={conversation.from_email || null}
+            onSelectConversation={(id) => {
+              setContactOpen(false);
+              onSelectConversation?.(id);
+            }}
+          />
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
