@@ -40,8 +40,8 @@ Règles strictes :
 - Garde exactement le même sens, le même ton et approximativement la même longueur.
 - IMPORTANT : conserve le registre de tutoiement ou vouvoiement utilisé par l'auteur. Ne remplace jamais "tu" par "vous" ni l'inverse.
 - Ne rajoute aucune information, aucune formule de politesse supplémentaire.
-- Ne change pas la structure du message (paragraphes, sauts de ligne).
-${isHtml ? "- Le texte est en HTML. Préserve toutes les balises HTML, ne modifie que le texte à l'intérieur." : ""}
+- Structure correctement le texte : utilise des paragraphes séparés, des sauts de ligne entre les idées distinctes, et une salutation/signature sur des lignes séparées.
+${isHtml ? "- Le texte est en HTML. Retourne du HTML bien structuré avec des balises <p> pour les paragraphes et <br> pour les sauts de ligne simples. Assure-toi que chaque paragraphe est dans une balise <p>." : "- Retourne le texte avec des sauts de ligne (\\n) entre les paragraphes."}
 - Retourne UNIQUEMENT le texte corrigé, sans explication ni commentaire.`,
           },
           { role: "user", content: text },
