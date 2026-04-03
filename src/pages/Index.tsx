@@ -125,7 +125,7 @@ const Index = () => {
   // Fetch messages & comments when conversation is selected
   const fetchDetail = useCallback(async (convId: string) => {
     setLoadingDetail(true);
-    const [msgRes, commentRes, attRes] = await Promise.all([
+    const [msgRes, commentRes] = await Promise.all([
       supabase
         .from("messages")
         .select("*")
@@ -136,21 +136,27 @@ const Index = () => {
         .select("*")
         .eq("conversation_id", convId)
         .order("created_at", { ascending: true }),
-      supabase
-        .from("attachments")
-        .select("*"),
     ]);
 
     if (msgRes.data) {
-      // Build a map of attachments by message_id
-      const attMap = new Map<string, any[]>();
-      if (attRes.data) {
-        for (const att of attRes.data) {
-          const list = attMap.get(att.message_id) || [];
-          list.push(att);
-          attMap.set(att.message_id, list);
+      const messageIds = msgRes.data.map((m: any) => m.id);
+      let attMap = new Map<string, any[]>();
+
+      if (messageIds.length > 0) {
+        const { data: attData } = await supabase
+          .from("attachments")
+          .select("*")
+          .in("message_id", messageIds);
+
+        if (attData) {
+          for (const att of attData) {
+            const list = attMap.get(att.message_id) || [];
+            list.push(att);
+            attMap.set(att.message_id, list);
+          }
         }
       }
+
       setMessages(
         msgRes.data.map((m: any) => ({
           ...m,
