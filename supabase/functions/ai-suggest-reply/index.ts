@@ -105,7 +105,16 @@ Génère 3 suggestions de réponses différentes.`,
                         },
                         body: {
                           type: "string",
-                          description: "Texte complet de la réponse suggérée",
+                          description: "Texte complet de la réponse suggérée (vide si action compose_to)",
+                        },
+                        action: {
+                          type: "string",
+                          enum: ["compose_to"],
+                          description: "Action optionnelle : compose_to pour ouvrir un nouveau mail vers le client",
+                        },
+                        action_email: {
+                          type: "string",
+                          description: "Email du destinataire pour l'action compose_to",
                         },
                       },
                       required: ["label", "body"],
