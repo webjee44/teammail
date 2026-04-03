@@ -195,7 +195,11 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
                   <button
                     key={i}
                     onClick={() => {
-                      setReplyHtml(`<p>${s.body}</p>`);
+                      const html = s.body
+                        .split(/\n\n+/)
+                        .map((p) => `<p>${p.replace(/\n/g, "<br>")}</p>`)
+                        .join("");
+                      setReplyHtml(html);
                       setSuggestions([]);
                     }}
                     className="text-xs px-2.5 py-1.5 rounded-full border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors"
