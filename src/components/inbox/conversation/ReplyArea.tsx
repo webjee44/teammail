@@ -30,6 +30,7 @@ type Props = {
 };
 
 export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply, onComment }: Props) {
+  const { draft, updateDraft, deleteDraft, loading: draftLoading } = useDraft({ conversationId: conversation.id });
   const [replyText, setReplyText] = useState("");
   const [commentText, setCommentText] = useState("");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -41,6 +42,20 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
   const [scheduleTime, setScheduleTime] = useState("09:00");
   const [scheduling, setScheduling] = useState(false);
   const [signatureHtml, setSignatureHtml] = useState("");
+  const [draftInitialized, setDraftInitialized] = useState(false);
+
+  // Restore draft on load
+  useEffect(() => {
+    if (draftLoading || draftInitialized) return;
+    if (draft.body) setReplyText(draft.body);
+    setDraftInitialized(true);
+  }, [draftLoading, draft, draftInitialized]);
+
+  // Auto-save reply text as draft
+  useEffect(() => {
+    if (!draftInitialized) return;
+    updateDraft({ body: replyText });
+  }, [replyText, draftInitialized, updateDraft]);
 
   useEffect(() => {
     const loadSignature = async () => {
