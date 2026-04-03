@@ -30,6 +30,7 @@ export type Conversation = {
   ai_summary?: string | null;
   category?: string | null;
   entities?: any;
+  has_draft?: boolean;
 };
 
 type Props = {
