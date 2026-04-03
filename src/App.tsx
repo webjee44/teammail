@@ -12,6 +12,7 @@ import Settings from "./pages/Settings.tsx";
 import Compose from "./pages/Compose.tsx";
 import Contacts from "./pages/Contacts.tsx";
 import Tasks from "./pages/Tasks.tsx";
+import ScheduledEmails from "./pages/ScheduledEmails.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import { ReactNode } from "react";
 
@@ -47,6 +48,7 @@ const App = () => (
             <Route path="/contacts" element={<ProtectedRoute><Contacts /></ProtectedRoute>} />
             <Route path="/contacts/:id" element={<ProtectedRoute><Contacts /></ProtectedRoute>} />
             <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
+            <Route path="/scheduled" element={<ProtectedRoute><ScheduledEmails /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

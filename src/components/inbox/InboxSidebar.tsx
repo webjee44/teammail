@@ -16,6 +16,7 @@ import {
   FileEdit,
   Keyboard,
   Mail,
+  SendHorizonal,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
@@ -60,7 +61,7 @@ export function InboxSidebar() {
   const activeMailbox = searchParams.get("mailbox");
   const { openCompose } = useComposeWindow();
 
-  const [counts, setCounts] = useState({ open: 0, mine: 0, unassigned: 0, snoozed: 0, closed: 0, drafts: 0 });
+  const [counts, setCounts] = useState({ open: 0, mine: 0, unassigned: 0, snoozed: 0, closed: 0, drafts: 0, scheduled: 0 });
   const [tags, setTags] = useState<{ id: string; name: string; color: string }[]>([]);
   const [mailboxes, setMailboxes] = useState<{ id: string; email: string; label: string | null; openCount: number }[]>([]);
 
@@ -78,6 +79,11 @@ export function InboxSidebar() {
         .is("conversation_id", null)
         .eq("created_by", user.id);
 
+      const { count: scheduledCount } = await supabase
+        .from("scheduled_emails")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "pending");
+
       setCounts({
         open: data.filter((c) => c.status === "open").length,
         mine: data.filter((c) => c.assigned_to === user.id).length,
@@ -85,6 +91,7 @@ export function InboxSidebar() {
         snoozed: data.filter((c) => c.status === "snoozed").length,
         closed: data.filter((c) => c.status === "closed").length,
         drafts: draftCount || 0,
+        scheduled: scheduledCount || 0,
       });
 
       const mbCounts = new Map<string, number>();
@@ -115,6 +122,7 @@ export function InboxSidebar() {
     { title: "En pause", url: `/?filter=snoozed${mbSuffix}`, icon: Clock, count: counts.snoozed },
     { title: "Fermé", url: `/?filter=closed${mbSuffix}`, icon: CheckCircle, count: counts.closed },
     { title: "Brouillons", url: `/?filter=drafts${mbSuffix}`, icon: FileEdit, count: counts.drafts },
+    { title: "Programmés", url: "/scheduled", icon: SendHorizonal, count: counts.scheduled },
   ];
 
   const initials = user?.user_metadata?.full_name
