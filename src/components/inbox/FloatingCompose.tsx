@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RichTextEditor } from "@/components/inbox/conversation/RichTextEditor";
+import { RecipientFields } from "@/components/inbox/conversation/RecipientFields";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -17,7 +18,7 @@ import { AttachmentUpload, FileToUpload } from "@/components/inbox/Attachments";
 import { TemplatePickerDialog } from "@/components/inbox/TemplatePickerDialog";
 import { useDraft } from "@/hooks/useDraft";
 import { useComposeWindow } from "@/hooks/useComposeWindow";
-import { Badge } from "@/components/ui/badge";
+
 
 export function FloatingCompose() {
   const { state, closeCompose, toggleMinimize } = useComposeWindow();
@@ -40,27 +41,20 @@ export function FloatingCompose() {
   const [templateOpen, setTemplateOpen] = useState(false);
   const [cc, setCc] = useState<string[]>([]);
   const [bcc, setBcc] = useState<string[]>([]);
-  const [showCc, setShowCc] = useState(false);
-  const [showBcc, setShowBcc] = useState(false);
-  const [ccInput, setCcInput] = useState("");
-  const [bccInput, setBccInput] = useState("");
   const [polishing, setPolishing] = useState(false);
 
   // Reset state when compose window opens
   useEffect(() => {
-    if (state.isOpen) {
-      setTo(state.initialTo || "");
-      setSubject(state.initialSubject || "");
-      setBody(state.initialBody || "");
-      setDraftInitialized(false);
-      setCc([]);
-      setBcc([]);
-      setShowCc(false);
-      setShowBcc(false);
-      setAttachedFiles([]);
-      setSending(false);
-      setScheduling(false);
-    }
+    if (!state.isOpen) return;
+    setTo(state.initialTo || "");
+    setSubject(state.initialSubject || "");
+    setBody(state.initialBody || "");
+    setDraftInitialized(false);
+    setAttachedFiles([]);
+    setCc([]);
+    setBcc([]);
+    setSending(false);
+    setScheduling(false);
   }, [state.isOpen, state.initialTo, state.initialSubject, state.initialBody]);
 
   const handlePolish = async () => {
@@ -81,22 +75,6 @@ export function FloatingCompose() {
     } finally {
       setPolishing(false);
     }
-  };
-
-  const addCcEmail = (value?: string) => {
-    const trimmed = (value || ccInput).trim().toLowerCase();
-    if (trimmed && trimmed.includes("@") && !cc.includes(trimmed)) {
-      setCc([...cc, trimmed]);
-    }
-    setCcInput("");
-  };
-
-  const addBccEmail = (value?: string) => {
-    const trimmed = (value || bccInput).trim().toLowerCase();
-    if (trimmed && trimmed.includes("@") && !bcc.includes(trimmed)) {
-      setBcc([...bcc, trimmed]);
-    }
-    setBccInput("");
   };
 
   useEffect(() => {
@@ -286,76 +264,15 @@ export function FloatingCompose() {
           </Select>
         </div>
 
-        {/* To */}
-        <div className="flex items-center gap-2">
-          <Label className="text-xs text-muted-foreground w-8 shrink-0">À</Label>
-          <Input
-            placeholder="destinataire@example.com"
-            type="email"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            className="h-8 text-xs"
-          />
-          <div className="flex gap-0.5 shrink-0">
-            {!showCc && (
-              <Button variant="ghost" size="sm" className="h-6 text-[10px] px-1 text-muted-foreground" onClick={() => setShowCc(true)}>
-                Cc
-              </Button>
-            )}
-            {!showBcc && (
-              <Button variant="ghost" size="sm" className="h-6 text-[10px] px-1 text-muted-foreground" onClick={() => setShowBcc(true)}>
-                Cci
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {/* Cc */}
-        {showCc && (
-          <div className="flex items-start gap-2">
-            <Label className="text-xs text-muted-foreground w-8 shrink-0 pt-2">Cc</Label>
-            <div className="flex flex-wrap items-center gap-1 p-1.5 border rounded-md min-h-[32px] flex-1">
-              {cc.map((email) => (
-                <Badge key={email} variant="secondary" className="text-[10px] gap-1 py-0 h-5">
-                  {email}
-                  <button onClick={() => setCc(cc.filter((e) => e !== email))} className="hover:text-destructive"><X className="h-2.5 w-2.5" /></button>
-                </Badge>
-              ))}
-              <Input
-                value={ccInput}
-                onChange={(e) => setCcInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addCcEmail(); } }}
-                onBlur={() => addCcEmail()}
-                placeholder="email@exemple.com"
-                className="border-0 shadow-none h-5 text-[10px] px-1 focus-visible:ring-0 min-w-[100px] flex-1"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Bcc */}
-        {showBcc && (
-          <div className="flex items-start gap-2">
-            <Label className="text-xs text-muted-foreground w-8 shrink-0 pt-2">Cci</Label>
-            <div className="flex flex-wrap items-center gap-1 p-1.5 border rounded-md min-h-[32px] flex-1">
-              {bcc.map((email) => (
-                <Badge key={email} variant="secondary" className="text-[10px] gap-1 py-0 h-5">
-                  {email}
-                  <button onClick={() => setBcc(bcc.filter((e) => e !== email))} className="hover:text-destructive"><X className="h-2.5 w-2.5" /></button>
-                </Badge>
-              ))}
-              <Input
-                value={bccInput}
-                onChange={(e) => setBccInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addBccEmail(); } }}
-                onBlur={() => addBccEmail()}
-                placeholder="email@exemple.com"
-                className="border-0 shadow-none h-5 text-[10px] px-1 focus-visible:ring-0 min-w-[100px] flex-1"
-              />
-            </div>
-          </div>
-        )}
-
+        {/* Recipients */}
+        <RecipientFields
+          to={to}
+          cc={cc}
+          bcc={bcc}
+          onToChange={setTo}
+          onCcChange={setCc}
+          onBccChange={setBcc}
+        />
         {/* Subject */}
         <div className="flex items-center gap-2">
           <Label className="text-xs text-muted-foreground w-8 shrink-0">Objet</Label>
