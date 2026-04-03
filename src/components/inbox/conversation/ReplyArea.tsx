@@ -96,6 +96,30 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
     }
   };
 
+  const handlePolish = async () => {
+    if (!replyText.trim()) return;
+    setPolishing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("polish-reply", {
+        body: { text: replyText },
+      });
+      if (error) throw error;
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
+      if (data?.polished) {
+        setReplyText(data.polished);
+        toast.success("Texte peaufiné");
+      }
+    } catch (err: any) {
+      toast.error("Erreur lors du peaufinage");
+      console.error(err);
+    } finally {
+      setPolishing(false);
+    }
+  };
+
   const handleScheduleReply = async () => {
     if (!replyText.trim() || !scheduleDate || !senderEmail || !recipientEmail) {
       toast.error("Remplissez la réponse et sélectionnez une date");
