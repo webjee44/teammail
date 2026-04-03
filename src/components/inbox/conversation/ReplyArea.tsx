@@ -77,7 +77,7 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
   }, []);
 
   const recipientEmail = conversation.messages.find((m) => !m.is_outbound)?.from_email || conversation.from_email || "";
-  const senderEmail = [...conversation.messages].reverse().find((m) => m.is_outbound)?.from_email || "";
+  const senderEmail = [...conversation.messages].reverse().find((m) => m.is_outbound)?.from_email || conversation.from_email || "";
   const replySubject = conversation.subject?.startsWith("Re:") ? conversation.subject : `Re: ${conversation.subject}`;
 
   const isReplyEmpty = !replyHtml.trim() || replyHtml === "<p></p>";
@@ -122,8 +122,16 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
   };
 
   const handleScheduleReply = async () => {
-    if (isReplyEmpty || !scheduleDate || !senderEmail || !recipientEmail) {
-      toast.error("Remplissez la réponse et sélectionnez une date");
+    if (isReplyEmpty) {
+      toast.error("Rédigez votre réponse avant de programmer l'envoi");
+      return;
+    }
+    if (!scheduleDate) {
+      toast.error("Sélectionnez une date d'envoi");
+      return;
+    }
+    if (!senderEmail || !recipientEmail) {
+      toast.error("Adresse expéditeur ou destinataire manquante");
       return;
     }
     const [hours, minutes] = scheduleTime.split(":").map(Number);
@@ -298,8 +306,12 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
                               setScheduleDate(next);
                               setScheduleTime("08:45");
                               // Programme directement
-                              if (isReplyEmpty || !senderEmail || !recipientEmail) {
-                                toast.error("Remplissez la réponse avant de programmer");
+                              if (isReplyEmpty) {
+                                toast.error("Rédigez votre réponse avant de programmer l'envoi");
+                                return;
+                              }
+                              if (!senderEmail || !recipientEmail) {
+                                toast.error("Adresse expéditeur ou destinataire manquante");
                                 return;
                               }
                               setScheduling(true);
