@@ -3,7 +3,7 @@ import {
   UserPlus, Tag, Clock, CheckCircle, MessageSquare, Send,
   MoreHorizontal, Sparkles, ChevronDown, ChevronUp, User,
   Building2, DollarSign, CalendarDays, ArrowUp, ArrowRight,
-  ArrowDown, Loader2, Trash2, Pencil, Check, X,
+  ArrowDown, Loader2, Trash2, Pencil, Check, X, Contact,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
