@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Send, X, Loader2, Clock, CalendarIcon, FileText } from "lucide-react";
+import { Send, X, Loader2, Clock, CalendarIcon, FileText, Wand2, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -18,6 +18,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { AttachmentUpload, FileToUpload } from "@/components/inbox/Attachments";
 import { TemplatePickerDialog } from "@/components/inbox/TemplatePickerDialog";
 import { useDraft } from "@/hooks/useDraft";
+import { Badge } from "@/components/ui/badge";
 
 const Compose = () => {
   const navigate = useNavigate();
@@ -39,6 +40,49 @@ const Compose = () => {
   const [scheduleTime, setScheduleTime] = useState("09:00");
   const [scheduling, setScheduling] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
+  const [cc, setCc] = useState<string[]>([]);
+  const [bcc, setBcc] = useState<string[]>([]);
+  const [showCc, setShowCc] = useState(false);
+  const [showBcc, setShowBcc] = useState(false);
+  const [ccInput, setCcInput] = useState("");
+  const [bccInput, setBccInput] = useState("");
+  const [polishing, setPolishing] = useState(false);
+
+  const handlePolish = async () => {
+    if (!body.trim()) return;
+    setPolishing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("polish-reply", {
+        body: { text: body, format: "text" },
+      });
+      if (error) throw error;
+      if (data?.error) { toast.error(data.error); return; }
+      if (data?.polished) {
+        setBody(data.polished);
+        toast.success("Texte peaufiné");
+      }
+    } catch (err: any) {
+      toast.error("Erreur lors du peaufinage");
+    } finally {
+      setPolishing(false);
+    }
+  };
+
+  const addCcEmail = (value?: string) => {
+    const trimmed = (value || ccInput).trim().toLowerCase();
+    if (trimmed && trimmed.includes("@") && !cc.includes(trimmed)) {
+      setCc([...cc, trimmed]);
+    }
+    setCcInput("");
+  };
+
+  const addBccEmail = (value?: string) => {
+    const trimmed = (value || bccInput).trim().toLowerCase();
+    if (trimmed && trimmed.includes("@") && !bcc.includes(trimmed)) {
+      setBcc([...bcc, trimmed]);
+    }
+    setBccInput("");
+  };
 
   useEffect(() => {
     const fetchMailboxes = async () => {
@@ -225,7 +269,21 @@ const Compose = () => {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="to">À</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="to">À</Label>
+                <div className="flex gap-1">
+                  {!showCc && (
+                    <Button variant="ghost" size="sm" className="h-5 text-xs px-1.5 text-muted-foreground" onClick={() => setShowCc(true)}>
+                      Cc
+                    </Button>
+                  )}
+                  {!showBcc && (
+                    <Button variant="ghost" size="sm" className="h-5 text-xs px-1.5 text-muted-foreground" onClick={() => setShowBcc(true)}>
+                      Cci
+                    </Button>
+                  )}
+                </div>
+              </div>
               <Input
                 id="to"
                 placeholder="destinataire@example.com"
@@ -234,6 +292,52 @@ const Compose = () => {
                 onChange={(e) => setTo(e.target.value)}
               />
             </div>
+            {showCc && (
+              <div className="space-y-2">
+                <Label>Cc</Label>
+                <div className="flex flex-wrap items-center gap-1 p-2 border rounded-md min-h-[36px]">
+                  {cc.map((email) => (
+                    <Badge key={email} variant="secondary" className="text-xs gap-1 py-0 h-5">
+                      {email}
+                      <button onClick={() => setCc(cc.filter((e) => e !== email))} className="ml-0.5 hover:text-destructive">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                  <Input
+                    value={ccInput}
+                    onChange={(e) => setCcInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addCcEmail(); } }}
+                    onBlur={() => addCcEmail()}
+                    placeholder="email@exemple.com"
+                    className="border-0 shadow-none h-6 text-xs px-1 focus-visible:ring-0 min-w-[140px] flex-1"
+                  />
+                </div>
+              </div>
+            )}
+            {showBcc && (
+              <div className="space-y-2">
+                <Label>Cci</Label>
+                <div className="flex flex-wrap items-center gap-1 p-2 border rounded-md min-h-[36px]">
+                  {bcc.map((email) => (
+                    <Badge key={email} variant="secondary" className="text-xs gap-1 py-0 h-5">
+                      {email}
+                      <button onClick={() => setBcc(bcc.filter((e) => e !== email))} className="ml-0.5 hover:text-destructive">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                  <Input
+                    value={bccInput}
+                    onChange={(e) => setBccInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addBccEmail(); } }}
+                    onBlur={() => addBccEmail()}
+                    placeholder="email@exemple.com"
+                    className="border-0 shadow-none h-6 text-xs px-1 focus-visible:ring-0 min-w-[140px] flex-1"
+                  />
+                </div>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="subject">Objet</Label>
               <Input
@@ -279,6 +383,16 @@ const Compose = () => {
               >
                 <FileText className="h-4 w-4" />
                 Template
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={handlePolish}
+                disabled={polishing || !body.trim()}
+                className="gap-2"
+              >
+                {polishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+                Peaufiner
               </Button>
 
               <TemplatePickerDialog
