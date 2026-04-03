@@ -186,7 +186,7 @@ export function ConversationList({
                       {conv.ai_summary ? (
                         <p className="text-xs text-muted-foreground truncate">{conv.ai_summary}</p>
                       ) : conv.snippet ? (
-                        <p className="text-xs text-muted-foreground truncate">{decodeHtml(conv.snippet)}</p>
+                        <p className="text-xs text-muted-foreground truncate">{stripHtml(conv.snippet)}</p>
                       ) : null}
                       <div className="flex items-center gap-1.5 mt-1">
                         {PrioIcon && (
