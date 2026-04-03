@@ -80,7 +80,7 @@ export function ConversationList({
   const hasToggles = (noiseCount ?? 0) > 0 || showAllMails !== undefined;
 
   return (
-    <>
+    <div className="flex flex-col h-full">
       {/* Filter toggles — single row */}
       {hasToggles && (
         <div className="flex items-center gap-3 px-3 py-1.5 border-b border-border bg-muted/30">
