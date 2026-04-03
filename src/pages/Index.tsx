@@ -1,18 +1,16 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ConversationList, Conversation } from "@/components/inbox/ConversationList";
 import { ConversationDetail } from "@/components/inbox/ConversationDetail";
 import { CommandMenu } from "@/components/inbox/CommandMenu";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 
 import type { FileToUpload } from "@/components/inbox/Attachments";
 
@@ -345,28 +343,28 @@ const Index = () => {
 
   return (
     <AppLayout hideHeader>
-      <ResizablePanelGroup direction="horizontal" className="h-screen w-full">
-        <ResizablePanel defaultSize={25} minSize={18} maxSize={45} className="flex flex-col">
-          <div className="h-12 flex items-center px-3 border-b border-border gap-2 shrink-0">
-            <SidebarTrigger />
-            <h2 className="text-sm font-semibold text-foreground">{headerTitle}</h2>
-            <div className="ml-auto flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 gap-1.5 text-muted-foreground"
-                onClick={() => setCommandOpen(true)}
-              >
-                <Search className="h-3.5 w-3.5" />
-                <kbd className="pointer-events-none hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-                  ⌘K
-                </kbd>
-              </Button>
-              <span className="text-xs text-muted-foreground">
-                {totalCount} conversation{totalCount !== 1 ? "s" : ""}
-              </span>
-            </div>
+      <div className="h-screen w-full flex flex-col">
+        <div className="h-12 flex items-center px-3 border-b border-border gap-2 shrink-0">
+          <SidebarTrigger />
+          <h2 className="text-sm font-semibold text-foreground">{headerTitle}</h2>
+          <div className="ml-auto flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1.5 text-muted-foreground"
+              onClick={() => setCommandOpen(true)}
+            >
+              <Search className="h-3.5 w-3.5" />
+              <kbd className="pointer-events-none hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                ⌘K
+              </kbd>
+            </Button>
+            <span className="text-xs text-muted-foreground">
+              {totalCount} conversation{totalCount !== 1 ? "s" : ""}
+            </span>
           </div>
+        </div>
+        <div className="flex-1 overflow-hidden">
           <ConversationList
             conversations={filteredConversations}
             selectedId={selectedId}
@@ -378,11 +376,11 @@ const Index = () => {
             showAllMails={mailboxId ? showAllMails : undefined}
             onToggleAllMails={mailboxId ? () => setShowAllMails(!showAllMails) : undefined}
           />
-        </ResizablePanel>
+        </div>
+      </div>
 
-        <ResizableHandle />
-
-        <ResizablePanel defaultSize={75} minSize={40} className="flex flex-col min-w-0">
+      <Sheet open={!!selectedId} onOpenChange={(open) => { if (!open) setSelectedId(null); }}>
+        <SheetContent side="right" className="sm:max-w-3xl w-[75vw] p-0 flex flex-col [&>button]:z-50">
           <ConversationDetail
             conversation={selectedDetail}
             onStatusChange={handleStatusChange}
@@ -390,8 +388,8 @@ const Index = () => {
             onComment={handleComment}
             onDelete={handleDelete}
           />
-        </ResizablePanel>
-      </ResizablePanelGroup>
+        </SheetContent>
+      </Sheet>
 
       <CommandMenu
         open={commandOpen}
