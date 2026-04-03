@@ -1,37 +1,27 @@
 
 
-# Bouton "Peaufiner" pour les réponses email
+# Repenser la barre de recherche
 
-## Objectif
-Ajouter un bouton **"Peaufiner"** dans la zone de réponse qui corrige l'orthographe, améliore la mise en forme et professionnalise le texte — sans donner l'impression que c'est de l'IA (pas d'icône Sparkles, pas de mention IA).
+## Problème
+La recherche est un petit bouton ghost quasi invisible dans le header, perdu entre la cloche de notifications et le compteur de conversations. Il faut la rendre proéminente.
 
-## Approche
+## Solution
+Remplacer le bouton par un **champ de recherche stylisé** toujours visible dans le header — un faux input cliquable (style Linear/Slack/Front) qui ouvre le CommandMenu au clic.
 
-### 1. Edge Function `polish-reply`
-Nouvelle edge function qui prend le texte brut et retourne une version corrigée/améliorée :
-- Prompt orienté "correcteur/rédacteur" : corriger fautes, ponctuation, formulations maladroites, mise en forme pro
-- Modèle rapide (`gemini-2.5-flash-lite`) pour une réponse quasi instantanée
-- Pas de changement de fond/sens, juste du polissage
+### Design
+- Un élément type `div` stylisé comme un input avec fond `bg-muted/50`, bordure arrondie, placeholder "Rechercher…", icône Search à gauche, badge `⌘K` à droite
+- Largeur flexible (`flex-1 max-w-xs`) pour prendre de la place sans écraser le reste
+- Hover state avec bordure plus visible
+- Centré dans le header ou placé après le titre avec un espacement confortable
 
-### 2. Bouton dans ReplyArea
-- Icône `Wand2` (baguette) de Lucide — neutre, évoque la retouche sans évoquer l'IA
-- Label : **"Peaufiner"**
-- Placé à côté de "Suggérer" et "Template" dans la barre d'actions
-- Désactivé si le texte est vide
-- Loader pendant le traitement, puis remplacement du texte par la version polie
+### Disposition du header repensée
+```text
+[☰] [Boîte de réception]     [🔍 Rechercher...  ⌘K]     [🔔] [12 conversations]
+```
 
-### 3. UX
-- Le texte est remplacé directement (l'utilisateur peut Ctrl+Z ou réécrire)
-- Toast discret "Texte peaufiné" en cas de succès
-- Toast erreur si échec
-
-## Fichiers modifiés
+## Fichier modifié
 
 | Fichier | Changement |
 |---------|-----------|
-| `supabase/functions/polish-reply/index.ts` | Nouvelle edge function — prompt correcteur/rédacteur |
-| `src/components/inbox/conversation/ReplyArea.tsx` | Ajout bouton Peaufiner + état loading + appel edge function |
-
-## Prompt de l'edge function (résumé)
-> "Tu es un correcteur et rédacteur professionnel francophone. Corrige l'orthographe, la grammaire, la ponctuation. Améliore les formulations maladroites. Garde le même sens, le même ton, la même longueur. Ne rajoute rien. Retourne uniquement le texte corrigé."
+| `src/pages/Index.tsx` | Remplacement du bouton Search par un faux input cliquable stylisé, repositionnement dans le header |
 
