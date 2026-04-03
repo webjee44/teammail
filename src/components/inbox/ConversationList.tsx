@@ -7,10 +7,10 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { AlertTriangle, ArrowUp, ArrowRight, ArrowDown, VolumeX, FileEdit } from "lucide-react";
 
-const decodeHtml = (s = "") => {
-  const t = document.createElement("textarea");
+const stripHtml = (s = "") => {
+  const t = document.createElement("div");
   t.innerHTML = s;
-  return t.value.replace(/\u00A0/g, " ").replace(/\s+/g, " ").trim();
+  return (t.textContent || t.innerText || "").replace(/\u00A0/g, " ").replace(/\s+/g, " ").trim();
 };
 
 export type Conversation = {
