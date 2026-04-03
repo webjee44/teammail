@@ -140,6 +140,24 @@ const ScheduledEmails = () => {
       </div>
       {email.status === "pending" && (
         <div className="flex gap-1 shrink-0">
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 px-2 gap-1 text-xs"
+            onClick={async () => {
+              openCompose({
+                to: email.to_email,
+                subject: email.subject,
+                body: email.body,
+              });
+              await supabase.from("scheduled_emails").delete().eq("id", email.id);
+              setEmails((prev) => prev.filter((e) => e.id !== email.id));
+              toast.success("Email ouvert dans le compositeur — l'ancien programmé a été supprimé");
+            }}
+          >
+            <Pencil className="h-3 w-3" />
+            Modifier
+          </Button>
           <Popover
             open={rescheduleId === email.id}
             onOpenChange={(open) => {
