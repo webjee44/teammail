@@ -40,6 +40,7 @@ Règles strictes :
 - Garde exactement le même sens, le même ton et approximativement la même longueur.
 - Ne rajoute aucune information, aucune formule de politesse supplémentaire.
 - Ne change pas la structure du message (paragraphes, sauts de ligne).
+${isHtml ? "- Le texte est en HTML. Préserve toutes les balises HTML, ne modifie que le texte à l'intérieur." : ""}
 - Retourne UNIQUEMENT le texte corrigé, sans explication ni commentaire.`,
           },
           { role: "user", content: text },
