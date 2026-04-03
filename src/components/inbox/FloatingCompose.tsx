@@ -43,6 +43,40 @@ export function FloatingCompose() {
   const [bcc, setBcc] = useState<string[]>([]);
   const [polishing, setPolishing] = useState(false);
 
+  // Reset state when compose window opens
+  useEffect(() => {
+    if (!state.isOpen) return;
+    setTo(state.initialTo || "");
+    setSubject(state.initialSubject || "");
+    setBody(state.initialBody || "");
+    setDraftInitialized(false);
+    setAttachedFiles([]);
+    setCc([]);
+    setBcc([]);
+    setSending(false);
+    setScheduling(false);
+  }, [state.isOpen, state.initialTo, state.initialSubject, state.initialBody]);
+
+  const handlePolish = async () => {
+    if (!body.trim() && body !== "<p></p>") return;
+    setPolishing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("polish-reply", {
+        body: { text: body, format: "html" },
+      });
+      if (error) throw error;
+      if (data?.error) { toast.error(data.error); return; }
+      if (data?.polished) {
+        setBody(data.polished);
+        toast.success("Texte peaufiné");
+      }
+    } catch {
+      toast.error("Erreur lors du peaufinage");
+    } finally {
+      setPolishing(false);
+    }
+  };
+
   useEffect(() => {
     if (!state.isOpen) return;
     const fetchMailboxes = async () => {
