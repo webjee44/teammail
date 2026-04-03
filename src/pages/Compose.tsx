@@ -17,13 +17,19 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { AttachmentUpload, FileToUpload } from "@/components/inbox/Attachments";
 import { TemplatePickerDialog } from "@/components/inbox/TemplatePickerDialog";
+import { useDraft } from "@/hooks/useDraft";
 
 const Compose = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const draftId = searchParams.get("draft");
+  const { draft, updateDraft, deleteDraft, loading: draftLoading } = useDraft({ draftId });
+
   const [to, setTo] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [fromEmail, setFromEmail] = useState("");
+  const [draftInitialized, setDraftInitialized] = useState(false);
   const [mailboxes, setMailboxes] = useState<{ id: string; email: string; label: string | null }[]>([]);
   const [sending, setSending] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<FileToUpload[]>([]);
