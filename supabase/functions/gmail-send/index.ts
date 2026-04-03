@@ -250,7 +250,7 @@ serve(async (req) => {
       : body.replace(/\n/g, "<br>");
 
     const fromHeader = from_name ? `"${from_name}" <${from_email}>` : from_email;
-    const rawEmail = buildRawEmail(fromHeader, to, subject, bodyHtmlContent, bodyText, attachments);
+    const rawEmail = buildRawEmail(fromHeader, to, subject, bodyHtmlContent, bodyText, attachments, cc, bcc);
     const encodedMessage = btoa(unescape(encodeURIComponent(rawEmail)))
       .replace(/\+/g, "-")
       .replace(/\//g, "_")
