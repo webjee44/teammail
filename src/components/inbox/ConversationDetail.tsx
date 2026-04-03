@@ -149,10 +149,24 @@ export function ConversationDetail({ conversation, onStatusChange, onReply, onCo
   const [scheduleDate, setScheduleDate] = useState<Date | undefined>();
   const [scheduleTime, setScheduleTime] = useState("09:00");
   const [scheduling, setScheduling] = useState(false);
+  const [signatureHtml, setSignatureHtml] = useState("");
   const [editingSubject, setEditingSubject] = useState(false);
   const [subjectDraft, setSubjectDraft] = useState("");
   const [savingSubject, setSavingSubject] = useState(false);
   const subjectInputRef = useRef<HTMLInputElement>(null);
+
+  // Load default signature
+  useEffect(() => {
+    const loadSignature = async () => {
+      const { data: defaultSig } = await supabase
+        .from("signatures")
+        .select("body_html")
+        .eq("is_default", true)
+        .maybeSingle();
+      setSignatureHtml(defaultSig?.body_html || "");
+    };
+    loadSignature();
+  }, []);
   useEffect(() => {
     if (editingSubject && subjectInputRef.current) {
       subjectInputRef.current.focus();
@@ -558,6 +572,12 @@ export function ConversationDetail({ conversation, onStatusChange, onReply, onCo
                 onChange={(e) => setReplyText(e.target.value)}
                 className="min-h-[80px] text-sm resize-none"
               />
+              {signatureHtml && (
+                <div
+                  className="p-2 rounded-md border border-border bg-muted/30 text-xs"
+                  dangerouslySetInnerHTML={{ __html: signatureHtml }}
+                />
+              )}
               <AttachmentUpload files={attachedFiles} onFilesChange={setAttachedFiles} />
               <div className="flex justify-between items-center flex-wrap gap-2">
                 <div className="flex gap-1.5">
