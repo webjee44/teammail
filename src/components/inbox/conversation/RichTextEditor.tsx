@@ -49,7 +49,7 @@ export function RichTextEditor({ value, onChange, placeholder, className }: Prop
     const currentHtml = editor.getHTML();
     // Only update if value differs meaningfully (avoid cursor jump)
     if (value !== currentHtml && value !== "<p></p>") {
-      editor.commands.setContent(value, false);
+      editor.commands.setContent(value, { emitUpdate: false });
     }
   }, [value, editor]);
 
