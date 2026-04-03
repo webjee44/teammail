@@ -591,7 +591,7 @@ function ContactDetailView({
           <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
             Conversations ({pastConvos.length})
           </h3>
-          <div className="space-y-1">
+          <div className="space-y-2">
             {pastConvos.map((conv) => (
               <button
                 key={conv.id}
