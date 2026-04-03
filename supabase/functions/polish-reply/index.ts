@@ -40,8 +40,13 @@ Règles strictes :
 - Garde exactement le même sens, le même ton et approximativement la même longueur.
 - IMPORTANT : conserve le registre de tutoiement ou vouvoiement utilisé par l'auteur. Ne remplace jamais "tu" par "vous" ni l'inverse.
 - Ne rajoute aucune information, aucune formule de politesse supplémentaire.
-- Structure correctement le texte : utilise des paragraphes séparés, des sauts de ligne entre les idées distinctes, et une salutation/signature sur des lignes séparées.
-${isHtml ? "- Le texte est en HTML. Retourne du HTML bien structuré avec des balises <p> pour les paragraphes et <br> pour les sauts de ligne simples. Assure-toi que chaque paragraphe est dans une balise <p>." : "- Retourne le texte avec des sauts de ligne (\\n) entre les paragraphes."}
+- TRÈS IMPORTANT — AÉRATION DU TEXTE :
+  - Chaque idée distincte doit être dans son propre paragraphe.
+  - La salutation d'ouverture (ex: "Bonjour,") doit être seule sur sa propre ligne, suivie d'une ligne vide.
+  - La formule de clôture (ex: "À ta disposition.", "Cordialement,") doit être séparée du corps par une ligne vide.
+  - Sépare les différentes idées/questions par des lignes vides entre les paragraphes.
+  - Le texte final doit être aéré et agréable à lire, jamais un bloc compact.
+${isHtml ? "- Le texte est en HTML. Retourne du HTML bien structuré. Utilise <p> pour chaque paragraphe distinct. NE PAS mettre tout le texte dans un seul <p>. Chaque paragraphe logique = un <p> séparé. Exemple :\n<p>Bonjour,</p>\n<p>Premier paragraphe.</p>\n<p>Deuxième paragraphe.</p>\n<p>À ta disposition.</p>" : "- Retourne le texte avec des sauts de ligne (\\n\\n) entre les paragraphes."}
 - Retourne UNIQUEMENT le texte corrigé, sans explication ni commentaire.`,
           },
           { role: "user", content: text },
