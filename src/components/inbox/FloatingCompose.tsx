@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/inbox/conversation/RichTextEditor";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -64,11 +64,11 @@ export function FloatingCompose() {
   }, [state.isOpen, state.initialTo, state.initialSubject, state.initialBody]);
 
   const handlePolish = async () => {
-    if (!body.trim()) return;
+    if (!body.trim() && body !== "<p></p>") return;
     setPolishing(true);
     try {
       const { data, error } = await supabase.functions.invoke("polish-reply", {
-        body: { text: body, format: "text" },
+        body: { text: body, format: "html" },
       });
       if (error) throw error;
       if (data?.error) { toast.error(data.error); return; }
@@ -368,11 +368,10 @@ export function FloatingCompose() {
         </div>
 
         {/* Body */}
-        <Textarea
-          placeholder="Tapez votre message..."
+        <RichTextEditor
           value={body}
-          onChange={(e) => setBody(e.target.value)}
-          className="min-h-[180px] resize-none text-sm"
+          onChange={setBody}
+          placeholder="Tapez votre message..."
         />
 
         {/* Signature */}
