@@ -91,7 +91,22 @@ const Compose = () => {
     loadSignature();
   }, [fromEmail, mailboxes]);
 
-  const handleSend = async () => {
+  // Restore draft fields on load
+  useEffect(() => {
+    if (draftLoading || draftInitialized) return;
+    if (draft.to_email) setTo(draft.to_email);
+    if (draft.subject) setSubject(draft.subject);
+    if (draft.body) setBody(draft.body);
+    if (draft.from_email) setFromEmail(draft.from_email);
+    setDraftInitialized(true);
+  }, [draftLoading, draft, draftInitialized]);
+
+  // Auto-save draft on field changes
+  useEffect(() => {
+    if (!draftInitialized) return;
+    updateDraft({ to_email: to, from_email: fromEmail, subject, body });
+  }, [to, fromEmail, subject, body, draftInitialized, updateDraft]);
+
     if (!to || !subject || !body || !fromEmail) return;
     setSending(true);
     try {
