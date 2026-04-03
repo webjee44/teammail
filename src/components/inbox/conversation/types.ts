@@ -64,7 +64,12 @@ export type ConversationDetailProps = {
   onDelete?: (id: string) => void;
 };
 
-export type Suggestion = { label: string; body: string };
+export type Suggestion = {
+  label: string;
+  body: string;
+  action?: "compose_to";
+  action_email?: string;
+};
 
 export const priorityConfig: Record<string, { icon: any; className: string; label: string }> = {
   high: { icon: null, className: "text-destructive", label: "Haute" },

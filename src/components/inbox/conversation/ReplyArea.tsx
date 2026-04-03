@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
-  Send, MessageSquare, Sparkles, Clock, Loader2, FileText, CalendarIcon, Wand2,
+  Send, MessageSquare, Sparkles, Clock, Loader2, FileText, CalendarIcon, Wand2, Mail,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -32,6 +33,7 @@ type Props = {
 };
 
 export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply, onComment }: Props) {
+  const navigate = useNavigate();
   const { draft, updateDraft, deleteDraft, loading: draftLoading } = useDraft({ conversationId: conversation.id });
   const [replyHtml, setReplyHtml] = useState("");
   const [commentText, setCommentText] = useState("");
@@ -191,23 +193,37 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
             {/* AI Suggestions */}
             {suggestions.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
-                {suggestions.map((s, i) => (
-                  <button
-                    key={i}
-                    onClick={() => {
-                      const html = s.body
-                        .split(/\n\n+/)
-                        .map((p) => `<p>${p.replace(/\n/g, "<br>")}</p>`)
-                        .join("");
-                      setReplyHtml(html);
-                      setSuggestions([]);
-                    }}
-                    className="text-xs px-2.5 py-1.5 rounded-full border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors"
-                  >
-                    <Sparkles className="h-3 w-3 inline mr-1" />
-                    {s.label}
-                  </button>
-                ))}
+                {suggestions.map((s, i) =>
+                  s.action === "compose_to" && s.action_email ? (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        const subject = conversation.subject?.replace(/^(Fwd?|Tr)\s*:\s*/i, "") || "";
+                        navigate(`/compose?to=${encodeURIComponent(s.action_email!)}&subject=${encodeURIComponent(subject)}`);
+                      }}
+                      className="text-xs px-2.5 py-1.5 rounded-full border border-accent/30 bg-accent/5 text-accent-foreground hover:bg-accent/10 transition-colors"
+                    >
+                      <Mail className="h-3 w-3 inline mr-1" />
+                      Écrire à {s.action_email}
+                    </button>
+                  ) : (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        const html = s.body
+                          .split(/\n\n+/)
+                          .map((p) => `<p>${p.replace(/\n/g, "<br>")}</p>`)
+                          .join("");
+                        setReplyHtml(html);
+                        setSuggestions([]);
+                      }}
+                      className="text-xs px-2.5 py-1.5 rounded-full border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors"
+                    >
+                      <Sparkles className="h-3 w-3 inline mr-1" />
+                      {s.label}
+                    </button>
+                  )
+                )}
               </div>
             )}
 
