@@ -77,7 +77,7 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
   }, []);
 
   const recipientEmail = conversation.messages.find((m) => !m.is_outbound)?.from_email || conversation.from_email || "";
-  const senderEmail = [...conversation.messages].reverse().find((m) => m.is_outbound)?.from_email || "";
+  const senderEmail = [...conversation.messages].reverse().find((m) => m.is_outbound)?.from_email || conversation.from_email || "";
   const replySubject = conversation.subject?.startsWith("Re:") ? conversation.subject : `Re: ${conversation.subject}`;
 
   const isReplyEmpty = !replyHtml.trim() || replyHtml === "<p></p>";
