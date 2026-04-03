@@ -121,6 +121,7 @@ const Compose = () => {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
+      await deleteDraft();
       toast.success("Email envoyé !");
       navigate("/");
     } catch (err: any) {
