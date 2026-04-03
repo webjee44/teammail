@@ -122,9 +122,18 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
   };
 
   const handleScheduleReply = async () => {
-    if (isReplyEmpty || !scheduleDate || !senderEmail || !recipientEmail) {
-      toast.error("Remplissez la réponse et sélectionnez une date");
+    if (isReplyEmpty) {
+      toast.error("Rédigez votre réponse avant de programmer l'envoi");
       return;
+    }
+    if (!scheduleDate) {
+      toast.error("Sélectionnez une date d'envoi");
+      return;
+    }
+    if (!senderEmail || !recipientEmail) {
+      toast.error("Adresse expéditeur ou destinataire manquante");
+      return;
+    }
     }
     const [hours, minutes] = scheduleTime.split(":").map(Number);
     const scheduledAt = new Date(scheduleDate);
