@@ -277,6 +277,24 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-4" align="end">
                     <div className="space-y-4">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="w-full gap-1"
+                        onClick={() => {
+                          const now = new Date();
+                          const next = new Date(now);
+                          next.setDate(next.getDate() + 1);
+                          const day = next.getDay();
+                          if (day === 0) next.setDate(next.getDate() + 1);
+                          if (day === 6) next.setDate(next.getDate() + 2);
+                          setScheduleDate(next);
+                          setScheduleTime("08:45");
+                        }}
+                      >
+                        <Clock className="h-3 w-3" />
+                        Demain ouvré à 8h45
+                      </Button>
                       <div className="space-y-2">
                         <Label className="text-sm font-medium">Date</Label>
                         <Popover>
