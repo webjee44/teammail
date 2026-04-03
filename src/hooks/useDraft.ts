@@ -134,5 +134,5 @@ export function useDraft({ conversationId = null, draftId = null }: UseDraftOpti
     }
   }, [savedDraftId]);
 
-  return { draft, updateDraft, deleteDraft, loading, savedDraftId };
+  return { draft, updateDraft, deleteDraft, loading, savedDraftId, resetDraft };
 }
