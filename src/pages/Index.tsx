@@ -64,6 +64,40 @@ const Index = () => {
   useEffect(() => {
     const fetchConversations = async () => {
       setLoading(true);
+
+      // Special handling for drafts filter
+      if (filter === "drafts") {
+        if (!user) { setLoading(false); return; }
+        const { data: drafts } = await supabase
+          .from("drafts")
+          .select("*")
+          .is("conversation_id", null)
+          .eq("created_by", user.id)
+          .order("updated_at", { ascending: false });
+
+        setConversations(
+          (drafts || []).map((d: any) => ({
+            id: `draft-${d.id}`,
+            subject: d.subject || "(sans objet)",
+            snippet: d.body?.slice(0, 100) || null,
+            from_email: d.from_email,
+            from_name: null,
+            status: "open" as const,
+            assigned_to: null,
+            is_read: true,
+            last_message_at: d.updated_at,
+            tags: [],
+            priority: null,
+            is_noise: false,
+            ai_summary: null,
+            category: null,
+            entities: null,
+          }))
+        );
+        setLoading(false);
+        return;
+      }
+
       let query = supabase
         .from("conversations")
         .select("*")
