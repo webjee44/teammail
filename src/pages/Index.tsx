@@ -34,6 +34,7 @@ type Comment = {
 };
 
 const Index = () => {
+  const navigate = useNavigate();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -47,6 +48,16 @@ const Index = () => {
   const filter = searchParams.get("filter");
   const mailboxId = searchParams.get("mailbox");
   const { user } = useAuth();
+
+  const handleSelectConversation = useCallback((id: string) => {
+    // If it's a draft, navigate to Compose with draft id
+    if (id.startsWith("draft-")) {
+      const draftId = id.replace("draft-", "");
+      navigate(`/compose?draft=${draftId}`);
+      return;
+    }
+    setSelectedId(id);
+  }, [navigate]);
 
   // ⌘K / Ctrl+K shortcut
   useEffect(() => {
