@@ -154,8 +154,10 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
         scheduled_at: scheduledAt.toISOString(),
       });
       if (error) throw error;
+      await deleteDraft();
       toast.success(`Réponse programmée pour le ${format(scheduledAt, "d MMMM à HH:mm", { locale: fr })}`);
       setReplyHtml("");
+      setDraftInitialized(false);
       setSuggestions([]);
       setAttachedFiles([]);
       setCc([]);
@@ -320,8 +322,10 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
                                   scheduled_at: next.toISOString(),
                                 });
                                 if (error) throw error;
+                                await deleteDraft();
                                 toast.success(`Réponse programmée pour ${dayName} à 8h45`);
                                 setReplyHtml("");
+                                setDraftInitialized(false);
                                 setSuggestions([]);
                                 setAttachedFiles([]);
                                 setCc([]);
@@ -380,6 +384,7 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
                     onReply?.(conversation.id, replyHtml, attachedFiles);
                     await deleteDraft();
                     setReplyHtml("");
+                    setDraftInitialized(false);
                     setSuggestions([]);
                     setAttachedFiles([]);
                     setCc([]);
