@@ -283,6 +283,7 @@ const Settings = () => {
     setSigHtml("");
     setSigIsDefault(false);
     setShowPreview(false);
+    setShowSigEditor(true);
   };
 
   const startEditSignature = (sig: Signature) => {
