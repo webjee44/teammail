@@ -405,7 +405,7 @@ function ContactDetailView({
     : contact.email.slice(0, 2).toUpperCase();
 
   const EditableRow = ({ icon: Icon, field, value, label }: { icon: any; field: string; value: string | null; label: string }) => (
-    <div className="flex items-center gap-3 py-2">
+    <div className="flex items-center gap-3 py-2.5">
       <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
       <span className="text-xs text-muted-foreground w-20 shrink-0">{label}</span>
       {editingField === field ? (
@@ -436,7 +436,7 @@ function ContactDetailView({
 
   return (
     <ScrollArea className="flex-1">
-      <div className="max-w-2xl mx-auto p-6 space-y-6">
+      <div className="max-w-2xl mx-auto p-8 space-y-8">
         {/* Header */}
         <div className="flex items-start gap-4">
           <Avatar className="h-16 w-16">
@@ -541,21 +541,21 @@ function ContactDetailView({
           </div>
         </div>
 
-        <Separator />
+        <Separator className="my-2" />
 
         {/* Editable fields */}
-        <div>
-          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Informations</h3>
+        <div className="space-y-1">
+          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Informations</h3>
           <EditableRow icon={User} field="name" value={contact.name} label="Nom" />
           <EditableRow icon={Mail} field="email" value={contact.email} label="Email" />
           <EditableRow icon={Building2} field="company" value={contact.company} label="Entreprise" />
           <EditableRow icon={Phone} field="phone" value={contact.phone} label="Téléphone" />
         </div>
 
-        <Separator />
+        <Separator className="my-2" />
 
         {/* Notes */}
-        <div>
+        <div className="space-y-3">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Notes partagées</h3>
             {!editingNotes && (
@@ -584,14 +584,14 @@ function ContactDetailView({
           )}
         </div>
 
-        <Separator />
+        <Separator className="my-2" />
 
         {/* Conversations */}
-        <div>
+        <div className="space-y-3">
           <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
             Conversations ({pastConvos.length})
           </h3>
-          <div className="space-y-1">
+          <div className="space-y-2">
             {pastConvos.map((conv) => (
               <button
                 key={conv.id}
