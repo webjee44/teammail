@@ -107,6 +107,7 @@ const Compose = () => {
     updateDraft({ to_email: to, from_email: fromEmail, subject, body });
   }, [to, fromEmail, subject, body, draftInitialized, updateDraft]);
 
+  const handleSend = async () => {
     if (!to || !subject || !body || !fromEmail) return;
     setSending(true);
     try {
