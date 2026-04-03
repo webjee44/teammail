@@ -29,9 +29,18 @@ export function AttachmentList({ attachments }: { attachments: Attachment[] }) {
   const handleDownload = async (path: string, filename: string) => {
     const { data, error } = await supabase.storage
       .from("attachments")
-      .createSignedUrl(path, 3600);
-    if (error || !data?.signedUrl) return;
-    window.open(data.signedUrl, "_blank");
+      .createSignedUrl(path, 3600, { download: filename });
+    if (error || !data?.signedUrl) {
+      console.error("Signed URL error:", error);
+      return;
+    }
+    const link = document.createElement("a");
+    link.href = data.signedUrl;
+    link.download = filename;
+    link.rel = "noopener noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
