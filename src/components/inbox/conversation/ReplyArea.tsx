@@ -170,11 +170,11 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
                 ))}
               </div>
             )}
-            <Textarea
-              placeholder="Tapez votre réponse..."
+            <MentionTextarea
+              placeholder="Tapez votre réponse... (@mention pour taguer)"
               value={replyText}
-              onChange={(e) => setReplyText(e.target.value)}
-              className="min-h-[80px] text-sm resize-none"
+              onChange={setReplyText}
+              className="text-sm"
             />
             {signatureHtml && (
               <div
