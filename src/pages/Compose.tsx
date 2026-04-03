@@ -422,26 +422,61 @@ const Compose = () => {
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-4" align="end">
                   <div className="space-y-4">
-                    {/* Raccourci J+1 ouvré */}
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="w-full gap-2 text-xs"
-                      onClick={() => {
-                        const now = new Date();
-                        const next = new Date(now);
-                        next.setDate(next.getDate() + 1);
-                        // Avancer au prochain jour ouvré (lun-ven)
-                        const day = next.getDay();
-                        if (day === 0) next.setDate(next.getDate() + 1); // dim → lun
-                        if (day === 6) next.setDate(next.getDate() + 2); // sam → lun
-                        setScheduleDate(next);
-                        setScheduleTime("08:45");
-                      }}
-                    >
-                      <Clock className="h-3 w-3" />
-                      Demain ouvré à 8h45
-                    </Button>
+                    {(() => {
+                      const now = new Date();
+                      const next = new Date(now);
+                      next.setDate(next.getDate() + 1);
+                      const day = next.getDay();
+                      if (day === 0) next.setDate(next.getDate() + 1);
+                      if (day === 6) next.setDate(next.getDate() + 2);
+                      const dayName = format(next, "EEEE", { locale: fr });
+                      return (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="w-full gap-2 text-xs capitalize"
+                          disabled={!to || !subject || !body || !fromEmail || scheduling}
+                          onClick={async () => {
+                            next.setHours(8, 45, 0, 0);
+                            setScheduleDate(next);
+                            setScheduleTime("08:45");
+                            // Programme directement
+                            if (!to || !subject || !body || !fromEmail) return;
+                            setScheduling(true);
+                            try {
+                              const { data: { user } } = await supabase.auth.getUser();
+                              if (!user) throw new Error("Non authentifié");
+                              const { data: profile } = await supabase
+                                .from("profiles")
+                                .select("team_id")
+                                .eq("user_id", user.id)
+                                .maybeSingle();
+                              if (!profile?.team_id) throw new Error("Aucune équipe trouvée");
+                              const { error } = await supabase.from("scheduled_emails").insert({
+                                team_id: profile.team_id,
+                                created_by: user.id,
+                                to_email: to,
+                                subject,
+                                body,
+                                from_email: fromEmail,
+                                scheduled_at: next.toISOString(),
+                              });
+                              if (error) throw error;
+                              toast.success(`Email programmé pour ${dayName} à 8h45`);
+                              navigate("/");
+                            } catch (err: any) {
+                              toast.error("Erreur : " + (err.message || String(err)));
+                            } finally {
+                              setScheduling(false);
+                              setScheduleOpen(false);
+                            }
+                          }}
+                        >
+                          {scheduling ? <Loader2 className="h-3 w-3 animate-spin" /> : <Clock className="h-3 w-3" />}
+                          {dayName} 8h45
+                        </Button>
+                      );
+                    })()}
                     <div className="space-y-2">
                       <Label className="text-sm font-medium">Date</Label>
                       <Popover>
