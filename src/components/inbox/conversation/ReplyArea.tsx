@@ -277,29 +277,68 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-4" align="end">
                     <div className="space-y-4">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        className="w-full gap-1"
-                        onClick={() => {
-                          const now = new Date();
-                          const next = new Date(now);
-                          next.setDate(next.getDate() + 1);
-                          const day = next.getDay();
-                          if (day === 0) next.setDate(next.getDate() + 1);
-                          if (day === 6) next.setDate(next.getDate() + 2);
-                          next.setHours(8, 45, 0, 0);
-                          setScheduleDate(next);
-                          setScheduleTime("08:45");
-                          // Programmer directement
-                          setTimeout(() => {
-                            document.querySelector<HTMLButtonElement>('[data-schedule-send]')?.click();
-                          }, 50);
-                        }}
-                      >
-                        <Clock className="h-3 w-3" />
-                        Lundi 8h45
-                      </Button>
+                      {(() => {
+                        const now = new Date();
+                        const next = new Date(now);
+                        next.setDate(next.getDate() + 1);
+                        const day = next.getDay();
+                        if (day === 0) next.setDate(next.getDate() + 1);
+                        if (day === 6) next.setDate(next.getDate() + 2);
+                        const dayName = format(next, "EEEE", { locale: fr });
+                        return (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="w-full gap-1 capitalize"
+                            disabled={isReplyEmpty || scheduling}
+                            onClick={async () => {
+                              next.setHours(8, 45, 0, 0);
+                              setScheduleDate(next);
+                              setScheduleTime("08:45");
+                              // Programme directement
+                              if (isReplyEmpty || !senderEmail || !recipientEmail) {
+                                toast.error("Remplissez la réponse avant de programmer");
+                                return;
+                              }
+                              setScheduling(true);
+                              try {
+                                const { data: { user } } = await supabase.auth.getUser();
+                                if (!user) throw new Error("Non authentifié");
+                                const { data: profile } = await supabase
+                                  .from("profiles")
+                                  .select("team_id")
+                                  .eq("user_id", user.id)
+                                  .maybeSingle();
+                                if (!profile?.team_id) throw new Error("Aucune équipe trouvée");
+                                const { error } = await supabase.from("scheduled_emails").insert({
+                                  team_id: profile.team_id,
+                                  created_by: user.id,
+                                  to_email: recipientEmail,
+                                  subject: replySubject,
+                                  body: replyHtml,
+                                  from_email: senderEmail,
+                                  scheduled_at: next.toISOString(),
+                                });
+                                if (error) throw error;
+                                toast.success(`Réponse programmée pour ${dayName} à 8h45`);
+                                setReplyHtml("");
+                                setSuggestions([]);
+                                setAttachedFiles([]);
+                                setCc([]);
+                                setBcc([]);
+                              } catch (err: any) {
+                                toast.error("Erreur : " + (err.message || String(err)));
+                              } finally {
+                                setScheduling(false);
+                                setScheduleOpen(false);
+                              }
+                            }}
+                          >
+                            {scheduling ? <Loader2 className="h-3 w-3 animate-spin" /> : <Clock className="h-3 w-3" />}
+                            {dayName} 8h45
+                          </Button>
+                        );
+                      })()}
                       <div className="space-y-2">
                         <Label className="text-sm font-medium">Date</Label>
                         <Popover>
