@@ -38,6 +38,7 @@ Règles strictes :
 - Corrige toutes les fautes d'orthographe, de grammaire et de ponctuation.
 - Améliore les formulations maladroites pour les rendre plus fluides et professionnelles.
 - Garde exactement le même sens, le même ton et approximativement la même longueur.
+- IMPORTANT : conserve le registre de tutoiement ou vouvoiement utilisé par l'auteur. Ne remplace jamais "tu" par "vous" ni l'inverse.
 - Ne rajoute aucune information, aucune formule de politesse supplémentaire.
 - Ne change pas la structure du message (paragraphes, sauts de ligne).
 ${isHtml ? "- Le texte est en HTML. Préserve toutes les balises HTML, ne modifie que le texte à l'intérieur." : ""}
