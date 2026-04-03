@@ -10,6 +10,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Search } from "lucide-react";
+import { useComposeWindow } from "@/hooks/useComposeWindow";
+import { Search } from "lucide-react";
 
 import { NotificationBell } from "@/components/inbox/NotificationBell";
 
