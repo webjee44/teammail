@@ -177,7 +177,9 @@ const Contacts = () => {
         <div className="w-[400px] border-r border-border flex flex-col shrink-0">
           <div className="p-3 border-b border-border space-y-2">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-foreground">Contacts</h2>
+              <h2 className="text-sm font-semibold text-foreground">
+                Contacts {!loading && <span className="text-muted-foreground font-normal">({filtered.length})</span>}
+              </h2>
               <Dialog open={createOpen} onOpenChange={setCreateOpen}>
                 <DialogTrigger asChild>
                   <Button size="sm" className="h-7 gap-1">
