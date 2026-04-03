@@ -322,8 +322,10 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
                                   scheduled_at: next.toISOString(),
                                 });
                                 if (error) throw error;
+                                await deleteDraft();
                                 toast.success(`Réponse programmée pour ${dayName} à 8h45`);
                                 setReplyHtml("");
+                                setDraftInitialized(false);
                                 setSuggestions([]);
                                 setAttachedFiles([]);
                                 setCc([]);
