@@ -405,7 +405,7 @@ function ContactDetailView({
     : contact.email.slice(0, 2).toUpperCase();
 
   const EditableRow = ({ icon: Icon, field, value, label }: { icon: any; field: string; value: string | null; label: string }) => (
-    <div className="flex items-center gap-3 py-2">
+    <div className="flex items-center gap-3 py-2.5">
       <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
       <span className="text-xs text-muted-foreground w-20 shrink-0">{label}</span>
       {editingField === field ? (
