@@ -354,6 +354,32 @@ const Index = () => {
     fetchDetail(id);
   };
 
+  const handleEditComment = async (commentId: string, newBody: string) => {
+    const { error } = await supabase
+      .from("comments")
+      .update({ body: newBody })
+      .eq("id", commentId);
+    if (error) {
+      toast.error("Erreur : " + error.message);
+      return;
+    }
+    toast.success("Note modifiée");
+    if (selectedId) fetchDetail(selectedId);
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    const { error } = await supabase
+      .from("comments")
+      .delete()
+      .eq("id", commentId);
+    if (error) {
+      toast.error("Erreur : " + error.message);
+      return;
+    }
+    toast.success("Note supprimée");
+    if (selectedId) fetchDetail(selectedId);
+  };
+
   const handleDelete = async (id: string) => {
     try {
       const { data, error } = await supabase.functions.invoke("gmail-archive", {
