@@ -14,6 +14,8 @@ import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { ContactPanel } from "@/components/inbox/ContactPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { decodeHtml, categoryLabels, type ConversationDetailData } from "./types";
