@@ -176,6 +176,7 @@ const Compose = () => {
 
       if (error) throw error;
 
+      await deleteDraft();
       toast.success(`Email programmé pour le ${format(scheduledAt, "d MMMM à HH:mm", { locale: fr })}`);
       navigate("/");
     } catch (err: any) {
