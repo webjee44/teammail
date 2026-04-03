@@ -12,6 +12,7 @@ import Settings from "./pages/Settings.tsx";
 import Compose from "./pages/Compose.tsx";
 import Contacts from "./pages/Contacts.tsx";
 import Tasks from "./pages/Tasks.tsx";
+import ScheduledEmails from "./pages/ScheduledEmails.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import { ReactNode } from "react";
 
