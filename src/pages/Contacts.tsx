@@ -541,11 +541,11 @@ function ContactDetailView({
           </div>
         </div>
 
-        <Separator />
+        <Separator className="my-2" />
 
         {/* Editable fields */}
-        <div>
-          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Informations</h3>
+        <div className="space-y-1">
+          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Informations</h3>
           <EditableRow icon={User} field="name" value={contact.name} label="Nom" />
           <EditableRow icon={Mail} field="email" value={contact.email} label="Email" />
           <EditableRow icon={Building2} field="company" value={contact.company} label="Entreprise" />
