@@ -678,7 +678,7 @@ const Settings = () => {
               </CardHeader>
               <CardContent className="space-y-6">
                 {/* Editor / Creator */}
-                {(sigName !== "" || sigHtml !== "" || editingSignature !== null) ? (
+                {showSigEditor ? (
                   <div className="space-y-4 p-4 rounded-lg border border-border bg-muted/30">
                     <div className="flex items-center justify-between">
                       <h3 className="text-sm font-medium">
