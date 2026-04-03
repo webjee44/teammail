@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { AlertTriangle, ArrowUp, ArrowRight, ArrowDown, VolumeX } from "lucide-react";
+import { AlertTriangle, ArrowUp, ArrowRight, ArrowDown, VolumeX, FileEdit } from "lucide-react";
 
 const decodeHtml = (s = "") => {
   const t = document.createElement("textarea");
