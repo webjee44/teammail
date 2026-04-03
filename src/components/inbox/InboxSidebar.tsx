@@ -144,18 +144,14 @@ export function InboxSidebar() {
         {/* Compose button */}
         <div className="px-3 mb-1">
           {collapsed ? (
-            <Button size="icon" variant="outline" className="w-8 h-8 border-dashed" asChild>
-              <NavLink to="/compose" activeClassName="">
-                <PenSquare className="h-3.5 w-3.5" />
-              </NavLink>
+            <Button size="icon" variant="outline" className="w-8 h-8 border-dashed" onClick={() => openCompose()}>
+              <PenSquare className="h-3.5 w-3.5" />
             </Button>
           ) : (
-            <Button variant="outline" size="sm" className="w-full gap-2 h-8 border-dashed text-[13px] font-medium" asChild>
-              <NavLink to="/compose" activeClassName="">
-                <PenSquare className="h-3.5 w-3.5" />
-                Rédiger
-                <span className="ml-auto text-[10px] text-muted-foreground font-normal">C</span>
-              </NavLink>
+            <Button variant="outline" size="sm" className="w-full gap-2 h-8 border-dashed text-[13px] font-medium" onClick={() => openCompose()}>
+              <PenSquare className="h-3.5 w-3.5" />
+              Rédiger
+              <span className="ml-auto text-[10px] text-muted-foreground font-normal">C</span>
             </Button>
           )}
         </div>
