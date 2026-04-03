@@ -195,7 +195,7 @@ export function ContactPanel({ contactEmail, onSelectConversation }: Props) {
   };
 
   return (
-    <div className="w-[280px] border-l border-border flex flex-col h-full">
+    <div className="w-full flex flex-col h-full">
       <div className="p-4 text-center space-y-2 border-b border-border">
         <Avatar className="h-14 w-14 mx-auto">
           <AvatarImage src={contact.avatar_url || undefined} />
