@@ -232,6 +232,6 @@ export function ConversationList({
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
