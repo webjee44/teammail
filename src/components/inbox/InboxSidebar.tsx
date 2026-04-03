@@ -121,6 +121,7 @@ export function InboxSidebar() {
     { title: "En pause", url: `/?filter=snoozed${mbSuffix}`, icon: Clock, count: counts.snoozed },
     { title: "Fermé", url: `/?filter=closed${mbSuffix}`, icon: CheckCircle, count: counts.closed },
     { title: "Brouillons", url: `/?filter=drafts${mbSuffix}`, icon: FileEdit, count: counts.drafts },
+    { title: "Programmés", url: "/scheduled", icon: SendHorizonal, count: counts.scheduled },
   ];
 
   const initials = user?.user_metadata?.full_name
