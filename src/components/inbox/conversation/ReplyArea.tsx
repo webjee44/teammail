@@ -134,7 +134,6 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
       toast.error("Adresse expéditeur ou destinataire manquante");
       return;
     }
-    }
     const [hours, minutes] = scheduleTime.split(":").map(Number);
     const scheduledAt = new Date(scheduleDate);
     scheduledAt.setHours(hours, minutes, 0, 0);
