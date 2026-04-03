@@ -42,6 +42,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
+import { useComposeWindow } from "@/hooks/useComposeWindow";
 
 const toolItems = [
   { title: "Tâches", url: "/tasks", icon: ListTodo, shortcut: "G T" },
