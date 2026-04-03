@@ -264,11 +264,11 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
         </TabsContent>
         <TabsContent value="comment" className="mt-0">
           <div className="space-y-2">
-            <Textarea
-              placeholder="Ajouter une note interne..."
+            <MentionTextarea
+              placeholder="Ajouter une note interne... (@mention pour taguer)"
               value={commentText}
-              onChange={(e) => setCommentText(e.target.value)}
-              className="min-h-[80px] text-sm resize-none bg-warning/5 border-warning/20"
+              onChange={setCommentText}
+              className="text-sm bg-warning/5 border-warning/20"
             />
             <div className="flex justify-end">
               <Button
