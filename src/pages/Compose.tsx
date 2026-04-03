@@ -40,6 +40,49 @@ const Compose = () => {
   const [scheduleTime, setScheduleTime] = useState("09:00");
   const [scheduling, setScheduling] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
+  const [cc, setCc] = useState<string[]>([]);
+  const [bcc, setBcc] = useState<string[]>([]);
+  const [showCc, setShowCc] = useState(false);
+  const [showBcc, setShowBcc] = useState(false);
+  const [ccInput, setCcInput] = useState("");
+  const [bccInput, setBccInput] = useState("");
+  const [polishing, setPolishing] = useState(false);
+
+  const handlePolish = async () => {
+    if (!body.trim()) return;
+    setPolishing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("polish-reply", {
+        body: { text: body, format: "text" },
+      });
+      if (error) throw error;
+      if (data?.error) { toast.error(data.error); return; }
+      if (data?.polished) {
+        setBody(data.polished);
+        toast.success("Texte peaufiné");
+      }
+    } catch (err: any) {
+      toast.error("Erreur lors du peaufinage");
+    } finally {
+      setPolishing(false);
+    }
+  };
+
+  const addCcEmail = (value?: string) => {
+    const trimmed = (value || ccInput).trim().toLowerCase();
+    if (trimmed && trimmed.includes("@") && !cc.includes(trimmed)) {
+      setCc([...cc, trimmed]);
+    }
+    setCcInput("");
+  };
+
+  const addBccEmail = (value?: string) => {
+    const trimmed = (value || bccInput).trim().toLowerCase();
+    if (trimmed && trimmed.includes("@") && !bcc.includes(trimmed)) {
+      setBcc([...bcc, trimmed]);
+    }
+    setBccInput("");
+  };
 
   useEffect(() => {
     const fetchMailboxes = async () => {
