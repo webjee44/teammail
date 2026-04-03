@@ -84,6 +84,13 @@ export function ContactPanel({ contactEmail, onSelectConversation }: Props) {
         avatar_url: data.avatar_url,
         notes: data.notes,
         custom_fields: (data.custom_fields as Record<string, string>) || {},
+        street: (data as any).street || null,
+        street2: (data as any).street2 || null,
+        city: (data as any).city || null,
+        zip: (data as any).zip || null,
+        country: (data as any).country || null,
+        salesperson: (data as any).salesperson || null,
+        last_synced_at: (data as any).last_synced_at || null,
       };
       setContact(c);
       setNotesValue(c.notes || "");
