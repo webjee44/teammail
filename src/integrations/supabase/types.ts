@@ -106,6 +106,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "contact_conversations_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts_with_stats"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "contact_conversations_conversation_id_fkey"
             columns: ["conversation_id"]
             isOneToOne: false
@@ -294,6 +301,13 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts_with_stats"
             referencedColumns: ["id"]
           },
           {
@@ -927,7 +941,40 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      contacts_with_stats: {
+        Row: {
+          avatar_url: string | null
+          city: string | null
+          company: string | null
+          conversation_count: number | null
+          country: string | null
+          created_at: string | null
+          custom_fields: Json | null
+          email: string | null
+          external_id: string | null
+          id: string | null
+          last_interaction: string | null
+          last_synced_at: string | null
+          name: string | null
+          notes: string | null
+          phone: string | null
+          salesperson: string | null
+          street: string | null
+          street2: string | null
+          team_id: string | null
+          updated_at: string | null
+          zip: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contacts_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       get_user_team_id: { Args: { _user_id: string }; Returns: string }
