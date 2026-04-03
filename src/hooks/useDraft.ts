@@ -18,6 +18,7 @@ export function useDraft({ conversationId = null, draftId = null }: UseDraftOpti
   const { user } = useAuth();
   const [draft, setDraft] = useState<DraftData>({});
   const [savedDraftId, setSavedDraftId] = useState<string | null>(draftId);
+  const [activeDraftId, setActiveDraftId] = useState<string | null>(draftId);
   const [loading, setLoading] = useState(true);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestDraft = useRef<DraftData>({});
