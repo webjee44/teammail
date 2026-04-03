@@ -36,6 +36,7 @@ type ScheduledEmail = {
 
 const ScheduledEmails = () => {
   const { user } = useAuth();
+  const { openCompose } = useComposeWindow();
   const [emails, setEmails] = useState<ScheduledEmail[]>([]);
   const [loading, setLoading] = useState(true);
   const [rescheduleId, setRescheduleId] = useState<string | null>(null);
