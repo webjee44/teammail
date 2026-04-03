@@ -288,12 +288,17 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
                           const day = next.getDay();
                           if (day === 0) next.setDate(next.getDate() + 1);
                           if (day === 6) next.setDate(next.getDate() + 2);
+                          next.setHours(8, 45, 0, 0);
                           setScheduleDate(next);
                           setScheduleTime("08:45");
+                          // Programmer directement
+                          setTimeout(() => {
+                            document.querySelector<HTMLButtonElement>('[data-schedule-send]')?.click();
+                          }, 50);
                         }}
                       >
                         <Clock className="h-3 w-3" />
-                        Demain ouvré à 8h45
+                        Lundi 8h45
                       </Button>
                       <div className="space-y-2">
                         <Label className="text-sm font-medium">Date</Label>
