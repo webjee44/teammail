@@ -37,6 +37,7 @@ type Comment = {
 
 const Index = () => {
   const navigate = useNavigate();
+  const { openCompose } = useComposeWindow();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -51,15 +52,27 @@ const Index = () => {
   const mailboxId = searchParams.get("mailbox");
   const { user } = useAuth();
 
-  const handleSelectConversation = useCallback((id: string) => {
-    // If it's a draft, navigate to Compose with draft id
+  const handleSelectConversation = useCallback(async (id: string) => {
+    // If it's a draft, load it and open in compose window
     if (id.startsWith("draft-")) {
       const draftId = id.replace("draft-", "");
-      navigate(`/compose?draft=${draftId}`);
+      const { data: draft } = await supabase
+        .from("drafts")
+        .select("*")
+        .eq("id", draftId)
+        .maybeSingle();
+      if (draft) {
+        openCompose({
+          to: draft.to_email || "",
+          subject: draft.subject || "",
+          body: draft.body || "",
+          draftId: draft.id,
+        });
+      }
       return;
     }
     setSelectedId(id);
-  }, [navigate]);
+  }, [openCompose]);
 
   // ⌘K / Ctrl+K shortcut
   useEffect(() => {
