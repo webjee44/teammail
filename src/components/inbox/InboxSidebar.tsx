@@ -16,6 +16,7 @@ import {
   FileEdit,
   Keyboard,
   Mail,
+  SendHorizonal,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
