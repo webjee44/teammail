@@ -69,6 +69,7 @@ const Settings = () => {
   const [sigIsDefault, setSigIsDefault] = useState(false);
   const [savingSignature, setSavingSignature] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [showSigEditor, setShowSigEditor] = useState(false);
 
   const fetchMailboxes = async () => {
     const { data, error } = await supabase
@@ -282,6 +283,7 @@ const Settings = () => {
     setSigHtml("");
     setSigIsDefault(false);
     setShowPreview(false);
+    setShowSigEditor(true);
   };
 
   const startEditSignature = (sig: Signature) => {
@@ -290,6 +292,7 @@ const Settings = () => {
     setSigHtml(sig.body_html);
     setSigIsDefault(sig.is_default);
     setShowPreview(false);
+    setShowSigEditor(true);
   };
 
   const saveSignature = async () => {
@@ -334,6 +337,7 @@ const Settings = () => {
       setSigName("");
       setSigHtml("");
       setSigIsDefault(false);
+      setShowSigEditor(false);
       fetchSignatures();
     } catch (err: any) {
       toast.error("Erreur : " + (err.message || String(err)));
@@ -676,7 +680,7 @@ const Settings = () => {
               </CardHeader>
               <CardContent className="space-y-6">
                 {/* Editor / Creator */}
-                {(sigName !== "" || sigHtml !== "" || editingSignature !== null) ? (
+                {showSigEditor ? (
                   <div className="space-y-4 p-4 rounded-lg border border-border bg-muted/30">
                     <div className="flex items-center justify-between">
                       <h3 className="text-sm font-medium">
@@ -686,11 +690,12 @@ const Settings = () => {
                         variant="ghost"
                         size="sm"
                         onClick={() => {
-                          setEditingSignature(null);
-                          setSigName("");
-                          setSigHtml("");
-                          setSigIsDefault(false);
-                        }}
+                           setEditingSignature(null);
+                           setSigName("");
+                           setSigHtml("");
+                           setSigIsDefault(false);
+                           setShowSigEditor(false);
+                         }}
                       >
                         Annuler
                       </Button>
