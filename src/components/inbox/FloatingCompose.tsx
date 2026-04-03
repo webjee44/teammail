@@ -286,76 +286,15 @@ export function FloatingCompose() {
           </Select>
         </div>
 
-        {/* To */}
-        <div className="flex items-center gap-2">
-          <Label className="text-xs text-muted-foreground w-8 shrink-0">À</Label>
-          <Input
-            placeholder="destinataire@example.com"
-            type="email"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            className="h-8 text-xs"
-          />
-          <div className="flex gap-0.5 shrink-0">
-            {!showCc && (
-              <Button variant="ghost" size="sm" className="h-6 text-[10px] px-1 text-muted-foreground" onClick={() => setShowCc(true)}>
-                Cc
-              </Button>
-            )}
-            {!showBcc && (
-              <Button variant="ghost" size="sm" className="h-6 text-[10px] px-1 text-muted-foreground" onClick={() => setShowBcc(true)}>
-                Cci
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {/* Cc */}
-        {showCc && (
-          <div className="flex items-start gap-2">
-            <Label className="text-xs text-muted-foreground w-8 shrink-0 pt-2">Cc</Label>
-            <div className="flex flex-wrap items-center gap-1 p-1.5 border rounded-md min-h-[32px] flex-1">
-              {cc.map((email) => (
-                <Badge key={email} variant="secondary" className="text-[10px] gap-1 py-0 h-5">
-                  {email}
-                  <button onClick={() => setCc(cc.filter((e) => e !== email))} className="hover:text-destructive"><X className="h-2.5 w-2.5" /></button>
-                </Badge>
-              ))}
-              <Input
-                value={ccInput}
-                onChange={(e) => setCcInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addCcEmail(); } }}
-                onBlur={() => addCcEmail()}
-                placeholder="email@exemple.com"
-                className="border-0 shadow-none h-5 text-[10px] px-1 focus-visible:ring-0 min-w-[100px] flex-1"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Bcc */}
-        {showBcc && (
-          <div className="flex items-start gap-2">
-            <Label className="text-xs text-muted-foreground w-8 shrink-0 pt-2">Cci</Label>
-            <div className="flex flex-wrap items-center gap-1 p-1.5 border rounded-md min-h-[32px] flex-1">
-              {bcc.map((email) => (
-                <Badge key={email} variant="secondary" className="text-[10px] gap-1 py-0 h-5">
-                  {email}
-                  <button onClick={() => setBcc(bcc.filter((e) => e !== email))} className="hover:text-destructive"><X className="h-2.5 w-2.5" /></button>
-                </Badge>
-              ))}
-              <Input
-                value={bccInput}
-                onChange={(e) => setBccInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addBccEmail(); } }}
-                onBlur={() => addBccEmail()}
-                placeholder="email@exemple.com"
-                className="border-0 shadow-none h-5 text-[10px] px-1 focus-visible:ring-0 min-w-[100px] flex-1"
-              />
-            </div>
-          </div>
-        )}
-
+        {/* Recipients */}
+        <RecipientFields
+          to={to}
+          cc={cc}
+          bcc={bcc}
+          onToChange={setTo}
+          onCcChange={setCc}
+          onBccChange={setBcc}
+        />
         {/* Subject */}
         <div className="flex items-center gap-2">
           <Label className="text-xs text-muted-foreground w-8 shrink-0">Objet</Label>
