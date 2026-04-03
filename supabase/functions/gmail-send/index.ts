@@ -194,7 +194,7 @@ serve(async (req) => {
   }
 
   try {
-    const { to, subject, body, from_email, from_name, attachments } = await req.json();
+    const { to, subject, body, from_email, from_name, attachments, cc, bcc } = await req.json();
 
     if (!to || !subject || !body || !from_email) {
       return new Response(
