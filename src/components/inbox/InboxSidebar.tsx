@@ -110,6 +110,7 @@ export function InboxSidebar() {
     { title: "Non assigné", url: `/?filter=unassigned${mbSuffix}`, icon: Users, count: counts.unassigned },
     { title: "En pause", url: `/?filter=snoozed${mbSuffix}`, icon: Clock, count: counts.snoozed },
     { title: "Fermé", url: `/?filter=closed${mbSuffix}`, icon: CheckCircle, count: counts.closed },
+    { title: "Brouillons", url: `/?filter=drafts${mbSuffix}`, icon: FileEdit, count: counts.drafts },
   ];
 
   const initials = user?.user_metadata?.full_name
