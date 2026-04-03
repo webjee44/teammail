@@ -1,69 +1,45 @@
 
 
-# Gestion des brouillons (Drafts)
+# Mentions @utilisateur dans les zones de texte
 
-## Comment font Front et Missive ?
+## Résumé
 
-**Front** : chaque brouillon est sauvegardé automatiquement en temps réel (auto-save). Les brouillons apparaissent dans un dossier "Drafts" dans la sidebar. Un brouillon peut être lié à une conversation (réponse en cours) ou être un nouveau message. Plusieurs coéquipiers voient qu'un brouillon est en cours sur une conversation (indicateur "X is typing...").
+Ajouter un système de mentions `@` dans les notes internes et les réponses. Quand l'utilisateur tape `@`, un dropdown apparaît avec les membres de l'équipe, filtré en temps réel. La sélection insère le nom dans le texte avec un style distinctif.
 
-**Missive** : même approche — auto-save permanent, brouillons visibles par l'équipe, indicateur de rédaction en cours. Les brouillons sont rattachés à la conversation si c'est une réponse.
+## Approche
 
-## Approche proposée pour TeamMail
+### 1. Composant `MentionTextarea`
 
-### 1. Table `drafts` en base
+Nouveau composant réutilisable qui remplace le `Textarea` standard :
+- Surveille la saisie pour détecter le caractère `@`
+- Affiche un popover/dropdown positionné sous le curseur avec la liste des membres de l'équipe (query `profiles` filtrée par `team_id`)
+- Filtre la liste en temps réel selon ce qui est tapé après le `@`
+- À la sélection, insère `@NomPrénom` dans le texte et ferme le dropdown
+- Les mentions sont affichées en surbrillance (couleur primary) dans le texte envoyé
 
-```text
-drafts
-├── id (uuid, PK)
-├── team_id (uuid, FK teams)
-├── created_by (uuid, FK auth.users)
-├── conversation_id (uuid, FK conversations, nullable) -- null = nouveau mail
-├── to_email (text, nullable)
-├── from_email (text, nullable)
-├── subject (text, nullable)
-├── body (text, nullable)
-├── attachments (jsonb, nullable)
-├── created_at (timestamptz)
-└── updated_at (timestamptz)
-```
+### 2. Chargement des membres d'équipe
 
-RLS : même pattern team-scoped que les autres tables.
+- Query `profiles` via `get_user_team_id(auth.uid())` pour récupérer `full_name`, `email`, `avatar_url`
+- Cache des résultats dans le composant (pas besoin de re-fetch à chaque `@`)
 
-### 2. Auto-save avec debounce
+### 3. Intégration
 
-- Dans **Compose.tsx** et **ReplyArea.tsx**, un `useEffect` avec debounce (1.5s) sauvegarde automatiquement le contenu en base via `upsert` sur la table `drafts`.
-- Au montage, si un brouillon existe pour la conversation (ou pour un nouveau mail), on le restaure.
-- À l'envoi réussi, le brouillon est supprimé.
+- **ReplyArea.tsx** : Remplacer les deux `Textarea` (réponse + note interne) par `MentionTextarea`
+- **MessageList.tsx** : Parser les `@Mentions` dans le rendu des notes internes pour les afficher avec un style distinctif (badge ou texte coloré)
 
-### 3. Liste des brouillons dans la sidebar
-
-- Ajouter une entrée "Brouillons" dans `InboxSidebar.tsx` avec un compteur.
-- Les brouillons sans `conversation_id` (nouveaux mails) apparaissent dans cette liste.
-- Les brouillons liés à une conversation apparaissent comme indicateur dans la `ConversationList` (petite icône ou badge "brouillon").
-
-### 4. Hook `useDraft`
-
-Un hook réutilisable qui encapsule :
-- Chargement du brouillon existant (par `conversation_id` ou par `draft_id`)
-- Auto-save debounced
-- Suppression à l'envoi
-
-### Fichiers à créer / modifier
+### 4. Fichiers à créer / modifier
 
 | Fichier | Action |
 |---------|--------|
-| Migration SQL | Créer table `drafts` + RLS policies |
-| `src/hooks/useDraft.ts` | Nouveau hook auto-save/load/delete |
-| `src/pages/Compose.tsx` | Intégrer `useDraft` (nouveau mail) |
-| `src/components/inbox/conversation/ReplyArea.tsx` | Intégrer `useDraft` (réponse) |
-| `src/components/inbox/InboxSidebar.tsx` | Ajouter entrée "Brouillons" + compteur |
-| `src/components/inbox/ConversationList.tsx` | Badge brouillon sur les conversations concernées |
-| `src/pages/Index.tsx` | Gérer la navigation vers un brouillon (charger Compose avec draft_id en query param) |
+| `src/components/inbox/MentionTextarea.tsx` | Nouveau — composant textarea avec dropdown de mentions |
+| `src/components/inbox/conversation/ReplyArea.tsx` | Remplacer `Textarea` par `MentionTextarea` |
+| `src/components/inbox/conversation/MessageList.tsx` | Parser et styliser les `@mentions` dans les notes |
 
 ### Détails techniques
 
-- **Debounce** : 1500ms après la dernière frappe, `upsert` dans `drafts` avec `conversation_id` + `created_by` comme clé de conflit.
-- **Chargement** : au mount de Compose (`?draft=<id>`) ou de ReplyArea (lookup par `conversation_id` + `created_by`).
-- **Suppression** : après `handleSend` / `onReply` réussi, `DELETE FROM drafts WHERE id = ...`.
-- **Sidebar** : query `SELECT count(*) FROM drafts WHERE conversation_id IS NULL` pour le badge.
+- Le dropdown utilise les composants `Popover` existants ou un `div` positionné en absolu
+- Détection du `@` : on surveille la position du curseur et le texte entre le dernier `@` et la position courante
+- Format d'insertion : `@NomComplet` (texte brut, pas de markup complexe)
+- Pas de nouvelle table nécessaire — on réutilise `profiles`
+- Pas de nouvelle dépendance requise
 
