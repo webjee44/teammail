@@ -152,14 +152,21 @@ export function ConversationList({
                     </Avatar>
                     <div className="flex-1 min-w-0 space-y-1">
                       <div className="flex items-center justify-between gap-2">
-                        <span
-                          className={cn(
-                            "text-sm truncate",
-                            !conv.is_read ? "font-semibold text-foreground" : "text-foreground"
+                        <div className="flex flex-col min-w-0">
+                          <span
+                            className={cn(
+                              "text-sm truncate",
+                              !conv.is_read ? "font-semibold text-foreground" : "text-foreground"
+                            )}
+                          >
+                            {conv.from_name || conv.from_email || "Unknown"}
+                          </span>
+                          {conv.from_name && conv.from_email && (
+                            <span className="text-[11px] text-muted-foreground truncate">
+                              {conv.from_email}
+                            </span>
                           )}
-                        >
-                          {conv.from_name || conv.from_email || "Unknown"}
-                        </span>
+                        </div>
                         <span className="text-xs text-muted-foreground shrink-0">
                           {formatDistanceToNow(new Date(conv.last_message_at), {
                             addSuffix: false,
