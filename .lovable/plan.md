@@ -1,27 +1,64 @@
 
 
-# Repenser la barre de recherche
+# Refonte de la zone de réponse email
 
-## Problème
-La recherche est un petit bouton ghost quasi invisible dans le header, perdu entre la cloche de notifications et le compteur de conversations. Il faut la rendre proéminente.
+## Problèmes identifiés
+1. **Trop étroit** — le textarea a une hauteur minimale de 80px, pas de redimensionnement automatique
+2. **Pas de CC/BCC** — aucun champ pour ajouter des destinataires en copie
+3. **Pas de WYSIWYG** — texte brut uniquement, pas de mise en forme (gras, italique, listes, liens…)
 
 ## Solution
-Remplacer le bouton par un **champ de recherche stylisé** toujours visible dans le header — un faux input cliquable (style Linear/Slack/Front) qui ouvre le CommandMenu au clic.
 
-### Design
-- Un élément type `div` stylisé comme un input avec fond `bg-muted/50`, bordure arrondie, placeholder "Rechercher…", icône Search à gauche, badge `⌘K` à droite
-- Largeur flexible (`flex-1 max-w-xs`) pour prendre de la place sans écraser le reste
-- Hover state avec bordure plus visible
-- Centré dans le header ou placé après le titre avec un espacement confortable
+### 1. Éditeur WYSIWYG avec TipTap
+Installer `@tiptap/react`, `@tiptap/starter-kit`, `@tiptap/extension-link`, `@tiptap/extension-placeholder`, `@tiptap/extension-mention` pour remplacer le textarea par un vrai éditeur rich text.
 
-### Disposition du header repensée
+- Barre d'outils compacte : **Gras**, *Italique*, ~~Barré~~, Listes (ordonnée/non-ordonnée), Lien, Code
+- Hauteur minimale augmentée (~150px) avec croissance automatique
+- Conservation du système de @mentions via l'extension TipTap Mention
+- Output HTML pour l'envoi (compatible avec `body_html` des messages)
+
+### 2. Champs CC / BCC
+Ajouter une ligne de destinataires au-dessus de l'éditeur :
+- Bouton discret "Cc Bcc" à côté du destinataire principal affiché
+- Clic → affiche les champs CC et BCC (inputs avec tags/chips pour les adresses)
+- Les adresses CC/BCC sont transmises à `onReply` et à l'edge function `gmail-send`
+
+### 3. Layout repensé
 ```text
-[☰] [Boîte de réception]     [🔍 Rechercher...  ⌘K]     [🔔] [12 conversations]
+┌─────────────────────────────────────────────────┐
+│ [Répondre]  [Note interne]                      │
+├─────────────────────────────────────────────────┤
+│ À: sender@example.com              [Cc] [Bcc]  │
+│ Cc: ___________________________________________│  ← si ouvert
+│ Bcc: __________________________________________│  ← si ouvert
+├─────────────────────────────────────────────────┤
+│ [B] [I] [S] [•] [1.] [🔗] [</>]               │
+│                                                 │
+│  Zone d'écriture riche (min 150px, auto-grow)  │
+│                                                 │
+│                                                 │
+├─────────────────────────────────────────────────┤
+│ [Signature]                                     │
+│ 📎 Joindre                                      │
+│ [Suggérer] [Peaufiner] [Template]   [⏰] [Envoyer]│
+└─────────────────────────────────────────────────┘
 ```
 
-## Fichier modifié
+## Fichiers modifiés
 
 | Fichier | Changement |
 |---------|-----------|
-| `src/pages/Index.tsx` | Remplacement du bouton Search par un faux input cliquable stylisé, repositionnement dans le header |
+| `package.json` | Ajout des dépendances TipTap |
+| `src/components/inbox/conversation/RichTextEditor.tsx` | **Nouveau** — Composant TipTap avec toolbar de mise en forme et support @mentions |
+| `src/components/inbox/conversation/RecipientFields.tsx` | **Nouveau** — Champs À / Cc / Bcc avec input tags |
+| `src/components/inbox/conversation/ReplyArea.tsx` | Remplacement du MentionTextarea par RichTextEditor, ajout des RecipientFields, output HTML |
+| `src/components/inbox/conversation/types.ts` | Ajout de `cc` et `bcc` optionnels dans les types de reply |
+| `supabase/functions/gmail-send/index.ts` | Support des champs `cc` et `bcc` dans l'envoi |
+| `supabase/functions/polish-reply/index.ts` | Adaptation pour gérer du HTML en entrée/sortie |
+
+## Détails techniques
+- TipTap est le standard pour les éditeurs rich text React (léger, extensible, pas de dépendance lourde comme CKEditor)
+- Le `polish-reply` recevra du HTML et retournera du HTML corrigé
+- Le draft sauvegarde le HTML brut
+- L'extension Mention de TipTap remplace le système custom actuel de MentionTextarea
 
