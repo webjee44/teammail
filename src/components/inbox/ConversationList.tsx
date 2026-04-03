@@ -181,7 +181,7 @@ export function ConversationList({
                           !conv.is_read ? "font-medium text-foreground" : "text-muted-foreground"
                         )}
                       >
-                        {decodeHtml(conv.subject)}
+                        {stripHtml(conv.subject)}
                       </p>
                       {conv.ai_summary ? (
                         <p className="text-xs text-muted-foreground truncate">{conv.ai_summary}</p>
