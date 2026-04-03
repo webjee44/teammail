@@ -287,11 +287,35 @@ export function ContactPanel({ contactEmail, onSelectConversation }: Props) {
               )}
             </div>
 
-            <div className="flex items-center gap-2 text-sm">
-              <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              <span className="text-foreground truncate">{contact.email}</span>
-            </div>
+            {/* Salesperson */}
+            {contact.salesperson && (
+              <div className="flex items-center gap-2 text-sm">
+                <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <span className="text-muted-foreground text-xs">Commercial :</span>
+                <span className="text-foreground truncate text-xs">{contact.salesperson}</span>
+              </div>
+            )}
           </div>
+
+          {/* Address */}
+          {(contact.street || contact.city) && (
+            <>
+              <Separator />
+              <div className="space-y-1">
+                <div className="flex items-start gap-2 text-sm">
+                  <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                  <div className="text-xs text-foreground">
+                    {contact.street && <p>{contact.street}</p>}
+                    {contact.street2 && <p>{contact.street2}</p>}
+                    {(contact.zip || contact.city) && (
+                      <p>{[contact.zip, contact.city].filter(Boolean).join(" ")}</p>
+                    )}
+                    {contact.country && <p className="text-muted-foreground">{contact.country}</p>}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
 
           <Separator />
 
