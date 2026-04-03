@@ -1,50 +1,32 @@
 
 
-# Gestion intelligente des emails transférés (Fwd:) dans les suggestions
+# Importer les contacts depuis Cloud Vapor B2B
 
-## Problème
-Quand un collègue transfère un email (ex: "Fwd: commande S06833"), le bouton "Suggérer" génère des réponses comme si on répondait au client final. Or, on répond au collègue — il faut des réponses du type "Je m'en occupe", "Je prends le relais". Et idéalement, un bouton rapide pour écrire directement au client mentionné dans le mail transféré.
+## Objectif
+Extraire tous les clients actifs de la table `b2b_customers` du projet [Cloud Vapor B2B](/projects/10141070-ffbd-4ef7-9530-942194191c06) et les insérer dans la table `contacts` de TeamMail.
 
-## Solution
+## Mapping des champs
 
-### 1. Adapter le prompt IA pour détecter les forwards
-**Fichier : `supabase/functions/ai-suggest-reply/index.ts`**
-
-Ajouter dans le prompt système une instruction explicite :
-- Si le sujet commence par "Fwd:" ou "Tr:", c'est un email transféré par un collègue
-- Les suggestions doivent être des réponses internes courtes : "Je m'en occupe", "C'est noté, je prends le relais", "Merci, je traite ça"
-- Ajouter un champ optionnel `action` dans le schema de la fonction tool avec valeur possible `compose_to` et un champ `action_email` pour l'email du client final extrait du corps du message
-
-Le schema `suggest_replies` sera enrichi :
-```
-suggestions[].action?: "compose_to"
-suggestions[].action_email?: string
+```text
+b2b_customers (source)     →  contacts (destination)
+─────────────────────────────────────────────────────
+name                       →  name
+email                      →  email
+phone                      →  phone
+salesperson_name           →  company ("CloudVapor")
+city, street, zip, country →  custom_fields (JSON)
 ```
 
-### 2. Afficher le bouton "Écrire à [client]" dans le frontend
-**Fichier : `src/components/inbox/conversation/ReplyArea.tsx`**
+## Étapes
 
-- Mettre à jour le type `Suggestion` dans `types.ts` pour inclure `action?` et `action_email?`
-- Quand l'IA retourne une suggestion avec `action: "compose_to"`, afficher un bouton supplémentaire (icône Mail + "Écrire à youvape34@gmail.com") qui navigue vers `/compose?to=...&subject=...`
-- Les suggestions classiques (réponses internes) fonctionnent comme avant
+1. **Script d'extraction** : Requêter la base Cloud Vapor B2B via `psql` pour exporter les clients actifs (`is_active = true`) avec email non-null depuis `b2b_customers`
+2. **Script d'insertion** : Insérer dans la table `contacts` de TeamMail avec le `team_id` de l'équipe CloudVapor, en utilisant `ON CONFLICT` sur email pour éviter les doublons
+3. **Vérification** : Compter les contacts importés pour confirmer le succès
 
-### 3. Mise à jour du type Suggestion
-**Fichier : `src/components/inbox/conversation/types.ts`**
+## Détails techniques
 
-```
-export type Suggestion = {
-  label: string;
-  body: string;
-  action?: "compose_to";
-  action_email?: string;
-};
-```
-
-## Fichiers modifiés
-
-| Fichier | Changement |
-|---------|-----------|
-| `supabase/functions/ai-suggest-reply/index.ts` | Prompt enrichi pour détecter Fwd:/Tr: + extraction email client + champ action dans le tool schema |
-| `src/components/inbox/conversation/types.ts` | Ajout `action?` et `action_email?` au type `Suggestion` |
-| `src/components/inbox/conversation/ReplyArea.tsx` | Bouton "Écrire à X" quand suggestion contient `action: "compose_to"`, navigue vers `/compose?to=...` |
+- Les deux bases sont accessibles via `psql` (même Supabase). Le projet source est sur une base différente, donc on passera par une extraction cross-project via l'API ou un export CSV intermédiaire.
+- On stockera `company` = "CloudVapor" pour tous les contacts importés.
+- Les champs d'adresse (street, city, zip, country) seront stockés dans `custom_fields` en JSON.
+- Seuls les clients avec un email valide seront importés.
 
