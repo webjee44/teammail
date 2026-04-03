@@ -572,6 +572,12 @@ export function ConversationDetail({ conversation, onStatusChange, onReply, onCo
                 onChange={(e) => setReplyText(e.target.value)}
                 className="min-h-[80px] text-sm resize-none"
               />
+              {signatureHtml && (
+                <div
+                  className="p-2 rounded-md border border-border bg-muted/30 text-xs"
+                  dangerouslySetInnerHTML={{ __html: signatureHtml }}
+                />
+              )}
               <AttachmentUpload files={attachedFiles} onFilesChange={setAttachedFiles} />
               <div className="flex justify-between items-center flex-wrap gap-2">
                 <div className="flex gap-1.5">
