@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import {
   Inbox,
   User,
@@ -42,6 +42,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
+import { useComposeWindow } from "@/hooks/useComposeWindow";
 
 const toolItems = [
   { title: "Tâches", url: "/tasks", icon: ListTodo, shortcut: "G T" },
@@ -57,6 +58,7 @@ export function InboxSidebar() {
   const { user, signOut } = useAuth();
   const [searchParams] = useSearchParams();
   const activeMailbox = searchParams.get("mailbox");
+  const { openCompose } = useComposeWindow();
 
   const [counts, setCounts] = useState({ open: 0, mine: 0, unassigned: 0, snoozed: 0, closed: 0, drafts: 0 });
   const [tags, setTags] = useState<{ id: string; name: string; color: string }[]>([]);
@@ -142,18 +144,14 @@ export function InboxSidebar() {
         {/* Compose button */}
         <div className="px-3 mb-1">
           {collapsed ? (
-            <Button size="icon" variant="outline" className="w-8 h-8 border-dashed" asChild>
-              <NavLink to="/compose" activeClassName="">
-                <PenSquare className="h-3.5 w-3.5" />
-              </NavLink>
+            <Button size="icon" variant="outline" className="w-8 h-8 border-dashed" onClick={() => openCompose()}>
+              <PenSquare className="h-3.5 w-3.5" />
             </Button>
           ) : (
-            <Button variant="outline" size="sm" className="w-full gap-2 h-8 border-dashed text-[13px] font-medium" asChild>
-              <NavLink to="/compose" activeClassName="">
-                <PenSquare className="h-3.5 w-3.5" />
-                Rédiger
-                <span className="ml-auto text-[10px] text-muted-foreground font-normal">C</span>
-              </NavLink>
+            <Button variant="outline" size="sm" className="w-full gap-2 h-8 border-dashed text-[13px] font-medium" onClick={() => openCompose()}>
+              <PenSquare className="h-3.5 w-3.5" />
+              Rédiger
+              <span className="ml-auto text-[10px] text-muted-foreground font-normal">C</span>
             </Button>
           )}
         </div>
