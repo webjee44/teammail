@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { NotificationBell } from "@/components/inbox/NotificationBell";
 
 import type { FileToUpload } from "@/components/inbox/Attachments";
 
