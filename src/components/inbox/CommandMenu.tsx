@@ -61,7 +61,7 @@ export function CommandMenu({ open, onOpenChange, onSelect }: Props) {
   };
 
   return (
-    <CommandDialog open={open} onOpenChange={onOpenChange}>
+    <CommandDialog open={open} onOpenChange={onOpenChange} shouldFilter={false}>
       <CommandInput
         placeholder="Rechercher dans les mails…"
         value={query}
