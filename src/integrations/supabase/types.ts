@@ -475,6 +475,57 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          comment_id: string | null
+          conversation_id: string | null
+          created_at: string
+          id: string
+          is_read: boolean
+          message: string
+          triggered_by: string | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          comment_id?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message: string
+          triggered_by?: string | null
+          type?: string
+          user_id: string
+        }
+        Update: {
+          comment_id?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message?: string
+          triggered_by?: string | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
