@@ -214,6 +214,10 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
                   {loadingSuggestions ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
                   Suggérer
                 </Button>
+                <Button size="sm" variant="outline" onClick={handlePolish} disabled={polishing || !replyText.trim()} className="gap-1">
+                  {polishing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
+                  Peaufiner
+                </Button>
                 <Button size="sm" variant="outline" onClick={() => setTemplateOpen(true)} className="gap-1">
                   <FileText className="h-3 w-3" />
                   Template
