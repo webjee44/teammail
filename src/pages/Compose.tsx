@@ -14,7 +14,9 @@ const Compose = () => {
     const body = searchParams.get("body") || "";
     const draftId = searchParams.get("draft") || undefined;
     openCompose({ to, subject, body, draftId });
-    navigate("/", { replace: true });
+    // Small delay so compose state propagates before unmount
+    const timer = setTimeout(() => navigate("/", { replace: true }), 50);
+    return () => clearTimeout(timer);
   }, []);
 
   return (
