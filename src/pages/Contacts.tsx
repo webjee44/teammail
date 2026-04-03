@@ -552,10 +552,10 @@ function ContactDetailView({
           <EditableRow icon={Phone} field="phone" value={contact.phone} label="Téléphone" />
         </div>
 
-        <Separator />
+        <Separator className="my-2" />
 
         {/* Notes */}
-        <div>
+        <div className="space-y-3">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Notes partagées</h3>
             {!editingNotes && (
