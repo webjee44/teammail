@@ -6,7 +6,6 @@ import {
   Users,
   Clock,
   CheckCircle,
-  Tag,
   Settings,
   BarChart3,
   Zap,
@@ -15,6 +14,8 @@ import {
   AtSign,
   ListTodo,
   FileEdit,
+  Keyboard,
+  Mail,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
@@ -22,7 +23,6 @@ import {
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -33,16 +33,22 @@ import {
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
-import { Badge } from "@/components/ui/badge";
-import { Mail } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 
 const toolItems = [
-  { title: "Tâches", url: "/tasks", icon: ListTodo },
-  { title: "Contacts", url: "/contacts", icon: Users },
+  { title: "Tâches", url: "/tasks", icon: ListTodo, shortcut: "G T" },
+  { title: "Contacts", url: "/contacts", icon: Users, shortcut: "G C" },
   { title: "Règles", url: "/rules", icon: Zap },
   { title: "Statistiques", url: "/analytics", icon: BarChart3 },
-  { title: "Paramètres", url: "/settings", icon: Settings },
+  { title: "Paramètres", url: "/settings", icon: Settings, shortcut: "G S" },
 ];
 
 export function InboxSidebar() {
@@ -64,7 +70,6 @@ export function InboxSidebar() {
         .select("id, status, assigned_to, mailbox_id");
 
       if (!data) return;
-      // Fetch draft count
       const { count: draftCount } = await supabase
         .from("drafts")
         .select("id", { count: "exact", head: true })
@@ -80,13 +85,11 @@ export function InboxSidebar() {
         drafts: draftCount || 0,
       });
 
-      // Count open conversations per mailbox
       const mbCounts = new Map<string, number>();
       data.filter((c) => c.status === "open" && c.mailbox_id).forEach((c) => {
         mbCounts.set(c.mailbox_id!, (mbCounts.get(c.mailbox_id!) || 0) + 1);
       });
 
-      // Fetch mailboxes
       const { data: mbData } = await supabase.from("team_mailboxes").select("id, email, label").order("email");
       if (mbData) {
         setMailboxes(mbData.map((mb) => ({ ...mb, openCount: mbCounts.get(mb.id) || 0 })));
@@ -102,11 +105,10 @@ export function InboxSidebar() {
     fetchTags();
   }, [user]);
 
-  // Build URLs preserving the mailbox param
   const mbSuffix = activeMailbox ? `&mailbox=${activeMailbox}` : "";
   const inboxItems = [
-    { title: "Boîte de réception", url: `/${activeMailbox ? `?mailbox=${activeMailbox}` : ""}`, icon: Inbox, count: counts.open },
-    { title: "Assigné à moi", url: `/?filter=mine${mbSuffix}`, icon: User, count: counts.mine },
+    { title: "Boîte de réception", url: `/${activeMailbox ? `?mailbox=${activeMailbox}` : ""}`, icon: Inbox, count: counts.open, shortcut: "G I" },
+    { title: "Assigné à moi", url: `/?filter=mine${mbSuffix}`, icon: User, count: counts.mine, shortcut: "G M" },
     { title: "Non assigné", url: `/?filter=unassigned${mbSuffix}`, icon: Users, count: counts.unassigned },
     { title: "En pause", url: `/?filter=snoozed${mbSuffix}`, icon: Clock, count: counts.snoozed },
     { title: "Fermé", url: `/?filter=closed${mbSuffix}`, icon: CheckCircle, count: counts.closed },
@@ -124,44 +126,58 @@ export function InboxSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
-      <SidebarHeader className="p-4">
+      {/* Header */}
+      <SidebarHeader className="px-3 py-3">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
-            <Mail className="h-4 w-4 text-primary-foreground" />
+          <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center shrink-0">
+            <Mail className="h-3.5 w-3.5 text-primary-foreground" />
           </div>
           {!collapsed && (
-            <span className="font-semibold text-lg text-sidebar-foreground">TeamMail</span>
+            <span className="font-semibold text-[15px] text-sidebar-foreground">TeamMail</span>
           )}
         </div>
       </SidebarHeader>
 
       <SidebarContent>
-        {!collapsed && (
-          <div className="px-3 mb-2">
-            <Button size="sm" className="w-full gap-2" asChild>
+        {/* Compose button */}
+        <div className="px-3 mb-1">
+          {collapsed ? (
+            <Button size="icon" variant="outline" className="w-8 h-8 border-dashed" asChild>
               <NavLink to="/compose" activeClassName="">
-                <PenSquare className="h-4 w-4" />
-                Rédiger
+                <PenSquare className="h-3.5 w-3.5" />
               </NavLink>
             </Button>
-          </div>
-        )}
+          ) : (
+            <Button variant="outline" size="sm" className="w-full gap-2 h-8 border-dashed text-[13px] font-medium" asChild>
+              <NavLink to="/compose" activeClassName="">
+                <PenSquare className="h-3.5 w-3.5" />
+                Rédiger
+                <span className="ml-auto text-[10px] text-muted-foreground font-normal">C</span>
+              </NavLink>
+            </Button>
+          )}
+        </div>
 
+        {/* Mailboxes */}
         {mailboxes.length > 0 && (
-          <SidebarGroup>
-            <SidebarGroupLabel>Boîtes mail</SidebarGroupLabel>
+          <SidebarGroup className="mt-2">
+            {!collapsed && (
+              <span className="px-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/60 mb-1">
+                Boîtes mail
+              </span>
+            )}
             <SidebarGroupContent>
               <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild>
+                  <SidebarMenuButton asChild className="h-7">
                     <NavLink
                       to={searchParams.get("filter") ? `/?filter=${searchParams.get("filter")}` : "/"}
                       end={!searchParams.get("filter")}
-                      className={`hover:bg-sidebar-accent/50 flex items-center justify-between ${!activeMailbox ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" : ""}`}
-                      activeClassName=""
+                      className="sidebar-item"
+                      activeClassName="sidebar-item-active"
                     >
                       <span className="flex items-center gap-2">
-                        <Inbox className="h-4 w-4" />
+                        <Inbox className="h-3.5 w-3.5" />
                         {!collapsed && <span>Toutes</span>}
                       </span>
                     </NavLink>
@@ -172,23 +188,20 @@ export function InboxSidebar() {
                   const mbUrl = filterParam
                     ? `/?filter=${filterParam}&mailbox=${mb.id}`
                     : `/?mailbox=${mb.id}`;
-                  const isActive = activeMailbox === mb.id;
                   return (
                     <SidebarMenuItem key={mb.id}>
-                      <SidebarMenuButton asChild>
+                      <SidebarMenuButton asChild className="h-7">
                         <NavLink
                           to={mbUrl}
-                          className={`hover:bg-sidebar-accent/50 flex items-center justify-between ${isActive ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" : ""}`}
-                          activeClassName=""
+                          className="sidebar-item"
+                          activeClassName="sidebar-item-active"
                         >
                           <span className="flex items-center gap-2">
-                            <AtSign className="h-4 w-4" />
+                            <AtSign className="h-3.5 w-3.5" />
                             {!collapsed && <span className="truncate">{mb.label || mb.email.split("@")[0]}</span>}
                           </span>
                           {!collapsed && mb.openCount > 0 && (
-                            <Badge variant="secondary" className="text-xs h-5 min-w-[20px] justify-center">
-                              {mb.openCount}
-                            </Badge>
+                            <span className="text-xs tabular-nums text-muted-foreground">{mb.openCount}</span>
                           )}
                         </NavLink>
                       </SidebarMenuButton>
@@ -200,27 +213,39 @@ export function InboxSidebar() {
           </SidebarGroup>
         )}
 
-        <SidebarGroup>
-          <SidebarGroupLabel>Conversations</SidebarGroupLabel>
+        <Separator className="mx-3 my-1 w-auto" />
+
+        {/* Conversations */}
+        <SidebarGroup className="mt-1">
+          {!collapsed && (
+            <span className="px-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/60 mb-1">
+              Conversations
+            </span>
+          )}
           <SidebarGroupContent>
             <SidebarMenu>
               {inboxItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
+                  <SidebarMenuButton asChild className="h-7">
                     <NavLink
                       to={item.url}
                       end
-                      className="hover:bg-sidebar-accent/50 flex items-center justify-between"
-                      activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                      className="sidebar-item"
+                      activeClassName="sidebar-item-active"
                     >
                       <span className="flex items-center gap-2">
-                        <item.icon className="h-4 w-4" />
+                        <item.icon className="h-3.5 w-3.5" />
                         {!collapsed && <span>{item.title}</span>}
                       </span>
-                      {!collapsed && item.count > 0 && (
-                        <Badge variant="secondary" className="text-xs h-5 min-w-[20px] justify-center">
-                          {item.count}
-                        </Badge>
+                      {!collapsed && (
+                        <span className="flex items-center gap-2 ml-auto">
+                          {item.count > 0 && (
+                            <span className="text-xs tabular-nums text-muted-foreground">{item.count}</span>
+                          )}
+                          {"shortcut" in item && item.shortcut && (
+                            <span className="text-[10px] text-muted-foreground/50 font-mono">{item.shortcut}</span>
+                          )}
+                        </span>
                       )}
                     </NavLink>
                   </SidebarMenuButton>
@@ -230,41 +255,69 @@ export function InboxSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup>
-          <SidebarGroupLabel>Étiquettes</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {tags.map((tag) => (
-                <SidebarMenuItem key={tag.id}>
-                  <SidebarMenuButton asChild>
-                    <button className="flex items-center gap-2 w-full hover:bg-sidebar-accent/50 rounded-md px-2 py-1.5 text-sm">
-                      <span
-                        className="w-2.5 h-2.5 rounded-full shrink-0"
-                        style={{ backgroundColor: tag.color }}
-                      />
-                      {!collapsed && <span>{tag.name}</span>}
-                    </button>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {/* Tags */}
+        {tags.length > 0 && (
+          <>
+            <Separator className="mx-3 my-1 w-auto" />
+            <SidebarGroup className="mt-1">
+              {!collapsed && (
+                <span className="px-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/60 mb-1">
+                  Étiquettes
+                </span>
+              )}
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {tags.map((tag) => (
+                    <SidebarMenuItem key={tag.id}>
+                      <SidebarMenuButton asChild className="h-7">
+                        <NavLink
+                          to={`/?tag=${tag.id}${activeMailbox ? `&mailbox=${activeMailbox}` : ""}`}
+                          className="sidebar-item"
+                          activeClassName="sidebar-item-active"
+                        >
+                          <span className="flex items-center gap-2">
+                            <span
+                              className="w-2 h-2 rounded-full shrink-0"
+                              style={{ backgroundColor: tag.color }}
+                            />
+                            {!collapsed && <span>{tag.name}</span>}
+                          </span>
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
+        )}
 
-        <SidebarGroup>
-          <SidebarGroupLabel>Outils</SidebarGroupLabel>
+        <Separator className="mx-3 my-1 w-auto" />
+
+        {/* Tools */}
+        <SidebarGroup className="mt-1">
+          {!collapsed && (
+            <span className="px-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/60 mb-1">
+              Outils
+            </span>
+          )}
           <SidebarGroupContent>
             <SidebarMenu>
               {toolItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
+                  <SidebarMenuButton asChild className="h-7">
                     <NavLink
                       to={item.url}
-                      className="hover:bg-sidebar-accent/50"
-                      activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                      className="sidebar-item"
+                      activeClassName="sidebar-item-active"
                     >
-                      <item.icon className="h-4 w-4" />
-                      {!collapsed && <span>{item.title}</span>}
+                      <span className="flex items-center gap-2">
+                        <item.icon className="h-3.5 w-3.5" />
+                        {!collapsed && <span>{item.title}</span>}
+                      </span>
+                      {!collapsed && item.shortcut && (
+                        <span className="ml-auto text-[10px] text-muted-foreground/50 font-mono">{item.shortcut}</span>
+                      )}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -274,27 +327,48 @@ export function InboxSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-3">
-        <div className="flex items-center gap-2">
-          <Avatar className="h-8 w-8 shrink-0">
-            <AvatarImage src={user?.user_metadata?.avatar_url} />
-            <AvatarFallback className="text-xs bg-primary text-primary-foreground">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
-          {!collapsed && (
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate text-sidebar-foreground">
-                {user?.user_metadata?.full_name || user?.email}
-              </p>
-            </div>
-          )}
-          {!collapsed && (
-            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={signOut}>
-              <LogOut className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
+      {/* Footer – user dropdown */}
+      <SidebarFooter className="p-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="flex items-center gap-2 w-full rounded-md px-2 py-1.5 hover:bg-sidebar-accent/40 transition-colors duration-150 outline-none">
+              <Avatar className="h-7 w-7 shrink-0">
+                <AvatarImage src={user?.user_metadata?.avatar_url} />
+                <AvatarFallback className="text-[11px] bg-primary text-primary-foreground">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              {!collapsed && (
+                <span className="flex-1 min-w-0 text-left">
+                  <span className="block text-[13px] font-medium truncate text-sidebar-foreground">
+                    {user?.user_metadata?.full_name || user?.email}
+                  </span>
+                </span>
+              )}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="top" align="start" className="w-56">
+            <DropdownMenuItem disabled className="text-xs text-muted-foreground">
+              {user?.email}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <NavLink to="/settings" className="cursor-pointer" activeClassName="">
+                <Settings className="h-3.5 w-3.5 mr-2" />
+                Paramètres
+              </NavLink>
+            </DropdownMenuItem>
+            <DropdownMenuItem className="text-xs text-muted-foreground" disabled>
+              <Keyboard className="h-3.5 w-3.5 mr-2" />
+              Raccourcis clavier
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={signOut} className="text-destructive focus:text-destructive">
+              <LogOut className="h-3.5 w-3.5 mr-2" />
+              Déconnexion
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </SidebarFooter>
     </Sidebar>
   );

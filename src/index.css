@@ -106,3 +106,18 @@
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
 }
+
+/* Sidebar item styles */
+.sidebar-item {
+  @apply flex items-center justify-between rounded-md px-2 py-1 text-[13px] text-sidebar-foreground/80 transition-colors duration-150;
+}
+.sidebar-item:hover {
+  @apply bg-sidebar-accent/40;
+}
+.sidebar-item-active {
+  @apply relative text-sidebar-foreground font-medium bg-transparent;
+}
+.sidebar-item-active::before {
+  content: '';
+  @apply absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-primary;
+}
