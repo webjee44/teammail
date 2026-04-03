@@ -64,7 +64,7 @@ const Contacts = () => {
   const fetchContacts = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase
-      .from("contacts")
+      .from("contacts_with_stats" as any)
       .select("*")
       .order("name", { ascending: true, nullsFirst: false });
 
@@ -74,29 +74,20 @@ const Contacts = () => {
       return;
     }
 
-    // Enrich with conversation counts
-    const enriched: Contact[] = [];
-    for (const c of data || []) {
-      const { count } = await supabase
-        .from("conversations")
-        .select("id", { count: "exact", head: true })
-        .eq("from_email", c.email);
-
-      const { data: lastConv } = await supabase
-        .from("conversations")
-        .select("last_message_at")
-        .eq("from_email", c.email)
-        .order("last_message_at", { ascending: false })
-        .limit(1);
-
-      enriched.push({
-        ...c,
-        conversation_count: count || 0,
-        last_interaction: lastConv?.[0]?.last_message_at || null,
-      });
-    }
-
-    setContacts(enriched);
+    setContacts(
+      (data || []).map((c: any) => ({
+        id: c.id,
+        email: c.email,
+        name: c.name,
+        company: c.company,
+        phone: c.phone,
+        avatar_url: c.avatar_url,
+        notes: c.notes,
+        created_at: c.created_at,
+        conversation_count: c.conversation_count ?? 0,
+        last_interaction: c.last_interaction ?? null,
+      }))
+    );
     setLoading(false);
   }, []);
 
