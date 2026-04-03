@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
-  Send, MessageSquare, Sparkles, Clock, Loader2, FileText, CalendarIcon, Wand2,
+  Send, MessageSquare, Sparkles, Clock, Loader2, FileText, CalendarIcon, Wand2, Mail,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
