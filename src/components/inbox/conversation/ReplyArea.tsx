@@ -18,6 +18,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { AttachmentUpload, FileToUpload } from "../Attachments";
 import { TemplatePickerDialog } from "../TemplatePickerDialog";
+import { MentionTextarea } from "../MentionTextarea";
 import { useDraft } from "@/hooks/useDraft";
 import type { Suggestion, ConversationDetailData } from "./types";
 
