@@ -69,6 +69,7 @@ const Settings = () => {
   const [sigIsDefault, setSigIsDefault] = useState(false);
   const [savingSignature, setSavingSignature] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [showSigEditor, setShowSigEditor] = useState(false);
 
   const fetchMailboxes = async () => {
     const { data, error } = await supabase
