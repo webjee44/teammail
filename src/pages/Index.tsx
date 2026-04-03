@@ -435,7 +435,8 @@ const Index = () => {
         <div className="h-12 flex items-center px-3 border-b border-border gap-2 shrink-0">
           <SidebarTrigger />
           <h2 className="text-sm font-semibold text-foreground">{headerTitle}</h2>
-          <div className="ml-auto flex items-center gap-1">
+          <div className="ml-auto flex items-center gap-1.5">
+            <NotificationBell onSelectConversation={(id) => { setSelectedId(id); }} />
             <Button
               variant="ghost"
               size="sm"
