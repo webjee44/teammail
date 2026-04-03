@@ -78,6 +78,11 @@ export function InboxSidebar() {
         .is("conversation_id", null)
         .eq("created_by", user.id);
 
+      const { count: scheduledCount } = await supabase
+        .from("scheduled_emails")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "pending");
+
       setCounts({
         open: data.filter((c) => c.status === "open").length,
         mine: data.filter((c) => c.assigned_to === user.id).length,
@@ -85,6 +90,7 @@ export function InboxSidebar() {
         snoozed: data.filter((c) => c.status === "snoozed").length,
         closed: data.filter((c) => c.status === "closed").length,
         drafts: draftCount || 0,
+        scheduled: scheduledCount || 0,
       });
 
       const mbCounts = new Map<string, number>();
