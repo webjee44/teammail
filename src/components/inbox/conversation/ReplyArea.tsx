@@ -33,6 +33,7 @@ type Props = {
 };
 
 export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply, onComment }: Props) {
+  const navigate = useNavigate();
   const { draft, updateDraft, deleteDraft, loading: draftLoading } = useDraft({ conversationId: conversation.id });
   const [replyHtml, setReplyHtml] = useState("");
   const [commentText, setCommentText] = useState("");
