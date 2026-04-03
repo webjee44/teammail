@@ -368,11 +368,10 @@ export function FloatingCompose() {
         </div>
 
         {/* Body */}
-        <Textarea
-          placeholder="Tapez votre message..."
+        <RichTextEditor
           value={body}
-          onChange={(e) => setBody(e.target.value)}
-          className="min-h-[180px] resize-none text-sm"
+          onChange={setBody}
+          placeholder="Tapez votre message..."
         />
 
         {/* Signature */}
