@@ -1,45 +1,60 @@
 
 
-# Mentions @utilisateur dans les zones de texte
+# Refonte UX/Design de la Sidebar
 
-## Résumé
+## Inspirations concurrentes
 
-Ajouter un système de mentions `@` dans les notes internes et les réponses. Quand l'utilisateur tape `@`, un dropdown apparaît avec les membres de l'équipe, filtré en temps réel. La sélection insère le nom dans le texte avec un style distinctif.
+**Front** : sidebar très épurée, pas de labels de section visibles, items compacts avec icônes monochromes, compteurs alignés à droite en texte gris discret (pas de badges), séparateurs subtils, bouton Compose proéminent en haut.
 
-## Approche
+**Missive** : sidebar sombre, hiérarchie visuelle forte, icônes colorées pour les mailboxes, hover states très doux, scroll fluide, footer minimaliste.
 
-### 1. Composant `MentionTextarea`
+**Linear** : référence UX moderne — transitions douces, items très compacts (h-7), texte 13px, couleurs désaturées, hover ultra-subtil, raccourcis clavier affichés.
 
-Nouveau composant réutilisable qui remplace le `Textarea` standard :
-- Surveille la saisie pour détecter le caractère `@`
-- Affiche un popover/dropdown positionné sous le curseur avec la liste des membres de l'équipe (query `profiles` filtrée par `team_id`)
-- Filtre la liste en temps réel selon ce qui est tapé après le `@`
-- À la sélection, insère `@NomPrénom` dans le texte et ferme le dropdown
-- Les mentions sont affichées en surbrillance (couleur primary) dans le texte envoyé
+## Améliorations proposées
 
-### 2. Chargement des membres d'équipe
+### 1. Densité et espacement (style Linear/Front)
+- Réduire la hauteur des items (py-1 au lieu de py-1.5)
+- Texte en `text-[13px]` au lieu de `text-sm` pour un look plus pro
+- Icônes en `h-3.5 w-3.5` (plus fines)
+- Réduire le padding du header et footer
 
-- Query `profiles` via `get_user_team_id(auth.uid())` pour récupérer `full_name`, `email`, `avatar_url`
-- Cache des résultats dans le composant (pas besoin de re-fetch à chaque `@`)
+### 2. Compteurs redessinés (style Front)
+- Remplacer les `Badge` par du texte simple en `text-muted-foreground text-xs tabular-nums` aligné à droite
+- Plus discret, plus élégant, moins de bruit visuel
 
-### 3. Intégration
+### 3. Bouton Compose amélioré
+- Style outline/ghost avec bordure dashed au lieu de filled, ou bien un style plus subtil avec icône
+- Visible aussi en mode collapsed (icône seule)
 
-- **ReplyArea.tsx** : Remplacer les deux `Textarea` (réponse + note interne) par `MentionTextarea`
-- **MessageList.tsx** : Parser les `@Mentions` dans le rendu des notes internes pour les afficher avec un style distinctif (badge ou texte coloré)
+### 4. Hover & active states raffinés
+- Hover : `bg-sidebar-accent/40` avec transition douce (`transition-colors duration-150`)
+- Active : indicateur vertical à gauche (barre de 2px en `bg-primary`) au lieu d'un fond coloré complet
+- Texte actif en `text-sidebar-foreground font-medium` (pas de fond)
 
-### 4. Fichiers à créer / modifier
+### 5. Labels de section
+- Uppercase, `text-[11px]`, `tracking-wider`, `text-muted-foreground/60` — plus discrets
+- Ajouter un petit espacement supplémentaire au-dessus de chaque section (mt-4 sur le premier groupe, mt-2 sur les suivants)
 
-| Fichier | Action |
-|---------|--------|
-| `src/components/inbox/MentionTextarea.tsx` | Nouveau — composant textarea avec dropdown de mentions |
-| `src/components/inbox/conversation/ReplyArea.tsx` | Remplacer `Textarea` par `MentionTextarea` |
-| `src/components/inbox/conversation/MessageList.tsx` | Parser et styliser les `@mentions` dans les notes |
+### 6. Tags redessinés
+- Pastille de couleur plus petite (w-2 h-2)
+- Les tags deviennent des liens filtrables (NavLink vers `/?tag=id`)
 
-### Détails techniques
+### 7. Footer utilisateur
+- Dropdown menu au clic sur l'avatar/nom (au lieu du bouton logout isolé)
+- Options : Profil, Raccourcis clavier, Déconnexion
+- Plus compact
 
-- Le dropdown utilise les composants `Popover` existants ou un `div` positionné en absolu
-- Détection du `@` : on surveille la position du curseur et le texte entre le dernier `@` et la position courante
-- Format d'insertion : `@NomComplet` (texte brut, pas de markup complexe)
-- Pas de nouvelle table nécessaire — on réutilise `profiles`
-- Pas de nouvelle dépendance requise
+### 8. Séparateurs
+- Remplacer les `SidebarGroupLabel` visuellement lourds par des `Separator` fins entre les sections, ou des labels ultra-discrets
+
+### 9. Raccourcis clavier
+- Afficher les raccourcis en `text-[10px] text-muted-foreground` à droite des items principaux (ex: `G I` pour inbox, `C` pour compose) — style Linear
+
+## Fichiers modifiés
+
+| Fichier | Changements |
+|---------|------------|
+| `src/components/inbox/InboxSidebar.tsx` | Refonte complète du rendu : items compacts, compteurs texte, active indicator, compose en collapsed, footer dropdown, raccourcis |
+| `src/index.css` | Ajout style `.sidebar-active-indicator` (barre verticale 2px) |
+| `src/components/layout/AppLayout.tsx` | Aucun changement structurel attendu |
 
