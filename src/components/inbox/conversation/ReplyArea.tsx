@@ -246,8 +246,9 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
                 </Popover>
                 <Button
                   size="sm"
-                  onClick={() => {
+                  onClick={async () => {
                     onReply?.(conversation.id, replyText, attachedFiles);
+                    await deleteDraft();
                     setReplyText("");
                     setSuggestions([]);
                     setAttachedFiles([]);
