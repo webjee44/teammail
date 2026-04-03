@@ -94,6 +94,7 @@ export function MessageList({ messages, comments, currentUserId, onEditComment, 
                 <div
                   className="text-sm text-foreground prose prose-sm max-w-none dark:prose-invert"
                   dangerouslySetInnerHTML={{ __html: msg.body_html }}
+                  onClick={handleContentClick}
                 />
               ) : (
                 <p className="text-sm text-foreground whitespace-pre-wrap">{msg.body_text}</p>
