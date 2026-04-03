@@ -1,11 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
   Send, MessageSquare, Sparkles, Clock, Loader2, FileText, CalendarIcon, Wand2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Popover, PopoverContent, PopoverTrigger,
@@ -19,6 +18,8 @@ import { toast } from "sonner";
 import { AttachmentUpload, FileToUpload } from "../Attachments";
 import { TemplatePickerDialog } from "../TemplatePickerDialog";
 import { MentionTextarea } from "../MentionTextarea";
+import { RichTextEditor } from "./RichTextEditor";
+import { RecipientFields } from "./RecipientFields";
 import { useDraft } from "@/hooks/useDraft";
 import type { Suggestion, ConversationDetailData } from "./types";
 
@@ -32,7 +33,7 @@ type Props = {
 
 export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply, onComment }: Props) {
   const { draft, updateDraft, deleteDraft, loading: draftLoading } = useDraft({ conversationId: conversation.id });
-  const [replyText, setReplyText] = useState("");
+  const [replyHtml, setReplyHtml] = useState("");
   const [commentText, setCommentText] = useState("");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
@@ -45,19 +46,21 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
   const [polishing, setPolishing] = useState(false);
   const [signatureHtml, setSignatureHtml] = useState("");
   const [draftInitialized, setDraftInitialized] = useState(false);
+  const [cc, setCc] = useState<string[]>([]);
+  const [bcc, setBcc] = useState<string[]>([]);
 
   // Restore draft on load
   useEffect(() => {
     if (draftLoading || draftInitialized) return;
-    if (draft.body) setReplyText(draft.body);
+    if (draft.body) setReplyHtml(draft.body);
     setDraftInitialized(true);
   }, [draftLoading, draft, draftInitialized]);
 
-  // Auto-save reply text as draft
+  // Auto-save reply as draft
   useEffect(() => {
     if (!draftInitialized) return;
-    updateDraft({ body: replyText });
-  }, [replyText, draftInitialized, updateDraft]);
+    updateDraft({ body: replyHtml });
+  }, [replyHtml, draftInitialized, updateDraft]);
 
   useEffect(() => {
     const loadSignature = async () => {
@@ -75,6 +78,8 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
   const senderEmail = [...conversation.messages].reverse().find((m) => m.is_outbound)?.from_email || "";
   const replySubject = conversation.subject?.startsWith("Re:") ? conversation.subject : `Re: ${conversation.subject}`;
 
+  const isReplyEmpty = !replyHtml.trim() || replyHtml === "<p></p>";
+
   const handleSuggestReplies = async () => {
     setLoadingSuggestions(true);
     setSuggestions([]);
@@ -83,10 +88,7 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
         body: { conversation_id: conversation.id },
       });
       if (error) throw error;
-      if (data?.error) {
-        toast.error(data.error);
-        return;
-      }
+      if (data?.error) { toast.error(data.error); return; }
       setSuggestions(data.suggestions || []);
     } catch (err: any) {
       toast.error("Erreur lors de la génération des suggestions");
@@ -97,19 +99,16 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
   };
 
   const handlePolish = async () => {
-    if (!replyText.trim()) return;
+    if (isReplyEmpty) return;
     setPolishing(true);
     try {
       const { data, error } = await supabase.functions.invoke("polish-reply", {
-        body: { text: replyText },
+        body: { text: replyHtml, format: "html" },
       });
       if (error) throw error;
-      if (data?.error) {
-        toast.error(data.error);
-        return;
-      }
+      if (data?.error) { toast.error(data.error); return; }
       if (data?.polished) {
-        setReplyText(data.polished);
+        setReplyHtml(data.polished);
         toast.success("Texte peaufiné");
       }
     } catch (err: any) {
@@ -121,7 +120,7 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
   };
 
   const handleScheduleReply = async () => {
-    if (!replyText.trim() || !scheduleDate || !senderEmail || !recipientEmail) {
+    if (isReplyEmpty || !scheduleDate || !senderEmail || !recipientEmail) {
       toast.error("Remplissez la réponse et sélectionnez une date");
       return;
     }
@@ -148,15 +147,17 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
         created_by: user.id,
         to_email: recipientEmail,
         subject: replySubject,
-        body: replyText,
+        body: replyHtml,
         from_email: senderEmail,
         scheduled_at: scheduledAt.toISOString(),
       });
       if (error) throw error;
       toast.success(`Réponse programmée pour le ${format(scheduledAt, "d MMMM à HH:mm", { locale: fr })}`);
-      setReplyText("");
+      setReplyHtml("");
       setSuggestions([]);
       setAttachedFiles([]);
+      setCc([]);
+      setBcc([]);
     } catch (err: any) {
       toast.error("Erreur : " + (err.message || String(err)));
     } finally {
@@ -178,13 +179,23 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
         </TabsList>
         <TabsContent value="reply" className="mt-0">
           <div className="space-y-2">
+            {/* Recipient fields */}
+            <RecipientFields
+              to={recipientEmail}
+              cc={cc}
+              bcc={bcc}
+              onCcChange={setCc}
+              onBccChange={setBcc}
+            />
+
+            {/* AI Suggestions */}
             {suggestions.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
                 {suggestions.map((s, i) => (
                   <button
                     key={i}
                     onClick={() => {
-                      setReplyText(s.body);
+                      setReplyHtml(`<p>${s.body}</p>`);
                       setSuggestions([]);
                     }}
                     className="text-xs px-2.5 py-1.5 rounded-full border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors"
@@ -195,26 +206,33 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
                 ))}
               </div>
             )}
-            <MentionTextarea
-              placeholder="Tapez votre réponse... (@mention pour taguer)"
-              value={replyText}
-              onChange={setReplyText}
-              className="text-sm"
+
+            {/* Rich Text Editor */}
+            <RichTextEditor
+              value={replyHtml}
+              onChange={setReplyHtml}
+              placeholder="Tapez votre réponse…"
             />
+
+            {/* Signature */}
             {signatureHtml && (
               <div
                 className="p-2 rounded-md border border-border bg-muted/30 text-xs"
                 dangerouslySetInnerHTML={{ __html: signatureHtml }}
               />
             )}
+
+            {/* Attachments */}
             <AttachmentUpload files={attachedFiles} onFilesChange={setAttachedFiles} />
+
+            {/* Actions */}
             <div className="flex justify-between items-center flex-wrap gap-2">
               <div className="flex gap-1.5">
                 <Button size="sm" variant="outline" onClick={handleSuggestReplies} disabled={loadingSuggestions} className="gap-1">
                   {loadingSuggestions ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
                   Suggérer
                 </Button>
-                <Button size="sm" variant="outline" onClick={handlePolish} disabled={polishing || !replyText.trim()} className="gap-1">
+                <Button size="sm" variant="outline" onClick={handlePolish} disabled={polishing || isReplyEmpty} className="gap-1">
                   {polishing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
                   Peaufiner
                 </Button>
@@ -225,14 +243,14 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
                 <TemplatePickerDialog
                   open={templateOpen}
                   onOpenChange={setTemplateOpen}
-                  onInsert={(_subject, body) => setReplyText(body)}
+                  onInsert={(_subject, body) => setReplyHtml(`<p>${body.replace(/\n/g, "</p><p>")}</p>`)}
                   recipientEmail={recipientEmail}
                 />
               </div>
               <div className="flex gap-1.5">
                 <Popover open={scheduleOpen} onOpenChange={setScheduleOpen}>
                   <PopoverTrigger asChild>
-                    <Button size="sm" variant="outline" disabled={!replyText.trim() || scheduling} className="gap-1">
+                    <Button size="sm" variant="outline" disabled={isReplyEmpty || scheduling} className="gap-1">
                       {scheduling ? <Loader2 className="h-3 w-3 animate-spin" /> : <Clock className="h-3 w-3" />}
                       Plus tard
                     </Button>
@@ -277,13 +295,15 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
                 <Button
                   size="sm"
                   onClick={async () => {
-                    onReply?.(conversation.id, replyText, attachedFiles);
+                    onReply?.(conversation.id, replyHtml, attachedFiles);
                     await deleteDraft();
-                    setReplyText("");
+                    setReplyHtml("");
                     setSuggestions([]);
                     setAttachedFiles([]);
+                    setCc([]);
+                    setBcc([]);
                   }}
-                  disabled={!replyText.trim()}
+                  disabled={isReplyEmpty}
                 >
                   <Send className="h-3 w-3 mr-1" /> Envoyer
                 </Button>
