@@ -1,18 +1,16 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ConversationList, Conversation } from "@/components/inbox/ConversationList";
 import { ConversationDetail } from "@/components/inbox/ConversationDetail";
 import { CommandMenu } from "@/components/inbox/CommandMenu";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 
 import type { FileToUpload } from "@/components/inbox/Attachments";
 
