@@ -166,7 +166,7 @@ export function ContactPanel({ contactEmail, onSelectConversation }: Props) {
 
   if (loading) {
     return (
-      <div className="w-[280px] border-l border-border p-4 flex items-center justify-center">
+      <div className="w-full border-border p-4 flex items-center justify-center">
         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
       </div>
     );
@@ -174,7 +174,7 @@ export function ContactPanel({ contactEmail, onSelectConversation }: Props) {
 
   if (!contact) {
     return (
-      <div className="w-[280px] border-l border-border p-4">
+      <div className="w-full border-border p-4">
         <div className="text-center space-y-2 py-8">
           <User className="h-8 w-8 mx-auto text-muted-foreground/40" />
           <p className="text-xs text-muted-foreground">{contactEmail}</p>
@@ -195,7 +195,7 @@ export function ContactPanel({ contactEmail, onSelectConversation }: Props) {
   };
 
   return (
-    <div className="w-[280px] border-l border-border flex flex-col h-full">
+    <div className="w-full flex flex-col h-full">
       <div className="p-4 text-center space-y-2 border-b border-border">
         <Avatar className="h-14 w-14 mx-auto">
           <AvatarImage src={contact.avatar_url || undefined} />

@@ -3,7 +3,7 @@ import {
   UserPlus, Tag, Clock, CheckCircle, MessageSquare, Send,
   MoreHorizontal, Sparkles, ChevronDown, ChevronUp, User,
   Building2, DollarSign, CalendarDays, ArrowUp, ArrowRight,
-  ArrowDown, Loader2, Trash2, Pencil, Check, X,
+  ArrowDown, Loader2, Trash2, Pencil, Check, X, Contact,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,8 @@ import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { ContactPanel } from "@/components/inbox/ContactPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { decodeHtml, categoryLabels, type ConversationDetailData } from "./types";
@@ -29,13 +31,15 @@ type Props = {
   onStatusChange?: (id: string, status: "open" | "snoozed" | "closed") => void;
   onDelete?: (id: string) => void;
   onReplyClick: () => void;
+  onSelectConversation?: (id: string) => void;
 };
 
-export function ConversationHeader({ conversation, onStatusChange, onDelete, onReplyClick }: Props) {
+export function ConversationHeader({ conversation, onStatusChange, onDelete, onReplyClick, onSelectConversation }: Props) {
   const [infoOpen, setInfoOpen] = useState(false);
   const [editingSubject, setEditingSubject] = useState(false);
   const [subjectDraft, setSubjectDraft] = useState("");
   const [savingSubject, setSavingSubject] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
   const subjectInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -119,6 +123,11 @@ export function ConversationHeader({ conversation, onStatusChange, onDelete, onR
           <Button size="sm" className="h-9 px-4 font-semibold gap-1.5" onClick={onReplyClick}>
             <Send className="h-4 w-4" /> Répondre
           </Button>
+          {conversation.from_email && (
+            <Button variant="outline" size="sm" className="h-9 px-4 font-semibold gap-1.5" onClick={() => setContactOpen(true)}>
+              <Contact className="h-4 w-4" /> Contact
+            </Button>
+          )}
           <Button variant="outline" size="sm" className="h-9 px-4 font-semibold gap-1.5" onClick={() => onDelete?.(conversation.id)}>
             <Trash2 className="h-4 w-4" /> Archiver
           </Button>
@@ -226,6 +235,19 @@ export function ConversationHeader({ conversation, onStatusChange, onDelete, onR
           </CollapsibleContent>
         </Collapsible>
       )}
+
+      <Sheet open={contactOpen} onOpenChange={setContactOpen}>
+        <SheetContent side="right" className="p-0 w-[320px] sm:max-w-[320px]">
+          <SheetTitle className="sr-only">Fiche contact</SheetTitle>
+          <ContactPanel
+            contactEmail={conversation.from_email || null}
+            onSelectConversation={(id) => {
+              setContactOpen(false);
+              onSelectConversation?.(id);
+            }}
+          />
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
