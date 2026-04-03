@@ -306,8 +306,12 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
                               setScheduleDate(next);
                               setScheduleTime("08:45");
                               // Programme directement
-                              if (isReplyEmpty || !senderEmail || !recipientEmail) {
-                                toast.error("Remplissez la réponse avant de programmer");
+                              if (isReplyEmpty) {
+                                toast.error("Rédigez votre réponse avant de programmer l'envoi");
+                                return;
+                              }
+                              if (!senderEmail || !recipientEmail) {
+                                toast.error("Adresse expéditeur ou destinataire manquante");
                                 return;
                               }
                               setScheduling(true);
