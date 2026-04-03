@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
-  Send, MessageSquare, Sparkles, Clock, Loader2, FileText, CalendarIcon,
+  Send, MessageSquare, Sparkles, Clock, Loader2, FileText, CalendarIcon, Wand2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
