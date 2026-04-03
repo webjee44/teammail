@@ -22,8 +22,27 @@ type Props = {
 };
 
 export function MessageList({ messages, comments, currentUserId, onEditComment, onDeleteComment }: Props) {
+  const navigate = useNavigate();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editBody, setEditBody] = useState("");
+
+  const handleContentClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    const link = target.closest("a");
+    if (link && link.href && link.href.startsWith("mailto:")) {
+      e.preventDefault();
+      e.stopPropagation();
+      const mailtoStr = link.href.substring(7);
+      const [emailPart, queryPart] = mailtoStr.split("?");
+      const params = new URLSearchParams(queryPart || "");
+      const to = decodeURIComponent(emailPart || "");
+      const composeParams = new URLSearchParams();
+      if (to) composeParams.set("to", to);
+      if (params.get("subject")) composeParams.set("subject", params.get("subject")!);
+      if (params.get("body")) composeParams.set("body", params.get("body")!);
+      navigate(`/compose?${composeParams.toString()}`);
+    }
+  }, [navigate]);
 
   const startEditing = (comment: Comment) => {
     setEditingId(comment.id);
