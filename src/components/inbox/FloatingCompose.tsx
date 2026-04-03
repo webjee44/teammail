@@ -23,7 +23,7 @@ import { useComposeWindow } from "@/hooks/useComposeWindow";
 export function FloatingCompose() {
   const { state, closeCompose, toggleMinimize } = useComposeWindow();
   const navigate = useNavigate();
-  const { draft, updateDraft, deleteDraft, loading: draftLoading } = useDraft({ draftId: state.draftId });
+  const { draft, updateDraft, deleteDraft, loading: draftLoading, resetDraft } = useDraft({ draftId: state.draftId });
 
   const [to, setTo] = useState("");
   const [subject, setSubject] = useState("");
@@ -55,7 +55,9 @@ export function FloatingCompose() {
     setBcc([]);
     setSending(false);
     setScheduling(false);
-  }, [state.isOpen, state.initialTo, state.initialSubject, state.initialBody]);
+    // Reset draft hook so it doesn't carry over from previous compose
+    resetDraft(state.draftId || null);
+  }, [state.isOpen, state.initialTo, state.initialSubject, state.initialBody, state.draftId, resetDraft]);
 
   const handlePolish = async () => {
     if (!body.trim() && body !== "<p></p>") return;

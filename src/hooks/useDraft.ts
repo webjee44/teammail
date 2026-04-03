@@ -18,27 +18,28 @@ export function useDraft({ conversationId = null, draftId = null }: UseDraftOpti
   const { user } = useAuth();
   const [draft, setDraft] = useState<DraftData>({});
   const [savedDraftId, setSavedDraftId] = useState<string | null>(draftId);
+  const [activeDraftId, setActiveDraftId] = useState<string | null>(draftId);
   const [loading, setLoading] = useState(true);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestDraft = useRef<DraftData>({});
 
-  // Load existing draft on mount
+  // Load existing draft
   useEffect(() => {
     if (!user) return;
+    // Only load if activeDraftId or conversationId is set
+    if (!activeDraftId && !conversationId) {
+      setLoading(false);
+      return;
+    }
+
     const load = async () => {
       setLoading(true);
       let query = supabase.from("drafts").select("*").eq("created_by", user.id);
 
-      if (draftId) {
-        query = query.eq("id", draftId);
+      if (activeDraftId) {
+        query = query.eq("id", activeDraftId);
       } else if (conversationId) {
         query = query.eq("conversation_id", conversationId);
-      } else {
-        // New compose: load drafts without conversation_id for this user
-        query = query.is("conversation_id", null).order("updated_at", { ascending: false }).limit(1);
-        // Don't auto-load for new compose — only load if draftId specified
-        setLoading(false);
-        return;
       }
 
       const { data } = await query.maybeSingle();
@@ -56,7 +57,18 @@ export function useDraft({ conversationId = null, draftId = null }: UseDraftOpti
       setLoading(false);
     };
     load();
-  }, [user, conversationId, draftId]);
+  }, [user, conversationId, activeDraftId]);
+
+  const resetDraft = useCallback((newDraftId: string | null) => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setDraft({});
+    latestDraft.current = {};
+    setSavedDraftId(newDraftId);
+    setActiveDraftId(newDraftId);
+    if (!newDraftId) {
+      setLoading(false);
+    }
+  }, []);
 
   const saveDraft = useCallback(async (data: DraftData) => {
     if (!user) return;
@@ -122,5 +134,5 @@ export function useDraft({ conversationId = null, draftId = null }: UseDraftOpti
     }
   }, [savedDraftId]);
 
-  return { draft, updateDraft, deleteDraft, loading, savedDraftId };
+  return { draft, updateDraft, deleteDraft, loading, savedDraftId, resetDraft };
 }
