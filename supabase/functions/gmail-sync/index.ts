@@ -222,7 +222,7 @@ serve(async (req) => {
             .from("conversations")
             .select("id")
             .eq("gmail_thread_id", thread.id)
-            .eq("team_id", mailbox.team_id)
+            .eq("mailbox_id", mailbox.id)
             .maybeSingle();
 
           const threadRes = await fetch(
