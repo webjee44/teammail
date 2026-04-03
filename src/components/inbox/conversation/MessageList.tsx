@@ -5,6 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { AttachmentList } from "../Attachments";
+import { renderMentions } from "../MentionTextarea";
 import type { Message, Comment } from "./types";
 
 type Props = {
