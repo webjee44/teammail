@@ -41,64 +41,7 @@ export function FloatingCompose() {
   const [templateOpen, setTemplateOpen] = useState(false);
   const [cc, setCc] = useState<string[]>([]);
   const [bcc, setBcc] = useState<string[]>([]);
-  const [showCc, setShowCc] = useState(false);
-  const [showBcc, setShowBcc] = useState(false);
-  const [ccInput, setCcInput] = useState("");
-  const [bccInput, setBccInput] = useState("");
   const [polishing, setPolishing] = useState(false);
-
-  // Reset state when compose window opens
-  useEffect(() => {
-    if (state.isOpen) {
-      setTo(state.initialTo || "");
-      setSubject(state.initialSubject || "");
-      setBody(state.initialBody || "");
-      setDraftInitialized(false);
-      setCc([]);
-      setBcc([]);
-      setShowCc(false);
-      setShowBcc(false);
-      setAttachedFiles([]);
-      setSending(false);
-      setScheduling(false);
-    }
-  }, [state.isOpen, state.initialTo, state.initialSubject, state.initialBody]);
-
-  const handlePolish = async () => {
-    if (!body.trim() && body !== "<p></p>") return;
-    setPolishing(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("polish-reply", {
-        body: { text: body, format: "html" },
-      });
-      if (error) throw error;
-      if (data?.error) { toast.error(data.error); return; }
-      if (data?.polished) {
-        setBody(data.polished);
-        toast.success("Texte peaufiné");
-      }
-    } catch {
-      toast.error("Erreur lors du peaufinage");
-    } finally {
-      setPolishing(false);
-    }
-  };
-
-  const addCcEmail = (value?: string) => {
-    const trimmed = (value || ccInput).trim().toLowerCase();
-    if (trimmed && trimmed.includes("@") && !cc.includes(trimmed)) {
-      setCc([...cc, trimmed]);
-    }
-    setCcInput("");
-  };
-
-  const addBccEmail = (value?: string) => {
-    const trimmed = (value || bccInput).trim().toLowerCase();
-    if (trimmed && trimmed.includes("@") && !bcc.includes(trimmed)) {
-      setBcc([...bcc, trimmed]);
-    }
-    setBccInput("");
-  };
 
   useEffect(() => {
     if (!state.isOpen) return;
