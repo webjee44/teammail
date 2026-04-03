@@ -18,7 +18,7 @@ import { AttachmentUpload, FileToUpload } from "@/components/inbox/Attachments";
 import { TemplatePickerDialog } from "@/components/inbox/TemplatePickerDialog";
 import { useDraft } from "@/hooks/useDraft";
 import { useComposeWindow } from "@/hooks/useComposeWindow";
-import { Badge } from "@/components/ui/badge";
+
 
 export function FloatingCompose() {
   const { state, closeCompose, toggleMinimize } = useComposeWindow();
