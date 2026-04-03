@@ -292,6 +292,7 @@ const Settings = () => {
     setSigHtml(sig.body_html);
     setSigIsDefault(sig.is_default);
     setShowPreview(false);
+    setShowSigEditor(true);
   };
 
   const saveSignature = async () => {
