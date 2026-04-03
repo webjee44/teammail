@@ -64,12 +64,20 @@ export function InboxSidebar() {
         .select("id, status, assigned_to, mailbox_id");
 
       if (!data) return;
+      // Fetch draft count
+      const { count: draftCount } = await supabase
+        .from("drafts")
+        .select("id", { count: "exact", head: true })
+        .is("conversation_id", null)
+        .eq("created_by", user.id);
+
       setCounts({
         open: data.filter((c) => c.status === "open").length,
         mine: data.filter((c) => c.assigned_to === user.id).length,
         unassigned: data.filter((c) => !c.assigned_to && c.status === "open").length,
         snoozed: data.filter((c) => c.status === "snoozed").length,
         closed: data.filter((c) => c.status === "closed").length,
+        drafts: draftCount || 0,
       });
 
       // Count open conversations per mailbox
