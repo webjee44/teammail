@@ -1,35 +1,36 @@
 
 
-# Plan : Accès automatique pour tous les utilisateurs CloudVapor
+# Aperçu mail en slide-over moderne
 
-## Problème
-Le trigger `on_auth_user_created` n'existe pas en base. La fonction `handle_new_user()` est bien définie mais jamais appelée. Résultat : les nouveaux utilisateurs n'ont pas de profil avec `team_id`, donc RLS bloque tout.
+## Concept
+Remplacer le layout actuel à 2 panneaux redimensionnables (ResizablePanelGroup) par un layout où :
+- La **liste des conversations** occupe toute la largeur
+- Le **détail du mail** apparaît en **slide-over panel** depuis la droite, par-dessus la liste, avec un overlay semi-transparent
 
-## Solution
+Inspiré des UX modernes type Linear, Superhuman, ou les sheets de shadcn/ui.
 
-**Une seule migration SQL** qui :
+## Modifications
 
-1. Crée le trigger sur `auth.users` pour appeler `handle_new_user()` à chaque inscription
-2. Rattrape les utilisateurs existants sans `team_id` (sécurité)
+### 1. `src/pages/Index.tsx`
+- Supprimer le `ResizablePanelGroup` / `ResizablePanel` / `ResizableHandle`
+- La liste des conversations occupe tout l'espace
+- Quand `selectedId` est défini, afficher le `ConversationDetail` dans un **Sheet** (composant shadcn déjà présent dans le projet) ouvert depuis la droite
+- Le Sheet utilise une largeur large (~70-75% de l'écran, ou `max-w-3xl`) pour bien afficher le contenu du mail
+- Fermer le Sheet remet `selectedId` à `null`
 
-```sql
--- Créer le trigger manquant
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW
-  EXECUTE FUNCTION public.handle_new_user();
+### 2. Animations
+- Utiliser le composant `Sheet` existant (`src/components/ui/sheet.tsx`) qui inclut déjà les animations slide-in/out
+- Le Sheet sera configuré avec `side="right"` pour glisser depuis la droite
 
--- Rattraper les profils existants sans team_id
-UPDATE public.profiles
-SET team_id = '60a520df-c0ad-4c2e-9941-f85860f434e2'
-WHERE team_id IS NULL;
-```
+### 3. Avantages
+- Plus moderne et aéré
+- La liste reste visible en arrière-plan (contexte conservé)
+- Fonctionne mieux sur écrans moyens
+- Pas de nouveau composant à créer — utilisation du Sheet shadcn existant
 
-Aucun changement côté code React. Le trigger + la fonction existante gèrent tout : profil, team_id, rôle `member`.
-
-## Fichiers concernés
-
-| Fichier | Action |
-|---|---|
-| Migration SQL | Créer trigger + rattrapage |
+## Détails techniques
+- Import `Sheet, SheetContent` depuis `@/components/ui/sheet`
+- Suppression des imports `ResizablePanelGroup, ResizablePanel, ResizableHandle`
+- Le `SheetContent` aura une classe `sm:max-w-3xl w-[75vw]` pour une largeur confortable
+- Le padding interne du Sheet sera minimal pour laisser `ConversationDetail` gérer son propre layout
 
