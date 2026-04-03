@@ -5,6 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { AttachmentList } from "../Attachments";
+import { renderMentions } from "../MentionTextarea";
 import type { Message, Comment } from "./types";
 
 type Props = {
@@ -79,7 +80,7 @@ export function MessageList({ messages, comments }: Props) {
                       {format(new Date(comment.created_at), "d MMM, HH:mm", { locale: fr })}
                     </span>
                   </div>
-                  <p className="text-sm">{comment.body}</p>
+                  <p className="text-sm">{renderMentions(comment.body)}</p>
                 </div>
               ))}
             </div>

@@ -18,6 +18,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { AttachmentUpload, FileToUpload } from "../Attachments";
 import { TemplatePickerDialog } from "../TemplatePickerDialog";
+import { MentionTextarea } from "../MentionTextarea";
 import { useDraft } from "@/hooks/useDraft";
 import type { Suggestion, ConversationDetailData } from "./types";
 
@@ -169,11 +170,11 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
                 ))}
               </div>
             )}
-            <Textarea
-              placeholder="Tapez votre réponse..."
+            <MentionTextarea
+              placeholder="Tapez votre réponse... (@mention pour taguer)"
               value={replyText}
-              onChange={(e) => setReplyText(e.target.value)}
-              className="min-h-[80px] text-sm resize-none"
+              onChange={setReplyText}
+              className="text-sm"
             />
             {signatureHtml && (
               <div
@@ -263,11 +264,11 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
         </TabsContent>
         <TabsContent value="comment" className="mt-0">
           <div className="space-y-2">
-            <Textarea
-              placeholder="Ajouter une note interne..."
+            <MentionTextarea
+              placeholder="Ajouter une note interne... (@mention pour taguer)"
               value={commentText}
-              onChange={(e) => setCommentText(e.target.value)}
-              className="min-h-[80px] text-sm resize-none bg-warning/5 border-warning/20"
+              onChange={setCommentText}
+              className="text-sm bg-warning/5 border-warning/20"
             />
             <div className="flex justify-end">
               <Button
