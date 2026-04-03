@@ -91,15 +91,22 @@ const Compose = () => {
     loadSignature();
   }, [fromEmail, mailboxes]);
 
-  // Restore draft fields on load
+  // Restore draft fields on load, then URL params override
   useEffect(() => {
     if (draftLoading || draftInitialized) return;
     if (draft.to_email) setTo(draft.to_email);
     if (draft.subject) setSubject(draft.subject);
     if (draft.body) setBody(draft.body);
     if (draft.from_email) setFromEmail(draft.from_email);
+    // URL params override draft values
+    const urlTo = searchParams.get("to");
+    const urlSubject = searchParams.get("subject");
+    const urlBody = searchParams.get("body");
+    if (urlTo) setTo(urlTo);
+    if (urlSubject) setSubject(urlSubject);
+    if (urlBody) setBody(urlBody);
     setDraftInitialized(true);
-  }, [draftLoading, draft, draftInitialized]);
+  }, [draftLoading, draft, draftInitialized, searchParams]);
 
   // Auto-save draft on field changes
   useEffect(() => {
