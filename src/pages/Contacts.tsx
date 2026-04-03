@@ -584,10 +584,10 @@ function ContactDetailView({
           )}
         </div>
 
-        <Separator />
+        <Separator className="my-2" />
 
         {/* Conversations */}
-        <div>
+        <div className="space-y-3">
           <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
             Conversations ({pastConvos.length})
           </h3>
