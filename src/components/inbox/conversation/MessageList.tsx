@@ -80,7 +80,7 @@ export function MessageList({ messages, comments }: Props) {
                       {format(new Date(comment.created_at), "d MMM, HH:mm", { locale: fr })}
                     </span>
                   </div>
-                  <p className="text-sm">{comment.body}</p>
+                  <p className="text-sm">{renderMentions(comment.body)}</p>
                 </div>
               ))}
             </div>
