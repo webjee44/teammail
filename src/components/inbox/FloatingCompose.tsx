@@ -68,7 +68,7 @@ export function FloatingCompose() {
     setPolishing(true);
     try {
       const { data, error } = await supabase.functions.invoke("polish-reply", {
-        body: { text: body, format: "text" },
+        body: { text: body, format: "html" },
       });
       if (error) throw error;
       if (data?.error) { toast.error(data.error); return; }
