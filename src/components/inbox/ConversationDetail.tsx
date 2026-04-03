@@ -208,6 +208,11 @@ export function ConversationDetail({ conversation, onStatusChange, onReply, onCo
     entities.people?.length || entities.companies?.length || entities.amounts?.length || entities.dates?.length;
   const hasAiInfo = conversation.ai_summary || conversation.category || hasEntities;
 
+  // Derive from/to for schedule
+  const recipientEmail = conversation.messages.find((m) => !m.is_outbound)?.from_email || conversation.from_email || "";
+  const senderEmail = [...conversation.messages].reverse().find((m) => m.is_outbound)?.from_email || "";
+  const replySubject = conversation.subject?.startsWith("Re:") ? conversation.subject : `Re: ${conversation.subject}`;
+
   const handleSuggestReplies = async () => {
     setLoadingSuggestions(true);
     setSuggestions([]);
@@ -226,6 +231,51 @@ export function ConversationDetail({ conversation, onStatusChange, onReply, onCo
       console.error(err);
     } finally {
       setLoadingSuggestions(false);
+    }
+  };
+
+  const handleScheduleReply = async () => {
+    if (!replyText.trim() || !scheduleDate || !senderEmail || !recipientEmail) {
+      toast.error("Remplissez la réponse et sélectionnez une date");
+      return;
+    }
+    const [hours, minutes] = scheduleTime.split(":").map(Number);
+    const scheduledAt = new Date(scheduleDate);
+    scheduledAt.setHours(hours, minutes, 0, 0);
+    if (scheduledAt <= new Date()) {
+      toast.error("La date doit être dans le futur");
+      return;
+    }
+    setScheduling(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Non authentifié");
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("team_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (!profile?.team_id) throw new Error("Aucune équipe trouvée");
+
+      const { error } = await supabase.from("scheduled_emails").insert({
+        team_id: profile.team_id,
+        created_by: user.id,
+        to_email: recipientEmail,
+        subject: replySubject,
+        body: replyText,
+        from_email: senderEmail,
+        scheduled_at: scheduledAt.toISOString(),
+      });
+      if (error) throw error;
+      toast.success(`Réponse programmée pour le ${format(scheduledAt, "d MMMM à HH:mm", { locale: fr })}`);
+      setReplyText("");
+      setSuggestions([]);
+      setAttachedFiles([]);
+    } catch (err: any) {
+      toast.error("Erreur : " + (err.message || String(err)));
+    } finally {
+      setScheduling(false);
+      setScheduleOpen(false);
     }
   };
 
