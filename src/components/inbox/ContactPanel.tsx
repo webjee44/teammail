@@ -166,7 +166,7 @@ export function ContactPanel({ contactEmail, onSelectConversation }: Props) {
 
   if (loading) {
     return (
-      <div className="w-[280px] border-l border-border p-4 flex items-center justify-center">
+      <div className="w-full border-border p-4 flex items-center justify-center">
         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
       </div>
     );
