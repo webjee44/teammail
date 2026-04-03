@@ -7,10 +7,10 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { AlertTriangle, ArrowUp, ArrowRight, ArrowDown, VolumeX, FileEdit } from "lucide-react";
 
-const decodeHtml = (s = "") => {
-  const t = document.createElement("textarea");
+const stripHtml = (s = "") => {
+  const t = document.createElement("div");
   t.innerHTML = s;
-  return t.value.replace(/\u00A0/g, " ").replace(/\s+/g, " ").trim();
+  return (t.textContent || t.innerText || "").replace(/\u00A0/g, " ").replace(/\s+/g, " ").trim();
 };
 
 export type Conversation = {
@@ -181,12 +181,12 @@ export function ConversationList({
                           !conv.is_read ? "font-medium text-foreground" : "text-muted-foreground"
                         )}
                       >
-                        {decodeHtml(conv.subject)}
+                        {stripHtml(conv.subject)}
                       </p>
                       {conv.ai_summary ? (
                         <p className="text-xs text-muted-foreground truncate">{conv.ai_summary}</p>
                       ) : conv.snippet ? (
-                        <p className="text-xs text-muted-foreground truncate">{decodeHtml(conv.snippet)}</p>
+                        <p className="text-xs text-muted-foreground truncate">{stripHtml(conv.snippet)}</p>
                       ) : null}
                       <div className="flex items-center gap-1.5 mt-1">
                         {PrioIcon && (
