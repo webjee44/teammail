@@ -384,6 +384,7 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
                     onReply?.(conversation.id, replyHtml, attachedFiles);
                     await deleteDraft();
                     setReplyHtml("");
+                    setDraftInitialized(false);
                     setSuggestions([]);
                     setAttachedFiles([]);
                     setCc([]);
