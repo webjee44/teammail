@@ -38,7 +38,7 @@ export function RichTextEditor({ value, onChange, placeholder, className }: Prop
     },
     editorProps: {
       attributes: {
-        class: "prose prose-sm max-w-none focus:outline-none min-h-[120px] px-3 py-2 text-sm [&>p+p]:mt-3",
+        class: "prose prose-sm max-w-none focus:outline-none min-h-[120px] px-3 py-2 text-sm [&>p+p]:mt-4",
       },
     },
   });
