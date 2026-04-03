@@ -76,7 +76,9 @@ function buildRawEmail(
   subject: string,
   bodyHtml: string,
   bodyText: string,
-  attachments?: Attachment[]
+  attachments?: Attachment[],
+  cc?: string,
+  bcc?: string,
 ): string {
   const boundary = `boundary_${crypto.randomUUID()}`;
   const hasAttachments = attachments && attachments.length > 0;
@@ -84,6 +86,8 @@ function buildRawEmail(
   const lines: string[] = [
     `From: ${from}`,
     `To: ${to}`,
+    ...(cc ? [`Cc: ${cc}`] : []),
+    ...(bcc ? [`Bcc: ${bcc}`] : []),
     `Subject: =?UTF-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`,
     `MIME-Version: 1.0`,
   ];
