@@ -123,6 +123,11 @@ export function ConversationHeader({ conversation, onStatusChange, onDelete, onR
           <Button size="sm" className="h-9 px-4 font-semibold gap-1.5" onClick={onReplyClick}>
             <Send className="h-4 w-4" /> Répondre
           </Button>
+          {conversation.from_email && (
+            <Button variant="outline" size="sm" className="h-9 px-4 font-semibold gap-1.5" onClick={() => setContactOpen(true)}>
+              <Contact className="h-4 w-4" /> Contact
+            </Button>
+          )}
           <Button variant="outline" size="sm" className="h-9 px-4 font-semibold gap-1.5" onClick={() => onDelete?.(conversation.id)}>
             <Trash2 className="h-4 w-4" /> Archiver
           </Button>
