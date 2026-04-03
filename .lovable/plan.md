@@ -1,36 +1,69 @@
 
 
-# Ajouter "Envoyer plus tard" et "Template" à la zone de réponse
+# Gestion des brouillons (Drafts)
 
-## Constat
-La zone de réponse dans `ConversationDetail` ne propose actuellement que "Suggérer (IA)" et "Envoyer". Les fonctionnalités "Envoyer plus tard" (programmation) et "Template" (insertion de modèle), déjà disponibles sur la page Compose, manquent dans la réponse à un mail.
+## Comment font Front et Missive ?
 
-## Modifications
+**Front** : chaque brouillon est sauvegardé automatiquement en temps réel (auto-save). Les brouillons apparaissent dans un dossier "Drafts" dans la sidebar. Un brouillon peut être lié à une conversation (réponse en cours) ou être un nouveau message. Plusieurs coéquipiers voient qu'un brouillon est en cours sur une conversation (indicateur "X is typing...").
 
-### `src/components/inbox/ConversationDetail.tsx`
+**Missive** : même approche — auto-save permanent, brouillons visibles par l'équipe, indicateur de rédaction en cours. Les brouillons sont rattachés à la conversation si c'est une réponse.
 
-1. **Ajouter le bouton Template** :
-   - Importer `FileText` de lucide-react
-   - Importer `TemplatePickerDialog` depuis `./TemplatePickerDialog`
-   - Ajouter un state `templateOpen`
-   - Placer un bouton "Template" à côté du bouton "Suggérer"
-   - Le `TemplatePickerDialog` insère le body du template dans `replyText` (le sujet n'est pas modifiable en réponse, donc on l'ignore)
+## Approche proposée pour TeamMail
 
-2. **Ajouter le bouton "Envoyer plus tard"** :
-   - Importer `Clock`, `CalendarIcon` de lucide-react, `Popover/PopoverContent/PopoverTrigger`, `Calendar`, `Input`, `Label`
-   - Ajouter les states : `scheduleOpen`, `scheduleDate`, `scheduleTime`, `scheduling`
-   - Placer un bouton "Envoyer plus tard" entre "Template" et "Envoyer"
-   - Au clic sur "Programmer l'envoi" :
-     - Récupérer le `from_email` depuis la conversation (dernier message outbound, ou le `from_email` de la conversation)
-     - Récupérer le `to` (premier message inbound `from_email`)
-     - Insérer dans la table `scheduled_emails` avec le sujet de la conversation
-   - Même UX que la page Compose (popover avec calendrier + heure)
+### 1. Table `drafts` en base
 
-3. **Layout des boutons** : La barre du bas aura : `Suggérer | Template | Envoyer plus tard | Envoyer` — les deux premiers à gauche, les deux derniers à droite.
+```text
+drafts
+├── id (uuid, PK)
+├── team_id (uuid, FK teams)
+├── created_by (uuid, FK auth.users)
+├── conversation_id (uuid, FK conversations, nullable) -- null = nouveau mail
+├── to_email (text, nullable)
+├── from_email (text, nullable)
+├── subject (text, nullable)
+├── body (text, nullable)
+├── attachments (jsonb, nullable)
+├── created_at (timestamptz)
+└── updated_at (timestamptz)
+```
 
-## Détails techniques
-- Le `recipientEmail` pour le TemplatePickerDialog sera extrait du premier message entrant (`from_email`)
-- Le `from_email` pour la programmation sera déterminé depuis le dernier message sortant de la conversation, ou depuis la mailbox associée
-- La programmation utilise la même logique que `Compose.tsx` : insertion dans `scheduled_emails` avec `team_id` et `created_by`
-- Le subject de la conversation est réutilisé automatiquement (préfixé "Re: " si pas déjà présent)
+RLS : même pattern team-scoped que les autres tables.
+
+### 2. Auto-save avec debounce
+
+- Dans **Compose.tsx** et **ReplyArea.tsx**, un `useEffect` avec debounce (1.5s) sauvegarde automatiquement le contenu en base via `upsert` sur la table `drafts`.
+- Au montage, si un brouillon existe pour la conversation (ou pour un nouveau mail), on le restaure.
+- À l'envoi réussi, le brouillon est supprimé.
+
+### 3. Liste des brouillons dans la sidebar
+
+- Ajouter une entrée "Brouillons" dans `InboxSidebar.tsx` avec un compteur.
+- Les brouillons sans `conversation_id` (nouveaux mails) apparaissent dans cette liste.
+- Les brouillons liés à une conversation apparaissent comme indicateur dans la `ConversationList` (petite icône ou badge "brouillon").
+
+### 4. Hook `useDraft`
+
+Un hook réutilisable qui encapsule :
+- Chargement du brouillon existant (par `conversation_id` ou par `draft_id`)
+- Auto-save debounced
+- Suppression à l'envoi
+
+### Fichiers à créer / modifier
+
+| Fichier | Action |
+|---------|--------|
+| Migration SQL | Créer table `drafts` + RLS policies |
+| `src/hooks/useDraft.ts` | Nouveau hook auto-save/load/delete |
+| `src/pages/Compose.tsx` | Intégrer `useDraft` (nouveau mail) |
+| `src/components/inbox/conversation/ReplyArea.tsx` | Intégrer `useDraft` (réponse) |
+| `src/components/inbox/InboxSidebar.tsx` | Ajouter entrée "Brouillons" + compteur |
+| `src/components/inbox/ConversationList.tsx` | Badge brouillon sur les conversations concernées |
+| `src/pages/Index.tsx` | Gérer la navigation vers un brouillon (charger Compose avec draft_id en query param) |
+
+### Détails techniques
+
+- **Debounce** : 1500ms après la dernière frappe, `upsert` dans `drafts` avec `conversation_id` + `created_by` comme clé de conflit.
+- **Chargement** : au mount de Compose (`?draft=<id>`) ou de ReplyArea (lookup par `conversation_id` + `created_by`).
+- **Suppression** : après `handleSend` / `onReply` réussi, `DELETE FROM drafts WHERE id = ...`.
+- **Sidebar** : query `SELECT count(*) FROM drafts WHERE conversation_id IS NULL` pour le badge.
 
