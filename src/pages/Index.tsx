@@ -338,6 +338,7 @@ const Index = () => {
     unassigned: "Non assigné",
     snoozed: "En pause",
     closed: "Fermé",
+    drafts: "Brouillons",
   };
   const headerTitle = filter ? filterLabels[filter] || "Boîte de réception" : "Boîte de réception";
 
