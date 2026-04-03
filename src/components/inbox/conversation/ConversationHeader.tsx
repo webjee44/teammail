@@ -34,11 +34,12 @@ type Props = {
   onSelectConversation?: (id: string) => void;
 };
 
-export function ConversationHeader({ conversation, onStatusChange, onDelete, onReplyClick }: Props) {
+export function ConversationHeader({ conversation, onStatusChange, onDelete, onReplyClick, onSelectConversation }: Props) {
   const [infoOpen, setInfoOpen] = useState(false);
   const [editingSubject, setEditingSubject] = useState(false);
   const [subjectDraft, setSubjectDraft] = useState("");
   const [savingSubject, setSavingSubject] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
   const subjectInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
