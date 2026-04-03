@@ -269,7 +269,21 @@ const Compose = () => {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="to">À</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="to">À</Label>
+                <div className="flex gap-1">
+                  {!showCc && (
+                    <Button variant="ghost" size="sm" className="h-5 text-xs px-1.5 text-muted-foreground" onClick={() => setShowCc(true)}>
+                      Cc
+                    </Button>
+                  )}
+                  {!showBcc && (
+                    <Button variant="ghost" size="sm" className="h-5 text-xs px-1.5 text-muted-foreground" onClick={() => setShowBcc(true)}>
+                      Cci
+                    </Button>
+                  )}
+                </div>
+              </div>
               <Input
                 id="to"
                 placeholder="destinataire@example.com"
@@ -278,6 +292,52 @@ const Compose = () => {
                 onChange={(e) => setTo(e.target.value)}
               />
             </div>
+            {showCc && (
+              <div className="space-y-2">
+                <Label>Cc</Label>
+                <div className="flex flex-wrap items-center gap-1 p-2 border rounded-md min-h-[36px]">
+                  {cc.map((email) => (
+                    <Badge key={email} variant="secondary" className="text-xs gap-1 py-0 h-5">
+                      {email}
+                      <button onClick={() => setCc(cc.filter((e) => e !== email))} className="ml-0.5 hover:text-destructive">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                  <Input
+                    value={ccInput}
+                    onChange={(e) => setCcInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addCcEmail(); } }}
+                    onBlur={() => addCcEmail()}
+                    placeholder="email@exemple.com"
+                    className="border-0 shadow-none h-6 text-xs px-1 focus-visible:ring-0 min-w-[140px] flex-1"
+                  />
+                </div>
+              </div>
+            )}
+            {showBcc && (
+              <div className="space-y-2">
+                <Label>Cci</Label>
+                <div className="flex flex-wrap items-center gap-1 p-2 border rounded-md min-h-[36px]">
+                  {bcc.map((email) => (
+                    <Badge key={email} variant="secondary" className="text-xs gap-1 py-0 h-5">
+                      {email}
+                      <button onClick={() => setBcc(bcc.filter((e) => e !== email))} className="ml-0.5 hover:text-destructive">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                  <Input
+                    value={bccInput}
+                    onChange={(e) => setBccInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addBccEmail(); } }}
+                    onBlur={() => addBccEmail()}
+                    placeholder="email@exemple.com"
+                    className="border-0 shadow-none h-6 text-xs px-1 focus-visible:ring-0 min-w-[140px] flex-1"
+                  />
+                </div>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="subject">Objet</Label>
               <Input
