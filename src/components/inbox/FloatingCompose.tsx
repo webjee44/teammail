@@ -253,7 +253,7 @@ export function FloatingCompose() {
   }
 
   return (
-    <div className="fixed bottom-0 right-6 z-50 w-[520px] max-h-[80vh] flex flex-col rounded-t-lg border border-border bg-background shadow-2xl">
+    <div className="fixed bottom-0 right-6 z-50 w-[640px] max-h-[80vh] flex flex-col rounded-t-lg border border-border bg-background shadow-2xl">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2 bg-muted/50 rounded-t-lg border-b border-border shrink-0">
         <span className="text-sm font-medium truncate">{subject || "Nouveau message"}</span>
