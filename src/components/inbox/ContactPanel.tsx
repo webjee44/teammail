@@ -32,6 +32,13 @@ type Contact = {
   avatar_url: string | null;
   notes: string | null;
   custom_fields: Record<string, string>;
+  street: string | null;
+  street2: string | null;
+  city: string | null;
+  zip: string | null;
+  country: string | null;
+  salesperson: string | null;
+  last_synced_at: string | null;
 };
 
 type PastConversation = {
