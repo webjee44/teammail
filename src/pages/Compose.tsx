@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useCallback } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,13 +17,19 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { AttachmentUpload, FileToUpload } from "@/components/inbox/Attachments";
 import { TemplatePickerDialog } from "@/components/inbox/TemplatePickerDialog";
+import { useDraft } from "@/hooks/useDraft";
 
 const Compose = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const draftId = searchParams.get("draft");
+  const { draft, updateDraft, deleteDraft, loading: draftLoading } = useDraft({ draftId });
+
   const [to, setTo] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [fromEmail, setFromEmail] = useState("");
+  const [draftInitialized, setDraftInitialized] = useState(false);
   const [mailboxes, setMailboxes] = useState<{ id: string; email: string; label: string | null }[]>([]);
   const [sending, setSending] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<FileToUpload[]>([]);
@@ -85,6 +91,22 @@ const Compose = () => {
     loadSignature();
   }, [fromEmail, mailboxes]);
 
+  // Restore draft fields on load
+  useEffect(() => {
+    if (draftLoading || draftInitialized) return;
+    if (draft.to_email) setTo(draft.to_email);
+    if (draft.subject) setSubject(draft.subject);
+    if (draft.body) setBody(draft.body);
+    if (draft.from_email) setFromEmail(draft.from_email);
+    setDraftInitialized(true);
+  }, [draftLoading, draft, draftInitialized]);
+
+  // Auto-save draft on field changes
+  useEffect(() => {
+    if (!draftInitialized) return;
+    updateDraft({ to_email: to, from_email: fromEmail, subject, body });
+  }, [to, fromEmail, subject, body, draftInitialized, updateDraft]);
+
   const handleSend = async () => {
     if (!to || !subject || !body || !fromEmail) return;
     setSending(true);
@@ -99,6 +121,7 @@ const Compose = () => {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
+      await deleteDraft();
       toast.success("Email envoyé !");
       navigate("/");
     } catch (err: any) {
@@ -153,6 +176,7 @@ const Compose = () => {
 
       if (error) throw error;
 
+      await deleteDraft();
       toast.success(`Email programmé pour le ${format(scheduledAt, "d MMMM à HH:mm", { locale: fr })}`);
       navigate("/");
     } catch (err: any) {

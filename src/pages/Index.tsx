@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ConversationList, Conversation } from "@/components/inbox/ConversationList";
 import { ConversationDetail } from "@/components/inbox/ConversationDetail";
@@ -34,6 +34,7 @@ type Comment = {
 };
 
 const Index = () => {
+  const navigate = useNavigate();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -47,6 +48,16 @@ const Index = () => {
   const filter = searchParams.get("filter");
   const mailboxId = searchParams.get("mailbox");
   const { user } = useAuth();
+
+  const handleSelectConversation = useCallback((id: string) => {
+    // If it's a draft, navigate to Compose with draft id
+    if (id.startsWith("draft-")) {
+      const draftId = id.replace("draft-", "");
+      navigate(`/compose?draft=${draftId}`);
+      return;
+    }
+    setSelectedId(id);
+  }, [navigate]);
 
   // ⌘K / Ctrl+K shortcut
   useEffect(() => {
@@ -64,6 +75,40 @@ const Index = () => {
   useEffect(() => {
     const fetchConversations = async () => {
       setLoading(true);
+
+      // Special handling for drafts filter
+      if (filter === "drafts") {
+        if (!user) { setLoading(false); return; }
+        const { data: drafts } = await supabase
+          .from("drafts")
+          .select("*")
+          .is("conversation_id", null)
+          .eq("created_by", user.id)
+          .order("updated_at", { ascending: false });
+
+        setConversations(
+          (drafts || []).map((d: any) => ({
+            id: `draft-${d.id}`,
+            subject: d.subject || "(sans objet)",
+            snippet: d.body?.slice(0, 100) || null,
+            from_email: d.from_email,
+            from_name: null,
+            status: "open" as const,
+            assigned_to: null,
+            is_read: true,
+            last_message_at: d.updated_at,
+            tags: [],
+            priority: null,
+            is_noise: false,
+            ai_summary: null,
+            category: null,
+            entities: null,
+          }))
+        );
+        setLoading(false);
+        return;
+      }
+
       let query = supabase
         .from("conversations")
         .select("*")
@@ -338,6 +383,7 @@ const Index = () => {
     unassigned: "Non assigné",
     snoozed: "En pause",
     closed: "Fermé",
+    drafts: "Brouillons",
   };
   const headerTitle = filter ? filterLabels[filter] || "Boîte de réception" : "Boîte de réception";
 
@@ -368,7 +414,7 @@ const Index = () => {
           <ConversationList
             conversations={filteredConversations}
             selectedId={selectedId}
-            onSelect={setSelectedId}
+            onSelect={handleSelectConversation}
             loading={loading}
             hideNoise={hideNoise}
             onToggleNoise={() => setHideNoise(!hideNoise)}

@@ -288,6 +288,63 @@ export type Database = {
           },
         ]
       }
+      drafts: {
+        Row: {
+          attachments: Json | null
+          body: string | null
+          conversation_id: string | null
+          created_at: string
+          created_by: string
+          from_email: string | null
+          id: string
+          subject: string | null
+          team_id: string
+          to_email: string | null
+          updated_at: string
+        }
+        Insert: {
+          attachments?: Json | null
+          body?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          created_by: string
+          from_email?: string | null
+          id?: string
+          subject?: string | null
+          team_id: string
+          to_email?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attachments?: Json | null
+          body?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          created_by?: string
+          from_email?: string | null
+          id?: string
+          subject?: string | null
+          team_id?: string
+          to_email?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "drafts_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "drafts_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_templates: {
         Row: {
           body: string
