@@ -9,13 +9,14 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { text } = await req.json();
+    const { text, format: inputFormat } = await req.json();
     if (!text || typeof text !== "string" || !text.trim()) {
       return new Response(JSON.stringify({ error: "Texte vide" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    const isHtml = inputFormat === "html";
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
@@ -39,6 +40,7 @@ Règles strictes :
 - Garde exactement le même sens, le même ton et approximativement la même longueur.
 - Ne rajoute aucune information, aucune formule de politesse supplémentaire.
 - Ne change pas la structure du message (paragraphes, sauts de ligne).
+${isHtml ? "- Le texte est en HTML. Préserve toutes les balises HTML, ne modifie que le texte à l'intérieur." : ""}
 - Retourne UNIQUEMENT le texte corrigé, sans explication ni commentaire.`,
           },
           { role: "user", content: text },
