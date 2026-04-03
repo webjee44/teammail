@@ -64,7 +64,7 @@ export function FloatingCompose() {
   }, [state.isOpen, state.initialTo, state.initialSubject, state.initialBody]);
 
   const handlePolish = async () => {
-    if (!body.trim()) return;
+    if (!body.trim() && body !== "<p></p>") return;
     setPolishing(true);
     try {
       const { data, error } = await supabase.functions.invoke("polish-reply", {
