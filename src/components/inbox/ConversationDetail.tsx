@@ -559,33 +559,123 @@ export function ConversationDetail({ conversation, onStatusChange, onReply, onCo
                 className="min-h-[80px] text-sm resize-none"
               />
               <AttachmentUpload files={attachedFiles} onFilesChange={setAttachedFiles} />
-              <div className="flex justify-between">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleSuggestReplies}
-                  disabled={loadingSuggestions}
-                  className="gap-1"
-                >
-                  {loadingSuggestions ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    <Sparkles className="h-3 w-3" />
-                  )}
-                  Suggérer
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    onReply?.(conversation.id, replyText, attachedFiles);
-                    setReplyText("");
-                    setSuggestions([]);
-                    setAttachedFiles([]);
-                  }}
-                  disabled={!replyText.trim()}
-                >
-                  <Send className="h-3 w-3 mr-1" /> Envoyer
-                </Button>
+              <div className="flex justify-between items-center flex-wrap gap-2">
+                <div className="flex gap-1.5">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleSuggestReplies}
+                    disabled={loadingSuggestions}
+                    className="gap-1"
+                  >
+                    {loadingSuggestions ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-3 w-3" />
+                    )}
+                    Suggérer
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setTemplateOpen(true)}
+                    className="gap-1"
+                  >
+                    <FileText className="h-3 w-3" />
+                    Template
+                  </Button>
+                  <TemplatePickerDialog
+                    open={templateOpen}
+                    onOpenChange={setTemplateOpen}
+                    onInsert={(_subject, body) => setReplyText(body)}
+                    recipientEmail={recipientEmail}
+                  />
+                </div>
+                <div className="flex gap-1.5">
+                  <Popover open={scheduleOpen} onOpenChange={setScheduleOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={!replyText.trim() || scheduling}
+                        className="gap-1"
+                      >
+                        {scheduling ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Clock className="h-3 w-3" />
+                        )}
+                        Plus tard
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-4" align="end">
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Date</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className={cn(
+                                  "w-full justify-start text-left font-normal",
+                                  !scheduleDate && "text-muted-foreground"
+                                )}
+                              >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {scheduleDate
+                                  ? format(scheduleDate, "d MMMM yyyy", { locale: fr })
+                                  : "Choisir une date"}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={scheduleDate}
+                                onSelect={setScheduleDate}
+                                disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                                initialFocus
+                                className={cn("p-3 pointer-events-auto")}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Heure</Label>
+                          <Input
+                            type="time"
+                            value={scheduleTime}
+                            onChange={(e) => setScheduleTime(e.target.value)}
+                          />
+                        </div>
+                        <Button
+                          onClick={handleScheduleReply}
+                          disabled={!scheduleDate || scheduling}
+                          className="w-full gap-2"
+                          size="sm"
+                        >
+                          {scheduling ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Clock className="h-3 w-3" />
+                          )}
+                          Programmer l'envoi
+                        </Button>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      onReply?.(conversation.id, replyText, attachedFiles);
+                      setReplyText("");
+                      setSuggestions([]);
+                      setAttachedFiles([]);
+                    }}
+                    disabled={!replyText.trim()}
+                  >
+                    <Send className="h-3 w-3 mr-1" /> Envoyer
+                  </Button>
+                </div>
               </div>
             </div>
           </TabsContent>
