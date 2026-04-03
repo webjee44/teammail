@@ -204,6 +204,12 @@ export function ConversationList({
                             🔇 Bruit
                           </span>
                         )}
+                        {conv.has_draft && (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                            <FileEdit className="h-2.5 w-2.5" />
+                            Brouillon
+                          </span>
+                        )}
                         {conv.tags?.map((tag) => (
                           <span
                             key={tag.id}
