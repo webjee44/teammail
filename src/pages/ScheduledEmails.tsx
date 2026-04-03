@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
-  Clock, Trash2, CalendarIcon, Loader2, Mail, RefreshCw, SendHorizonal,
+  Clock, Trash2, CalendarIcon, Loader2, Mail, RefreshCw, SendHorizonal, Pencil,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -20,6 +20,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { useComposeWindow } from "@/hooks/useComposeWindow";
 
 type ScheduledEmail = {
   id: string;
