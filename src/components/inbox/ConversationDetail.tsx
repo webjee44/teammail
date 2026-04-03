@@ -34,6 +34,7 @@ export function ConversationDetail({ conversation, currentUserId, onStatusChange
       <MessageList
         messages={conversation.messages}
         comments={conversation.comments}
+        conversationSubject={conversation.subject}
         currentUserId={currentUserId}
         onEditComment={onEditComment}
         onDeleteComment={onDeleteComment}
