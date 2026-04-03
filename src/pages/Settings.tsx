@@ -689,11 +689,12 @@ const Settings = () => {
                         variant="ghost"
                         size="sm"
                         onClick={() => {
-                          setEditingSignature(null);
-                          setSigName("");
-                          setSigHtml("");
-                          setSigIsDefault(false);
-                        }}
+                           setEditingSignature(null);
+                           setSigName("");
+                           setSigHtml("");
+                           setSigIsDefault(false);
+                           setShowSigEditor(false);
+                         }}
                       >
                         Annuler
                       </Button>
