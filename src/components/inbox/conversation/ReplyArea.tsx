@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
-  Send, MessageSquare, Sparkles, Clock, Loader2, FileText, CalendarIcon,
+  Send, MessageSquare, Sparkles, Clock, Loader2, FileText, CalendarIcon, Wand2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -42,6 +42,7 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
   const [scheduleDate, setScheduleDate] = useState<Date | undefined>();
   const [scheduleTime, setScheduleTime] = useState("09:00");
   const [scheduling, setScheduling] = useState(false);
+  const [polishing, setPolishing] = useState(false);
   const [signatureHtml, setSignatureHtml] = useState("");
   const [draftInitialized, setDraftInitialized] = useState(false);
 
@@ -92,6 +93,30 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
       console.error(err);
     } finally {
       setLoadingSuggestions(false);
+    }
+  };
+
+  const handlePolish = async () => {
+    if (!replyText.trim()) return;
+    setPolishing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("polish-reply", {
+        body: { text: replyText },
+      });
+      if (error) throw error;
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
+      if (data?.polished) {
+        setReplyText(data.polished);
+        toast.success("Texte peaufiné");
+      }
+    } catch (err: any) {
+      toast.error("Erreur lors du peaufinage");
+      console.error(err);
+    } finally {
+      setPolishing(false);
     }
   };
 
@@ -188,6 +213,10 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
                 <Button size="sm" variant="outline" onClick={handleSuggestReplies} disabled={loadingSuggestions} className="gap-1">
                   {loadingSuggestions ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
                   Suggérer
+                </Button>
+                <Button size="sm" variant="outline" onClick={handlePolish} disabled={polishing || !replyText.trim()} className="gap-1">
+                  {polishing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
+                  Peaufiner
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => setTemplateOpen(true)} className="gap-1">
                   <FileText className="h-3 w-3" />
