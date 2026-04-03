@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
-  Clock, Trash2, CalendarIcon, Loader2, Mail, RefreshCw, SendHorizonal,
+  Clock, Trash2, CalendarIcon, Loader2, Mail, RefreshCw, SendHorizonal, Pencil,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -20,6 +20,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { useComposeWindow } from "@/hooks/useComposeWindow";
 
 type ScheduledEmail = {
   id: string;
@@ -35,6 +36,7 @@ type ScheduledEmail = {
 
 const ScheduledEmails = () => {
   const { user } = useAuth();
+  const { openCompose } = useComposeWindow();
   const [emails, setEmails] = useState<ScheduledEmail[]>([]);
   const [loading, setLoading] = useState(true);
   const [rescheduleId, setRescheduleId] = useState<string | null>(null);
@@ -138,6 +140,24 @@ const ScheduledEmails = () => {
       </div>
       {email.status === "pending" && (
         <div className="flex gap-1 shrink-0">
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 px-2 gap-1 text-xs"
+            onClick={async () => {
+              openCompose({
+                to: email.to_email,
+                subject: email.subject,
+                body: email.body,
+              });
+              await supabase.from("scheduled_emails").delete().eq("id", email.id);
+              setEmails((prev) => prev.filter((e) => e.id !== email.id));
+              toast.success("Email ouvert dans le compositeur — l'ancien programmé a été supprimé");
+            }}
+          >
+            <Pencil className="h-3 w-3" />
+            Modifier
+          </Button>
           <Popover
             open={rescheduleId === email.id}
             onOpenChange={(open) => {
