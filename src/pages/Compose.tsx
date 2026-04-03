@@ -385,6 +385,16 @@ const Compose = () => {
                 Template
               </Button>
 
+              <Button
+                variant="outline"
+                onClick={handlePolish}
+                disabled={polishing || !body.trim()}
+                className="gap-2"
+              >
+                {polishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+                Peaufiner
+              </Button>
+
               <TemplatePickerDialog
                 open={templateOpen}
                 onOpenChange={setTemplateOpen}
