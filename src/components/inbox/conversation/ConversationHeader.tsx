@@ -31,6 +31,7 @@ type Props = {
   onStatusChange?: (id: string, status: "open" | "snoozed" | "closed") => void;
   onDelete?: (id: string) => void;
   onReplyClick: () => void;
+  onSelectConversation?: (id: string) => void;
 };
 
 export function ConversationHeader({ conversation, onStatusChange, onDelete, onReplyClick }: Props) {
