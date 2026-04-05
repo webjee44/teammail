@@ -9,8 +9,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Search } from "lucide-react";
+import { Search, Trash2, CheckCircle, Clock, MailOpen, X } from "lucide-react";
 import { useComposeWindow } from "@/hooks/useComposeWindow";
+import { Button } from "@/components/ui/button";
 
 import { NotificationBell } from "@/components/inbox/NotificationBell";
 
@@ -47,6 +48,8 @@ const Index = () => {
   const [hideNoise, setHideNoise] = useState(true);
   const [commandOpen, setCommandOpen] = useState(false);
   const [showAllMails, setShowAllMails] = useState(false);
+  const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
+  const [bulkLoading, setBulkLoading] = useState(false);
   const [searchParams] = useSearchParams();
   const filter = searchParams.get("filter");
   const mailboxId = searchParams.get("mailbox");
@@ -431,6 +434,91 @@ const Index = () => {
     ? conversations.filter((c) => !c.is_noise)
     : conversations;
 
+  // Bulk action handlers
+  const handleBulkToggle = useCallback((id: string) => {
+    setBulkSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleBulkSelectAll = useCallback(() => {
+    setBulkSelected(new Set(filteredConversations.map((c) => c.id)));
+  }, [filteredConversations]);
+
+  const handleBulkDeselectAll = useCallback(() => {
+    setBulkSelected(new Set());
+  }, []);
+
+  const handleBulkArchive = async () => {
+    if (bulkSelected.size === 0) return;
+    setBulkLoading(true);
+    const ids = Array.from(bulkSelected);
+    try {
+      // Archive all selected in parallel
+      await Promise.all(
+        ids.map((id) =>
+          supabase.functions.invoke("gmail-archive", { body: { conversation_id: id } })
+        )
+      );
+      setConversations((prev) => prev.filter((c) => !bulkSelected.has(c.id)));
+      if (selectedId && bulkSelected.has(selectedId)) setSelectedId(null);
+      setBulkSelected(new Set());
+      toast.success(`${ids.length} conversation(s) archivée(s)`);
+    } catch (err: any) {
+      toast.error("Erreur : " + (err.message || String(err)));
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const handleBulkStatusChange = async (status: "open" | "snoozed" | "closed") => {
+    if (bulkSelected.size === 0) return;
+    setBulkLoading(true);
+    const ids = Array.from(bulkSelected);
+    try {
+      const { error } = await supabase
+        .from("conversations")
+        .update({ status })
+        .in("id", ids);
+      if (error) throw error;
+      setConversations((prev) =>
+        prev.map((c) => (bulkSelected.has(c.id) ? { ...c, status } : c))
+      );
+      setBulkSelected(new Set());
+      const labels = { open: "Ouvert", snoozed: "En pause", closed: "Fermé" };
+      toast.success(`${ids.length} conversation(s) → ${labels[status]}`);
+    } catch (err: any) {
+      toast.error("Erreur : " + (err.message || String(err)));
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const handleBulkMarkRead = async () => {
+    if (bulkSelected.size === 0) return;
+    setBulkLoading(true);
+    const ids = Array.from(bulkSelected);
+    try {
+      const { error } = await supabase
+        .from("conversations")
+        .update({ is_read: true })
+        .in("id", ids);
+      if (error) throw error;
+      setConversations((prev) =>
+        prev.map((c) => (bulkSelected.has(c.id) ? { ...c, is_read: true } : c))
+      );
+      setBulkSelected(new Set());
+      toast.success(`${ids.length} conversation(s) marquée(s) comme lue(s)`);
+    } catch (err: any) {
+      toast.error("Erreur : " + (err.message || String(err)));
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
   const totalCount = conversations.length;
   const noiseCount = conversations.filter((c) => c.is_noise).length;
 
@@ -466,7 +554,31 @@ const Index = () => {
             </span>
           </div>
         </div>
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-hidden flex flex-col">
+          {bulkSelected.size > 0 && (
+            <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-primary/5 shrink-0">
+              <span className="text-sm font-medium text-foreground">
+                {bulkSelected.size} sélectionné(s)
+              </span>
+              <div className="flex items-center gap-1 ml-auto">
+                <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={handleBulkMarkRead} disabled={bulkLoading}>
+                  <MailOpen className="h-3.5 w-3.5" /> Lu
+                </Button>
+                <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => handleBulkStatusChange("snoozed")} disabled={bulkLoading}>
+                  <Clock className="h-3.5 w-3.5" /> En pause
+                </Button>
+                <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => handleBulkStatusChange("closed")} disabled={bulkLoading}>
+                  <CheckCircle className="h-3.5 w-3.5" /> Fermer
+                </Button>
+                <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={handleBulkArchive} disabled={bulkLoading}>
+                  <Trash2 className="h-3.5 w-3.5" /> Archiver
+                </Button>
+                <Button variant="ghost" size="sm" className="h-8" onClick={handleBulkDeselectAll} disabled={bulkLoading}>
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          )}
           <ConversationList
             conversations={filteredConversations}
             selectedId={selectedId}
@@ -477,6 +589,10 @@ const Index = () => {
             noiseCount={noiseCount}
             showAllMails={mailboxId ? showAllMails : undefined}
             onToggleAllMails={mailboxId ? () => setShowAllMails(!showAllMails) : undefined}
+            bulkSelected={bulkSelected}
+            onBulkToggle={handleBulkToggle}
+            onBulkSelectAll={handleBulkSelectAll}
+            onBulkDeselectAll={handleBulkDeselectAll}
           />
         </div>
       </div>
