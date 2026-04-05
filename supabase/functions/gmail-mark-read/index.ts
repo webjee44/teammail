@@ -139,7 +139,7 @@ serve(async (req) => {
       }
     }
 
-    const accessToken = await getAccessToken(serviceAccountKey, mailbox.email);
+    const accessToken = await getAccessToken(serviceAccountKey, mailboxEmail);
 
     // Get all message IDs in the thread
     const threadRes = await fetch(
