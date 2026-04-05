@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { AlertTriangle, ArrowUp, ArrowRight, ArrowDown, VolumeX, FileEdit } from "lucide-react";
 
 const stripHtml = (s = "") => {
@@ -43,6 +44,10 @@ type Props = {
   noiseCount?: number;
   showAllMails?: boolean;
   onToggleAllMails?: () => void;
+  bulkSelected: Set<string>;
+  onBulkToggle: (id: string) => void;
+  onBulkSelectAll: () => void;
+  onBulkDeselectAll: () => void;
 };
 
 const priorityConfig: Record<string, { icon: typeof ArrowUp; className: string; label: string }> = {
@@ -69,7 +74,13 @@ export function ConversationList({
   noiseCount,
   showAllMails,
   onToggleAllMails,
+  bulkSelected,
+  onBulkToggle,
+  onBulkSelectAll,
+  onBulkDeselectAll,
 }: Props) {
+  const bulkMode = bulkSelected.size > 0;
+
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -79,40 +90,57 @@ export function ConversationList({
   }
 
   const hasToggles = (noiseCount ?? 0) > 0 || showAllMails !== undefined;
+  const allSelected = conversations.length > 0 && bulkSelected.size === conversations.length;
 
   return (
     <div className="flex flex-col h-full">
-      {/* Filter toggles — single row */}
-      {hasToggles && (
-        <div className="flex items-center gap-3 px-3 py-1.5 border-b border-border bg-muted/30">
-          {(noiseCount ?? 0) > 0 && (
-            <label htmlFor="hide-noise" className="flex items-center gap-1.5 cursor-pointer">
-              <Switch
-                id="hide-noise"
-                checked={hideNoise}
-                onCheckedChange={onToggleNoise}
-                className="scale-75"
-              />
-              <span className="text-xs text-muted-foreground whitespace-nowrap">
-                Bruit ({noiseCount})
-              </span>
-            </label>
-          )}
-          {showAllMails !== undefined && (
-            <label htmlFor="show-all" className="flex items-center gap-1.5 cursor-pointer">
-              <Switch
-                id="show-all"
-                checked={showAllMails}
-                onCheckedChange={onToggleAllMails}
-                className="scale-75"
-              />
-              <span className="text-xs text-muted-foreground whitespace-nowrap">
-                Tous les mails
-              </span>
-            </label>
-          )}
-        </div>
-      )}
+      {/* Bulk select header */}
+      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border bg-muted/30">
+        <Checkbox
+          checked={allSelected}
+          onCheckedChange={(checked) => {
+            if (checked) onBulkSelectAll();
+            else onBulkDeselectAll();
+          }}
+          className="h-4 w-4"
+          aria-label="Tout sélectionner"
+        />
+        <span className="text-xs text-muted-foreground">
+          {bulkMode ? `${bulkSelected.size} sélectionné(s)` : "Sélectionner"}
+        </span>
+
+        {/* Filter toggles */}
+        {hasToggles && (
+          <div className="flex items-center gap-3 ml-auto">
+            {(noiseCount ?? 0) > 0 && (
+              <label htmlFor="hide-noise" className="flex items-center gap-1.5 cursor-pointer">
+                <Switch
+                  id="hide-noise"
+                  checked={hideNoise}
+                  onCheckedChange={onToggleNoise}
+                  className="scale-75"
+                />
+                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                  Bruit ({noiseCount})
+                </span>
+              </label>
+            )}
+            {showAllMails !== undefined && (
+              <label htmlFor="show-all" className="flex items-center gap-1.5 cursor-pointer">
+                <Switch
+                  id="show-all"
+                  checked={showAllMails}
+                  onCheckedChange={onToggleAllMails}
+                  className="scale-75"
+                />
+                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                  Tous les mails
+                </span>
+              </label>
+            )}
+          </div>
+        )}
+      </div>
 
       {conversations.length === 0 ? (
         <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
@@ -133,107 +161,120 @@ export function ConversationList({
 
               const prio = conv.priority ? priorityConfig[conv.priority] : null;
               const PrioIcon = prio?.icon;
+              const isChecked = bulkSelected.has(conv.id);
 
               return (
-                <button
+                <div
                   key={conv.id}
-                  onClick={() => onSelect(conv.id)}
                   className={cn(
-                    "w-full text-left p-3 hover:bg-accent/50 transition-colors",
+                    "w-full text-left p-3 hover:bg-accent/50 transition-colors flex items-start gap-2",
                     selectedId === conv.id && "bg-accent",
                     !conv.is_read && "bg-primary/5",
-                    conv.is_noise && "opacity-60"
+                    conv.is_noise && "opacity-60",
+                    isChecked && "bg-primary/10"
                   )}
                 >
-                  <div className="flex items-start gap-3">
-                    <Avatar className="h-8 w-8 shrink-0 mt-0.5">
-                      <AvatarFallback className="text-xs bg-muted text-muted-foreground">
-                        {initials}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0 space-y-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex flex-col min-w-0">
-                          <span
-                            className={cn(
-                              "text-sm truncate",
-                              !conv.is_read ? "font-semibold text-foreground" : "text-foreground"
+                  <Checkbox
+                    checked={isChecked}
+                    onCheckedChange={() => onBulkToggle(conv.id)}
+                    className="h-4 w-4 mt-1 shrink-0"
+                    aria-label={`Sélectionner ${conv.subject}`}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <button
+                    onClick={() => onSelect(conv.id)}
+                    className="flex-1 min-w-0 text-left"
+                  >
+                    <div className="flex items-start gap-3">
+                      <Avatar className="h-8 w-8 shrink-0 mt-0.5">
+                        <AvatarFallback className="text-xs bg-muted text-muted-foreground">
+                          {initials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex flex-col min-w-0">
+                            <span
+                              className={cn(
+                                "text-sm truncate",
+                                !conv.is_read ? "font-semibold text-foreground" : "text-foreground"
+                              )}
+                            >
+                              {conv.from_name || conv.from_email || "Unknown"}
+                            </span>
+                            {conv.from_name && conv.from_email && (
+                              <span className="text-[11px] text-muted-foreground truncate">
+                                {conv.from_email}
+                              </span>
                             )}
-                          >
-                            {conv.from_name || conv.from_email || "Unknown"}
+                          </div>
+                          <span className="text-xs text-muted-foreground shrink-0">
+                            {formatDistanceToNow(new Date(conv.last_message_at), {
+                              addSuffix: false,
+                              locale: fr,
+                            })}
                           </span>
-                          {conv.from_name && conv.from_email && (
-                            <span className="text-[11px] text-muted-foreground truncate">
-                              {conv.from_email}
+                        </div>
+                        <p
+                          className={cn(
+                            "text-sm truncate",
+                            !conv.is_read ? "font-medium text-foreground" : "text-muted-foreground"
+                          )}
+                        >
+                          {stripHtml(conv.subject)}
+                        </p>
+                        {conv.ai_summary ? (
+                          <p className="text-xs text-muted-foreground truncate">{conv.ai_summary}</p>
+                        ) : conv.snippet ? (
+                          <p className="text-xs text-muted-foreground truncate">{stripHtml(conv.snippet)}</p>
+                        ) : null}
+                        <div className="flex items-center gap-1.5 mt-1">
+                          {PrioIcon && (
+                            <span className={cn("flex items-center", prio?.className)}>
+                              <PrioIcon className="h-3 w-3" />
+                            </span>
+                          )}
+                          {conv.category && (
+                            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                              {categoryLabels[conv.category] || conv.category}
+                            </span>
+                          )}
+                          {conv.is_noise && (
+                            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                              🔇 Bruit
+                            </span>
+                          )}
+                          {conv.has_draft && (
+                            <span className="inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                              <FileEdit className="h-2.5 w-2.5" />
+                              Brouillon
+                            </span>
+                          )}
+                          {conv.tags?.map((tag) => (
+                            <span
+                              key={tag.id}
+                              className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded-full"
+                              style={{
+                                backgroundColor: `${tag.color}20`,
+                                color: tag.color,
+                              }}
+                            >
+                              {tag.name}
+                            </span>
+                          ))}
+                          {conv.assignee_name && (
+                            <span className="text-[10px] text-muted-foreground ml-auto">
+                              → {conv.assignee_name}
                             </span>
                           )}
                         </div>
-                        <span className="text-xs text-muted-foreground shrink-0">
-                          {formatDistanceToNow(new Date(conv.last_message_at), {
-                            addSuffix: false,
-                            locale: fr,
-                          })}
-                        </span>
                       </div>
-                      <p
-                        className={cn(
-                          "text-sm truncate",
-                          !conv.is_read ? "font-medium text-foreground" : "text-muted-foreground"
-                        )}
-                      >
-                        {stripHtml(conv.subject)}
-                      </p>
-                      {conv.ai_summary ? (
-                        <p className="text-xs text-muted-foreground truncate">{conv.ai_summary}</p>
-                      ) : conv.snippet ? (
-                        <p className="text-xs text-muted-foreground truncate">{stripHtml(conv.snippet)}</p>
-                      ) : null}
-                      <div className="flex items-center gap-1.5 mt-1">
-                        {PrioIcon && (
-                          <span className={cn("flex items-center", prio?.className)}>
-                            <PrioIcon className="h-3 w-3" />
-                          </span>
-                        )}
-                        {conv.category && (
-                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
-                            {categoryLabels[conv.category] || conv.category}
-                          </span>
-                        )}
-                        {conv.is_noise && (
-                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
-                            🔇 Bruit
-                          </span>
-                        )}
-                        {conv.has_draft && (
-                          <span className="inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400">
-                            <FileEdit className="h-2.5 w-2.5" />
-                            Brouillon
-                          </span>
-                        )}
-                        {conv.tags?.map((tag) => (
-                          <span
-                            key={tag.id}
-                            className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded-full"
-                            style={{
-                              backgroundColor: `${tag.color}20`,
-                              color: tag.color,
-                            }}
-                          >
-                            {tag.name}
-                          </span>
-                        ))}
-                        {conv.assignee_name && (
-                          <span className="text-[10px] text-muted-foreground ml-auto">
-                            → {conv.assignee_name}
-                          </span>
-                        )}
-                      </div>
+                      {!conv.is_read && (
+                        <span className="w-2 h-2 rounded-full bg-primary shrink-0 mt-2" />
+                      )}
                     </div>
-                    {!conv.is_read && (
-                      <span className="w-2 h-2 rounded-full bg-primary shrink-0 mt-2" />
-                    )}
-                  </div>
-                </button>
+                  </button>
+                </div>
               );
             })}
           </div>
