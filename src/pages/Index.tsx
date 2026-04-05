@@ -554,7 +554,31 @@ const Index = () => {
             </span>
           </div>
         </div>
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-hidden flex flex-col">
+          {bulkSelected.size > 0 && (
+            <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-primary/5 shrink-0">
+              <span className="text-sm font-medium text-foreground">
+                {bulkSelected.size} sélectionné(s)
+              </span>
+              <div className="flex items-center gap-1 ml-auto">
+                <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={handleBulkMarkRead} disabled={bulkLoading}>
+                  <MailOpen className="h-3.5 w-3.5" /> Lu
+                </Button>
+                <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => handleBulkStatusChange("snoozed")} disabled={bulkLoading}>
+                  <Clock className="h-3.5 w-3.5" /> En pause
+                </Button>
+                <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => handleBulkStatusChange("closed")} disabled={bulkLoading}>
+                  <CheckCircle className="h-3.5 w-3.5" /> Fermer
+                </Button>
+                <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={handleBulkArchive} disabled={bulkLoading}>
+                  <Trash2 className="h-3.5 w-3.5" /> Archiver
+                </Button>
+                <Button variant="ghost" size="sm" className="h-8" onClick={handleBulkDeselectAll} disabled={bulkLoading}>
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          )}
           <ConversationList
             conversations={filteredConversations}
             selectedId={selectedId}
@@ -565,6 +589,10 @@ const Index = () => {
             noiseCount={noiseCount}
             showAllMails={mailboxId ? showAllMails : undefined}
             onToggleAllMails={mailboxId ? () => setShowAllMails(!showAllMails) : undefined}
+            bulkSelected={bulkSelected}
+            onBulkToggle={handleBulkToggle}
+            onBulkSelectAll={handleBulkSelectAll}
+            onBulkDeselectAll={handleBulkDeselectAll}
           />
         </div>
       </div>
