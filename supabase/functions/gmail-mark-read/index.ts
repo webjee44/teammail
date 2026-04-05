@@ -89,24 +89,38 @@ serve(async (req) => {
       .eq("id", conversation_id)
       .single();
 
-    if (convErr || !conv?.gmail_thread_id) {
+    if (convErr || !conv) {
       return new Response(
-        JSON.stringify({ error: "Conversation not found or no Gmail thread linked" }),
+        JSON.stringify({ error: "Conversation not found" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Get mailbox email
-    const { data: mailbox } = await supabase
-      .from("team_mailboxes")
-      .select("email")
-      .eq("id", conv.mailbox_id)
-      .single();
-
-    if (!mailbox?.email) {
+    // If no Gmail thread linked, just mark as read in DB and return success
+    if (!conv.gmail_thread_id) {
+      await supabase.from("conversations").update({ is_read: true }).eq("id", conversation_id);
       return new Response(
-        JSON.stringify({ error: "Mailbox not found" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ success: true, marked: 0, note: "No Gmail thread linked" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Get mailbox email — if no mailbox, still mark as read in DB
+    let mailboxEmail: string | null = null;
+    if (conv.mailbox_id) {
+      const { data: mailbox } = await supabase
+        .from("team_mailboxes")
+        .select("email")
+        .eq("id", conv.mailbox_id)
+        .single();
+      mailboxEmail = mailbox?.email || null;
+    }
+
+    if (!mailboxEmail) {
+      await supabase.from("conversations").update({ is_read: true }).eq("id", conversation_id);
+      return new Response(
+        JSON.stringify({ success: true, marked: 0, note: "No mailbox configured" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -125,7 +139,7 @@ serve(async (req) => {
       }
     }
 
-    const accessToken = await getAccessToken(serviceAccountKey, mailbox.email);
+    const accessToken = await getAccessToken(serviceAccountKey, mailboxEmail);
 
     // Get all message IDs in the thread
     const threadRes = await fetch(
