@@ -434,6 +434,91 @@ const Index = () => {
     ? conversations.filter((c) => !c.is_noise)
     : conversations;
 
+  // Bulk action handlers
+  const handleBulkToggle = useCallback((id: string) => {
+    setBulkSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleBulkSelectAll = useCallback(() => {
+    setBulkSelected(new Set(filteredConversations.map((c) => c.id)));
+  }, [filteredConversations]);
+
+  const handleBulkDeselectAll = useCallback(() => {
+    setBulkSelected(new Set());
+  }, []);
+
+  const handleBulkArchive = async () => {
+    if (bulkSelected.size === 0) return;
+    setBulkLoading(true);
+    const ids = Array.from(bulkSelected);
+    try {
+      // Archive all selected in parallel
+      await Promise.all(
+        ids.map((id) =>
+          supabase.functions.invoke("gmail-archive", { body: { conversation_id: id } })
+        )
+      );
+      setConversations((prev) => prev.filter((c) => !bulkSelected.has(c.id)));
+      if (selectedId && bulkSelected.has(selectedId)) setSelectedId(null);
+      setBulkSelected(new Set());
+      toast.success(`${ids.length} conversation(s) archivée(s)`);
+    } catch (err: any) {
+      toast.error("Erreur : " + (err.message || String(err)));
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const handleBulkStatusChange = async (status: "open" | "snoozed" | "closed") => {
+    if (bulkSelected.size === 0) return;
+    setBulkLoading(true);
+    const ids = Array.from(bulkSelected);
+    try {
+      const { error } = await supabase
+        .from("conversations")
+        .update({ status })
+        .in("id", ids);
+      if (error) throw error;
+      setConversations((prev) =>
+        prev.map((c) => (bulkSelected.has(c.id) ? { ...c, status } : c))
+      );
+      setBulkSelected(new Set());
+      const labels = { open: "Ouvert", snoozed: "En pause", closed: "Fermé" };
+      toast.success(`${ids.length} conversation(s) → ${labels[status]}`);
+    } catch (err: any) {
+      toast.error("Erreur : " + (err.message || String(err)));
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const handleBulkMarkRead = async () => {
+    if (bulkSelected.size === 0) return;
+    setBulkLoading(true);
+    const ids = Array.from(bulkSelected);
+    try {
+      const { error } = await supabase
+        .from("conversations")
+        .update({ is_read: true })
+        .in("id", ids);
+      if (error) throw error;
+      setConversations((prev) =>
+        prev.map((c) => (bulkSelected.has(c.id) ? { ...c, is_read: true } : c))
+      );
+      setBulkSelected(new Set());
+      toast.success(`${ids.length} conversation(s) marquée(s) comme lue(s)`);
+    } catch (err: any) {
+      toast.error("Erreur : " + (err.message || String(err)));
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
   const totalCount = conversations.length;
   const noiseCount = conversations.filter((c) => c.is_noise).length;
 
