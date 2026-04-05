@@ -48,6 +48,8 @@ const Index = () => {
   const [hideNoise, setHideNoise] = useState(true);
   const [commandOpen, setCommandOpen] = useState(false);
   const [showAllMails, setShowAllMails] = useState(false);
+  const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
+  const [bulkLoading, setBulkLoading] = useState(false);
   const [searchParams] = useSearchParams();
   const filter = searchParams.get("filter");
   const mailboxId = searchParams.get("mailbox");
