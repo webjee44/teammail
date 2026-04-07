@@ -27,15 +27,18 @@ export function NewWhatsAppDialog({ open, onOpenChange, onCreated }: Props) {
         body: { to: phone.trim(), text: message.trim() },
       });
 
-      if (res.error) throw new Error(res.error.message);
+      if (res.error) {
+        const detail = res.data?.details?.message || res.data?.error || res.error.message;
+        throw new Error(detail);
+      }
 
       const convId = res.data?.conversation_id;
-      toast.success("Message envoyé !");
+      toast.success("Message WhatsApp envoyé !");
       setPhone("");
       setMessage("");
       if (convId) onCreated(convId);
     } catch (err: any) {
-      toast.error("Erreur: " + (err.message || "Impossible d'envoyer"));
+      toast.error(err.message || "Impossible d'envoyer le message");
     } finally {
       setSending(false);
     }
