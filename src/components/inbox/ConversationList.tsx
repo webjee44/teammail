@@ -7,6 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertTriangle, ArrowUp, ArrowRight, ArrowDown, VolumeX, FileEdit } from "lucide-react";
+import { ResponseTimeBadge } from "./ResponseTimeBadge";
 
 const stripHtml = (s = "") => {
   const t = document.createElement("div");
@@ -51,6 +52,7 @@ type Props = {
   onBulkToggle: (id: string) => void;
   onBulkSelectAll: () => void;
   onBulkDeselectAll: () => void;
+  responseTimes?: Map<string, number>;
 };
 
 const priorityConfig: Record<string, { icon: typeof ArrowUp; className: string; label: string }> = {
@@ -84,6 +86,7 @@ export function ConversationList({
   onBulkToggle,
   onBulkSelectAll,
   onBulkDeselectAll,
+  responseTimes,
 }: Props) {
   const bulkMode = bulkSelected.size > 0;
 
@@ -227,7 +230,10 @@ export function ConversationList({
                               </span>
                             )}
                           </div>
-                          <span className="text-xs text-muted-foreground shrink-0">
+                          <span className="text-xs text-muted-foreground shrink-0 flex items-center gap-1.5">
+                            {responseTimes?.has(conv.id) && (
+                              <ResponseTimeBadge minutes={responseTimes.get(conv.id)!} variant="compact" />
+                            )}
                             {formatDistanceToNow(new Date(conv.last_message_at), {
                               addSuffix: false,
                               locale: fr,

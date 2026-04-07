@@ -19,6 +19,8 @@ import { ContactPanel } from "@/components/inbox/ContactPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { decodeHtml, categoryLabels, type ConversationDetailData } from "./types";
+import { ResponseTimeBadge } from "../ResponseTimeBadge";
+import { calcResponseTimes } from "@/lib/response-time";
 
 const priorityIcons: Record<string, { icon: typeof ArrowUp; className: string; label: string }> = {
   high: { icon: ArrowUp, className: "text-destructive", label: "Haute" },
@@ -85,6 +87,12 @@ export function ConversationHeader({ conversation, onStatusChange, onDelete, onR
   const hasEntities =
     entities.people?.length || entities.companies?.length || entities.amounts?.length || entities.dates?.length;
   const hasAiInfo = conversation.ai_summary || conversation.category || hasEntities;
+
+  // Calculate avg response time for this conversation
+  const responseTimes = calcResponseTimes(conversation.messages || []);
+  const avgResponseMin = responseTimes.length > 0
+    ? responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length
+    : null;
 
   return (
     <div className="px-4 py-3 border-b border-border space-y-2">
@@ -190,6 +198,9 @@ export function ConversationHeader({ conversation, onStatusChange, onDelete, onR
             {tag.name}
           </Badge>
         ))}
+        {avgResponseMin !== null && (
+          <ResponseTimeBadge minutes={avgResponseMin} variant="full" />
+        )}
       </div>
 
       {hasAiInfo && (

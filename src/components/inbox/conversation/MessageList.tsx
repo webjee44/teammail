@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { AttachmentList } from "../Attachments";
 import { renderMentions } from "../MentionTextarea";
+import { ResponseTimeBadge } from "../ResponseTimeBadge";
 import { supabase } from "@/integrations/supabase/client";
 import type { Message, Comment } from "./types";
 
@@ -94,42 +95,57 @@ export function MessageList({ messages, comments, conversationSubject, currentUs
   return (
     <ScrollArea className="flex-1 p-4">
       <div className="space-y-4">
-        {messages.map((msg) => {
+        {messages.map((msg, idx) => {
           const initials = msg.from_name
             ? msg.from_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
             : msg.from_email?.slice(0, 2).toUpperCase() ?? "?";
 
+          // Show response time badge between inbound → outbound transitions
+          const prevMsg = idx > 0 ? messages[idx - 1] : null;
+          const showResponseTime = prevMsg && !prevMsg.is_outbound && msg.is_outbound;
+          const responseMinutes = showResponseTime
+            ? (new Date(msg.sent_at).getTime() - new Date(prevMsg.sent_at).getTime()) / 60000
+            : 0;
+
           return (
-            <div
-              key={msg.id}
-              className={cn(
-                "rounded-lg border border-border p-4",
-                msg.is_outbound ? "bg-primary/5 ml-8" : "mr-8"
+            <div key={msg.id}>
+              {showResponseTime && responseMinutes > 0 && responseMinutes < 1440 && (
+                <div className="flex items-center justify-center gap-2 py-1">
+                  <div className="h-px flex-1 bg-border" />
+                  <ResponseTimeBadge minutes={responseMinutes} variant="full" />
+                  <div className="h-px flex-1 bg-border" />
+                </div>
               )}
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <Avatar className="h-6 w-6">
-                  <AvatarFallback className="text-[10px] bg-muted">
-                    {initials}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="text-sm font-medium text-foreground">
-                  {msg.from_name || msg.from_email}
-                </span>
-                <span className="text-xs text-muted-foreground ml-auto">
-                  {format(new Date(msg.sent_at), "d MMM yyyy, HH:mm", { locale: fr })}
-                </span>
+              <div
+                className={cn(
+                  "rounded-lg border border-border p-4",
+                  msg.is_outbound ? "bg-primary/5 ml-8" : "mr-8"
+                )}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <Avatar className="h-6 w-6">
+                    <AvatarFallback className="text-[10px] bg-muted">
+                      {initials}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm font-medium text-foreground">
+                    {msg.from_name || msg.from_email}
+                  </span>
+                  <span className="text-xs text-muted-foreground ml-auto">
+                    {format(new Date(msg.sent_at), "d MMM yyyy, HH:mm", { locale: fr })}
+                  </span>
+                </div>
+                {msg.body_html ? (
+                  <div
+                    className="text-sm text-foreground prose prose-sm max-w-none dark:prose-invert [&_a:not([href^='mailto:'])]:target-blank"
+                    dangerouslySetInnerHTML={{ __html: msg.body_html.replace(/<a\s/gi, '<a target="_blank" rel="noopener noreferrer" ') }}
+                    onClick={handleContentClick}
+                  />
+                ) : (
+                  <p className="text-sm text-foreground whitespace-pre-wrap">{msg.body_text}</p>
+                )}
+                <AttachmentList attachments={msg.attachments || []} />
               </div>
-              {msg.body_html ? (
-                <div
-                  className="text-sm text-foreground prose prose-sm max-w-none dark:prose-invert [&_a:not([href^='mailto:'])]:target-blank"
-                  dangerouslySetInnerHTML={{ __html: msg.body_html.replace(/<a\s/gi, '<a target="_blank" rel="noopener noreferrer" ') }}
-                  onClick={handleContentClick}
-                />
-              ) : (
-                <p className="text-sm text-foreground whitespace-pre-wrap">{msg.body_text}</p>
-              )}
-              <AttachmentList attachments={msg.attachments || []} />
             </div>
           );
         })}
