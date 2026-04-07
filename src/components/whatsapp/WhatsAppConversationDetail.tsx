@@ -23,6 +23,7 @@ type WAConversation = {
   id: string;
   phone_number: string;
   contact_name: string | null;
+  contacts: { name: string | null } | null;
 };
 
 interface Props {
@@ -77,10 +78,10 @@ export function WhatsAppConversationDetail({ conversationId }: Props) {
 
   const fetchData = async () => {
     const [{ data: conv }, { data: msgs }] = await Promise.all([
-      supabase.from("whatsapp_conversations").select("id, phone_number, contact_name").eq("id", conversationId).single(),
+      supabase.from("whatsapp_conversations").select("id, phone_number, contact_name, contacts(name)").eq("id", conversationId).single(),
       supabase.from("whatsapp_messages").select("id, body, media_type, media_url, is_outbound, from_name, from_phone, sent_at").eq("conversation_id", conversationId).order("sent_at", { ascending: true }),
     ]);
-    if (conv) setConversation(conv);
+    if (conv) setConversation(conv as unknown as WAConversation);
     if (msgs) setMessages(msgs);
   };
 
@@ -222,7 +223,7 @@ export function WhatsAppConversationDetail({ conversationId }: Props) {
             <User className="h-4 w-4 text-green-600" />
           </div>
           <div>
-            <p className="font-semibold text-[14px]">{conversation.contact_name || conversation.phone_number}</p>
+            <p className="font-semibold text-[14px]">{conversation.contacts?.name || conversation.contact_name || conversation.phone_number}</p>
             <p className="text-[12px] text-muted-foreground">{conversation.phone_number}</p>
           </div>
         </div>

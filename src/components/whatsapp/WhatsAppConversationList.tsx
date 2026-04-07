@@ -15,6 +15,8 @@ type WAConversation = {
   last_message_at: string;
   is_read: boolean;
   status: string;
+  contact_id: string | null;
+  contacts: { name: string | null } | null;
 };
 
 interface Props {
@@ -31,11 +33,11 @@ export function WhatsAppConversationList({ selectedId, onSelect, onNewConversati
   const fetchConversations = async () => {
     const { data } = await supabase
       .from("whatsapp_conversations")
-      .select("id, phone_number, contact_name, last_message, last_message_at, is_read, status")
+      .select("id, phone_number, contact_name, last_message, last_message_at, is_read, status, contact_id, contacts(name)")
       .eq("status", "open")
       .order("last_message_at", { ascending: false });
 
-    if (data) setConversations(data);
+    if (data) setConversations(data as unknown as WAConversation[]);
     setLoading(false);
   };
 
@@ -55,8 +57,9 @@ export function WhatsAppConversationList({ selectedId, onSelect, onNewConversati
   const filtered = conversations.filter((c) => {
     if (!search) return true;
     const q = search.toLowerCase();
+    const displayName = c.contacts?.name || c.contact_name || "";
     return (
-      c.contact_name?.toLowerCase().includes(q) ||
+      displayName.toLowerCase().includes(q) ||
       c.phone_number.includes(q) ||
       c.last_message?.toLowerCase().includes(q)
     );
@@ -126,7 +129,7 @@ export function WhatsAppConversationList({ selectedId, onSelect, onNewConversati
                   )}
                   <div className="min-w-0">
                     <p className={cn("text-[13px] truncate", !conv.is_read && "font-semibold")}>
-                      {conv.contact_name || conv.phone_number}
+                      {conv.contacts?.name || conv.contact_name || conv.phone_number}
                     </p>
                     <p className="text-[12px] text-muted-foreground truncate mt-0.5">
                       {conv.last_message || "..."}
