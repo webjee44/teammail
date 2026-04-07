@@ -79,6 +79,7 @@ export function ConversationList({
   onToggleAllMails,
   showUnreadOnly,
   onToggleUnreadOnly,
+  unreadCount,
   bulkSelected,
   onBulkToggle,
   onBulkSelectAll,
