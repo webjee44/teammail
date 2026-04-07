@@ -38,7 +38,6 @@ serve(async (req) => {
       const messageId = key.id || "";
 
       // Detect media
-      const rawMsg = messages.message || {};
       let mediaType: string | null = null;
       let mediaUrl: string | null = null;
       if (rawMsg.imageMessage) {
