@@ -46,6 +46,7 @@ type Props = {
   onToggleAllMails?: () => void;
   showUnreadOnly?: boolean;
   onToggleUnreadOnly?: () => void;
+  unreadCount?: number;
   bulkSelected: Set<string>;
   onBulkToggle: (id: string) => void;
   onBulkSelectAll: () => void;
@@ -151,7 +152,7 @@ export function ConversationList({
                   className="scale-75"
                 />
                 <span className="text-xs text-muted-foreground whitespace-nowrap">
-                  Non lus
+                  Non lus{unreadCount != null ? ` (${unreadCount})` : ''}
                 </span>
               </label>
             )}
