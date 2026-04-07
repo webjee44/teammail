@@ -104,7 +104,14 @@ export function TemplatesSettings() {
   };
 
   const insertVar = (key: string) => {
-    setFormBody((prev) => prev + `{{${key}}}`);
+    setFormBody((prev) => {
+      // Insert before closing </p> if HTML, else just append
+      if (prev.includes("</p>")) {
+        const lastClose = prev.lastIndexOf("</p>");
+        return prev.slice(0, lastClose) + `{{${key}}}` + prev.slice(lastClose);
+      }
+      return prev + `{{${key}}}`;
+    });
   };
 
   const resolvePreview = (text: string) =>
