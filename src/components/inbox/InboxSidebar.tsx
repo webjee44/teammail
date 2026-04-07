@@ -17,6 +17,7 @@ import {
   Keyboard,
   Mail,
   SendHorizonal,
+  MessageCircle,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
