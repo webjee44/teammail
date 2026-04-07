@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { WhatsAppConversationList } from "@/components/whatsapp/WhatsAppConversationList";
 import { WhatsAppConversationDetail } from "@/components/whatsapp/WhatsAppConversationDetail";
@@ -6,7 +7,10 @@ import { NewWhatsAppDialog } from "@/components/whatsapp/NewWhatsAppDialog";
 import { supabase } from "@/integrations/supabase/client";
 
 export default function WhatsApp() {
-  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(
+    searchParams.get("id")
+  );
   const [showNewDialog, setShowNewDialog] = useState(false);
 
   return (
