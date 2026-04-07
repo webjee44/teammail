@@ -40,6 +40,7 @@ const Index = () => {
   const navigate = useNavigate();
   const { openCompose } = useComposeWindow();
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [responseTimes, setResponseTimes] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -259,6 +260,42 @@ const Index = () => {
             has_draft: draftConvIds.has(c.id),
           }))
         );
+      }
+      // Calculate response times for loaded conversations
+      const convIds = (data || []).map((c: any) => c.id);
+      if (convIds.length > 0) {
+        const { data: allMsgs } = await supabase
+          .from("messages")
+          .select("conversation_id, is_outbound, sent_at")
+          .in("conversation_id", convIds)
+          .order("sent_at", { ascending: true });
+        if (allMsgs) {
+          const rtMap = new Map<string, number>();
+          const byConvo = new Map<string, typeof allMsgs>();
+          for (const m of allMsgs) {
+            const list = byConvo.get(m.conversation_id) || [];
+            list.push(m);
+            byConvo.set(m.conversation_id, list);
+          }
+          for (const [cid, msgs] of byConvo) {
+            const times: number[] = [];
+            for (let i = 0; i < msgs.length; i++) {
+              if (!msgs[i].is_outbound) {
+                for (let j = i + 1; j < msgs.length; j++) {
+                  if (msgs[j].is_outbound) {
+                    const diff = (new Date(msgs[j].sent_at).getTime() - new Date(msgs[i].sent_at).getTime()) / 60000;
+                    if (diff > 0 && diff < 1440) times.push(diff);
+                    break;
+                  }
+                }
+              }
+            }
+            if (times.length > 0) {
+              rtMap.set(cid, times.reduce((a, b) => a + b, 0) / times.length);
+            }
+          }
+          setResponseTimes(rtMap);
+        }
       }
       setLoading(false);
     };
@@ -802,6 +839,7 @@ const Index = () => {
             onBulkToggle={handleBulkToggle}
             onBulkSelectAll={handleBulkSelectAll}
             onBulkDeselectAll={handleBulkDeselectAll}
+            responseTimes={responseTimes}
           />
         </div>
       </div>
