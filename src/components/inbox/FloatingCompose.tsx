@@ -8,7 +8,7 @@ import { RecipientFields } from "@/components/inbox/conversation/RecipientFields
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Send, X, Loader2, Clock, CalendarIcon, FileText, Wand2, Minus, Maximize2 } from "lucide-react";
+import { Send, X, Loader2, Clock, CalendarIcon, FileText, Wand2, Minus, Maximize2, Sparkles, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -42,6 +42,7 @@ export function FloatingCompose() {
   const [cc, setCc] = useState<string[]>([]);
   const [bcc, setBcc] = useState<string[]>([]);
   const [polishing, setPolishing] = useState(false);
+  const [generatingSubject, setGeneratingSubject] = useState(false);
 
   // Reset state when compose window opens
   useEffect(() => {
@@ -278,12 +279,59 @@ export function FloatingCompose() {
         {/* Subject */}
         <div className="flex items-center gap-2">
           <Label className="text-xs text-muted-foreground w-8 shrink-0">Objet</Label>
-          <Input
-            placeholder="Objet du message"
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-            className="h-8 text-xs"
-          />
+          <div className="flex-1 relative flex items-center">
+            <Input
+              placeholder="Objet du message"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              className="h-8 text-xs pr-16"
+            />
+            <div className="absolute right-1 flex items-center gap-0.5">
+              <Button
+                type="button" variant="ghost" size="icon"
+                className="h-6 w-6"
+                title="Générer un objet avec l'IA"
+                disabled={generatingSubject || !body.trim()}
+                onClick={async () => {
+                  setGeneratingSubject(true);
+                  try {
+                    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+                    const { data: { session } } = await supabase.auth.getSession();
+                    const res = await fetch(`${SUPABASE_URL}/functions/v1/polish-reply`, {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${session?.access_token}`,
+                        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                      },
+                      body: JSON.stringify({
+                        text: `Génère un objet d'email court et professionnel (max 10 mots) pour ce contenu. Retourne UNIQUEMENT l'objet, sans guillemets :\n\n${body.replace(/<[^>]*>/g, '').slice(0, 500)}`,
+                        format: "text",
+                      }),
+                    });
+                    const data = await res.json();
+                    if (data?.polished) setSubject(data.polished.replace(/^["«]|["»]$/g, ''));
+                  } catch {
+                    toast.error("Erreur lors de la génération");
+                  } finally {
+                    setGeneratingSubject(false);
+                  }
+                }}
+              >
+                {generatingSubject ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3 text-muted-foreground" />}
+              </Button>
+              {subject && (
+                <Button
+                  type="button" variant="ghost" size="icon"
+                  className="h-6 w-6"
+                  title="Effacer l'objet"
+                  onClick={() => setSubject("")}
+                >
+                  <XCircle className="h-3 w-3 text-muted-foreground" />
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Body */}
