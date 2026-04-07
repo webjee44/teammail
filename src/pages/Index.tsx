@@ -139,6 +139,62 @@ const Index = () => {
         return;
       }
 
+      // Special handling for sent filter — conversations with outbound messages
+      if (filter === "sent") {
+        // Get conversation IDs that have outbound messages
+        let sentQuery = supabase
+          .from("messages")
+          .select("conversation_id")
+          .eq("is_outbound", true);
+
+        const { data: sentMsgs } = await sentQuery;
+        const sentConvIds = [...new Set((sentMsgs || []).map((m) => m.conversation_id))];
+
+        if (sentConvIds.length === 0) {
+          setConversations([]);
+          setLoading(false);
+          return;
+        }
+
+        let convQuery = supabase
+          .from("conversations")
+          .select("*")
+          .in("id", sentConvIds)
+          .order("last_message_at", { ascending: false });
+
+        if (mailboxId) {
+          convQuery = convQuery.eq("mailbox_id", mailboxId);
+        }
+
+        const { data, error } = await convQuery;
+        if (error) {
+          console.error("Failed to fetch sent conversations:", error);
+          toast.error("Erreur lors du chargement des conversations envoyées");
+        } else {
+          setConversations(
+            (data || []).map((c: any) => ({
+              id: c.id,
+              subject: c.subject,
+              snippet: c.snippet,
+              from_email: c.from_email,
+              from_name: c.from_name,
+              status: c.status as "open" | "snoozed" | "closed",
+              assigned_to: c.assigned_to,
+              is_read: c.is_read,
+              last_message_at: c.last_message_at,
+              tags: [],
+              priority: c.priority,
+              is_noise: c.is_noise,
+              ai_summary: c.ai_summary,
+              category: c.category,
+              entities: c.entities,
+            }))
+          );
+        }
+        setLoading(false);
+        return;
+      }
+
       let query = supabase
         .from("conversations")
         .select("*")
