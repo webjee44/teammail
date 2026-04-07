@@ -939,6 +939,132 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_conversations: {
+        Row: {
+          assigned_to: string | null
+          contact_id: string | null
+          contact_name: string | null
+          created_at: string
+          id: string
+          is_read: boolean
+          last_message: string | null
+          last_message_at: string
+          phone_number: string
+          status: string
+          team_id: string
+          updated_at: string
+          wasender_chat_id: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          contact_id?: string | null
+          contact_name?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          last_message?: string | null
+          last_message_at?: string
+          phone_number: string
+          status?: string
+          team_id: string
+          updated_at?: string
+          wasender_chat_id?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          contact_id?: string | null
+          contact_name?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          last_message?: string | null
+          last_message_at?: string
+          phone_number?: string
+          status?: string
+          team_id?: string
+          updated_at?: string
+          wasender_chat_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_conversations_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversations_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts_with_stats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversations_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_messages: {
+        Row: {
+          body: string | null
+          conversation_id: string
+          created_at: string
+          from_name: string | null
+          from_phone: string | null
+          id: string
+          is_outbound: boolean
+          media_type: string | null
+          media_url: string | null
+          sent_at: string
+          status: string
+          to_phone: string | null
+          wasender_message_id: string | null
+        }
+        Insert: {
+          body?: string | null
+          conversation_id: string
+          created_at?: string
+          from_name?: string | null
+          from_phone?: string | null
+          id?: string
+          is_outbound?: boolean
+          media_type?: string | null
+          media_url?: string | null
+          sent_at?: string
+          status?: string
+          to_phone?: string | null
+          wasender_message_id?: string | null
+        }
+        Update: {
+          body?: string | null
+          conversation_id?: string
+          created_at?: string
+          from_name?: string | null
+          from_phone?: string | null
+          id?: string
+          is_outbound?: boolean
+          media_type?: string | null
+          media_url?: string | null
+          sent_at?: string
+          status?: string
+          to_phone?: string | null
+          wasender_message_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       contacts_with_stats: {
