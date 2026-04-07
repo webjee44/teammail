@@ -326,6 +326,37 @@ export function InboxSidebar() {
           </>
         )}
 
+        {/* WhatsApp */}
+        <Separator className="mx-3 my-1 w-auto" />
+        <SidebarGroup className="mt-1">
+          {!collapsed && (
+            <span className="px-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/60 mb-1">
+              Canaux
+            </span>
+          )}
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild className="h-7">
+                  <NavLink
+                    to="/whatsapp"
+                    className="sidebar-item"
+                    activeClassName="sidebar-item-active"
+                  >
+                    <span className="flex items-center gap-2">
+                      <MessageCircle className="h-3.5 w-3.5 text-green-500" />
+                      {!collapsed && <span>WhatsApp</span>}
+                    </span>
+                    {!collapsed && waUnread > 0 && (
+                      <span className="ml-auto text-xs tabular-nums text-green-600 font-medium">{waUnread}</span>
+                    )}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
         <Separator className="mx-3 my-1 w-auto" />
 
         {/* Tools */}
