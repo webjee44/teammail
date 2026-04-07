@@ -592,6 +592,7 @@ const Index = () => {
             onToggleAllMails={mailboxId ? () => setShowAllMails(!showAllMails) : undefined}
             showUnreadOnly={showUnreadOnly}
             onToggleUnreadOnly={() => setShowUnreadOnly(!showUnreadOnly)}
+            unreadCount={conversations.filter((c) => !c.is_read).length}
             bulkSelected={bulkSelected}
             onBulkToggle={handleBulkToggle}
             onBulkSelectAll={handleBulkSelectAll}
