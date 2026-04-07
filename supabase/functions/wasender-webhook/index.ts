@@ -30,14 +30,14 @@ serve(async (req) => {
       }
 
       const key = messages.key;
-      const messageBody = messages.messageBody || "";
+      const rawMsg = messages.message || {};
+      const messageBody = messages.messageBody || rawMsg.conversation || rawMsg.extendedTextMessage?.text || "";
       const fromPhone = key.cleanedSenderPn || key.remoteJid?.replace("@s.whatsapp.net", "").replace("@lid", "") || "";
       const fromMe = key.fromMe || false;
       const remoteJid = key.remoteJid || "";
       const messageId = key.id || "";
 
       // Detect media
-      const rawMsg = messages.message || {};
       let mediaType: string | null = null;
       let mediaUrl: string | null = null;
       if (rawMsg.imageMessage) {
