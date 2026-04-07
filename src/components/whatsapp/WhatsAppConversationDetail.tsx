@@ -23,6 +23,7 @@ type WAConversation = {
   id: string;
   phone_number: string;
   contact_name: string | null;
+  contacts: { name: string | null } | null;
 };
 
 interface Props {
