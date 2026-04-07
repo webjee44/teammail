@@ -275,6 +275,8 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
                   variant="outline"
                   disabled={isReplyEmpty}
                   onClick={async () => {
+                    const name = window.prompt("Nom du template :", replySubject || "");
+                    if (!name) return;
                     try {
                       const { data: { user: u } } = await supabase.auth.getUser();
                       if (!u) throw new Error("Non authentifié");
@@ -284,7 +286,7 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
                       const { error } = await supabase.from("email_templates").insert({
                         team_id: profile.team_id,
                         created_by: u.id,
-                        name: replySubject || "Sans titre",
+                        name,
                         subject: replySubject,
                         body: plainBody,
                       });
