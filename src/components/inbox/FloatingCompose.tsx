@@ -365,6 +365,8 @@ export function FloatingCompose() {
             variant="ghost"
             disabled={!subject.trim() && !body.trim()}
             onClick={async () => {
+              const name = window.prompt("Nom du template :", subject || "");
+              if (!name) return;
               try {
                 const { data: { user: u } } = await supabase.auth.getUser();
                 if (!u) throw new Error("Non authentifié");
@@ -373,7 +375,7 @@ export function FloatingCompose() {
                 const { error } = await supabase.from("email_templates").insert({
                   team_id: profile.team_id,
                   created_by: u.id,
-                  name: subject || "Sans titre",
+                  name,
                   subject: subject,
                   body: body.replace(/<[^>]*>/g, ''),
                 });
