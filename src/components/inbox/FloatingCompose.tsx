@@ -312,6 +312,34 @@ export function FloatingCompose() {
             <FileText className="h-3 w-3" />
             Template
           </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={!subject.trim() && !body.trim()}
+            onClick={async () => {
+              try {
+                const { data: { user: u } } = await supabase.auth.getUser();
+                if (!u) throw new Error("Non authentifié");
+                const { data: profile } = await supabase.from("profiles").select("team_id").eq("user_id", u.id).maybeSingle();
+                if (!profile?.team_id) throw new Error("Aucune équipe");
+                const { error } = await supabase.from("email_templates").insert({
+                  team_id: profile.team_id,
+                  created_by: u.id,
+                  name: subject || "Sans titre",
+                  subject: subject,
+                  body: body.replace(/<[^>]*>/g, ''),
+                });
+                if (error) throw error;
+                toast.success("Template créé !");
+              } catch (err: any) {
+                toast.error("Erreur : " + (err.message || String(err)));
+              }
+            }}
+            className="h-7 px-2 gap-1 text-xs"
+          >
+            <FileText className="h-3 w-3" />
+            Sauver comme template
+          </Button>
           <Button size="sm" variant="ghost" onClick={handlePolish} disabled={polishing || !body.trim()} className="h-7 px-2 gap-1 text-xs">
             {polishing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
             Peaufiner
