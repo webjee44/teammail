@@ -33,11 +33,11 @@ export function WhatsAppConversationList({ selectedId, onSelect, onNewConversati
   const fetchConversations = async () => {
     const { data } = await supabase
       .from("whatsapp_conversations")
-      .select("id, phone_number, contact_name, last_message, last_message_at, is_read, status")
+      .select("id, phone_number, contact_name, last_message, last_message_at, is_read, status, contact_id, contacts(name)")
       .eq("status", "open")
       .order("last_message_at", { ascending: false });
 
-    if (data) setConversations(data);
+    if (data) setConversations(data as unknown as WAConversation[]);
     setLoading(false);
   };
 
