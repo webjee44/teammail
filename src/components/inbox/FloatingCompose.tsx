@@ -42,6 +42,7 @@ export function FloatingCompose() {
   const [cc, setCc] = useState<string[]>([]);
   const [bcc, setBcc] = useState<string[]>([]);
   const [polishing, setPolishing] = useState(false);
+  const [generatingSubject, setGeneratingSubject] = useState(false);
 
   // Reset state when compose window opens
   useEffect(() => {
