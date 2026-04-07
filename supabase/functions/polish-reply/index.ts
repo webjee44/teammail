@@ -40,13 +40,14 @@ Règles strictes :
 - Garde exactement le même sens, le même ton et approximativement la même longueur.
 - IMPORTANT : conserve le registre de tutoiement ou vouvoiement utilisé par l'auteur. Ne remplace jamais "tu" par "vous" ni l'inverse.
 - Ne rajoute aucune information, aucune formule de politesse supplémentaire.
+- TRÈS IMPORTANT — LIENS HYPERTEXTES : conserve TOUS les liens hypertextes (<a href="...">) tels quels. Ne supprime jamais un lien. Si le texte du lien doit être corrigé, corrige le texte affiché mais garde la balise <a> avec son href intact.
 - TRÈS IMPORTANT — AÉRATION DU TEXTE :
   - Chaque idée distincte doit être dans son propre paragraphe.
   - La salutation d'ouverture (ex: "Bonjour,") doit être seule sur sa propre ligne, suivie d'une ligne vide.
   - La formule de clôture (ex: "À ta disposition.", "Cordialement,") doit être séparée du corps par une ligne vide.
   - Sépare les différentes idées/questions par des lignes vides entre les paragraphes.
   - Le texte final doit être aéré et agréable à lire, jamais un bloc compact.
-${isHtml ? "- Le texte est en HTML. Retourne du HTML bien structuré. Utilise <p> pour chaque paragraphe distinct. NE PAS mettre tout le texte dans un seul <p>. Chaque paragraphe logique = un <p> séparé. Exemple :\n<p>Bonjour,</p>\n<p>Premier paragraphe.</p>\n<p>Deuxième paragraphe.</p>\n<p>À ta disposition.</p>" : "- Retourne le texte avec des sauts de ligne (\\n\\n) entre les paragraphes."}
+${isHtml ? "- Le texte est en HTML. Retourne du HTML bien structuré. Utilise <p> pour chaque paragraphe distinct. NE PAS mettre tout le texte dans un seul <p>. Chaque paragraphe logique = un <p> séparé. Conserve toutes les balises <a href=\"...\"> existantes. Exemple :\n<p>Bonjour,</p>\n<p>Premier paragraphe avec <a href=\"https://example.com\">un lien</a>.</p>\n<p>Deuxième paragraphe.</p>\n<p>À ta disposition.</p>" : "- Retourne le texte avec des sauts de ligne (\\n\\n) entre les paragraphes."}
 - Retourne UNIQUEMENT le texte corrigé, sans explication ni commentaire.`,
           },
           { role: "user", content: text },
