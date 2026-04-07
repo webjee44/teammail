@@ -242,6 +242,7 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
               value={replyHtml}
               onChange={setReplyHtml}
               placeholder="Tapez votre réponse…"
+              onTemplateClick={() => setTemplateOpen(true)}
             />
 
             {/* Signature */}
