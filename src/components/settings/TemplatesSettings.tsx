@@ -245,14 +245,13 @@ export function TemplatesSettings() {
               </div>
               {showPreview ? (
                 <div className="min-h-[120px] p-3 rounded-md border border-input bg-background text-sm whitespace-pre-wrap">
-                  {resolvePreview(formBody)}
+                  {resolvePreview(formBody.replace(/<[^>]*>/g, ''))}
                 </div>
               ) : (
-                <Textarea
-                  placeholder="Bonjour {{nom}},&#10;&#10;Suite à notre échange..."
+                <RichTextEditor
                   value={formBody}
-                  onChange={(e) => setFormBody(e.target.value)}
-                  className="min-h-[120px]"
+                  onChange={setFormBody}
+                  placeholder="Bonjour {{nom}}, Suite à notre échange..."
                 />
               )}
             </div>
