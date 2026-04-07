@@ -57,8 +57,9 @@ export function WhatsAppConversationList({ selectedId, onSelect, onNewConversati
   const filtered = conversations.filter((c) => {
     if (!search) return true;
     const q = search.toLowerCase();
+    const displayName = c.contacts?.name || c.contact_name || "";
     return (
-      c.contact_name?.toLowerCase().includes(q) ||
+      displayName.toLowerCase().includes(q) ||
       c.phone_number.includes(q) ||
       c.last_message?.toLowerCase().includes(q)
     );
