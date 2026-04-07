@@ -258,7 +258,10 @@ export function TemplatePickerDialog({
                     {resolveText(selected.subject)}
                   </p>
                 )}
-                <p className="text-sm whitespace-pre-wrap">{resolveText(selected.body)}</p>
+                <div
+                  className="text-sm prose prose-sm max-w-none dark:prose-invert"
+                  dangerouslySetInnerHTML={{ __html: resolveText(selected.body) }}
+                />
               </div>
             </div>
 
@@ -296,9 +299,10 @@ function TemplateRow({
       {template.subject && (
         <p className="text-xs text-muted-foreground mt-1 truncate">{template.subject}</p>
       )}
-      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-        {template.body.slice(0, 100)}
-      </p>
+      <div
+        className="text-xs text-muted-foreground mt-0.5 line-clamp-2"
+        dangerouslySetInnerHTML={{ __html: template.body.slice(0, 200) }}
+      />
     </button>
   );
 }
