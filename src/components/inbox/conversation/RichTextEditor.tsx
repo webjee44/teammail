@@ -5,7 +5,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import { Extension } from "@tiptap/react";
 import { useEffect, useCallback } from "react";
 import {
-  Bold, Italic, Strikethrough, List, ListOrdered, Link as LinkIcon, Code, Undo, Redo,
+  Bold, Italic, Strikethrough, List, ListOrdered, Link as LinkIcon, Code, Undo, Redo, FileText,
 } from "lucide-react";
 import { Toggle } from "@/components/ui/toggle";
 import { Separator } from "@/components/ui/separator";
@@ -16,6 +16,7 @@ type Props = {
   onChange: (html: string) => void;
   placeholder?: string;
   className?: string;
+  onTemplateClick?: () => void;
 };
 
 export function RichTextEditor({ value, onChange, placeholder, className }: Props) {
@@ -162,6 +163,19 @@ export function RichTextEditor({ value, onChange, placeholder, className }: Prop
         >
           <Code className="h-3.5 w-3.5" />
         </ToolbarButton>
+
+        {onTemplateClick && (
+          <>
+            <Separator orientation="vertical" className="mx-1 h-5" />
+            <ToolbarButton
+              pressed={false}
+              onPressedChange={onTemplateClick}
+              title="Insérer un template"
+            >
+              <FileText className="h-3.5 w-3.5" />
+            </ToolbarButton>
+          </>
+        )}
 
         <Separator orientation="vertical" className="mx-1 h-5" />
 
