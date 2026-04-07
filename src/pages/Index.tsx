@@ -78,17 +78,28 @@ const Index = () => {
     setSelectedId(id);
   }, [openCompose]);
 
-  // ⌘K / Ctrl+K shortcut
+  // Keyboard shortcuts
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
+      // ⌘K / Ctrl+K → command palette
       if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         setCommandOpen((prev) => !prev);
+        return;
+      }
+      // Ignore shortcuts when typing in an input/textarea/contenteditable
+      const tag = (e.target as HTMLElement)?.tagName;
+      const isEditable = tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable;
+      if (isEditable) return;
+      // C → compose
+      if (e.key === "c" || e.key === "C") {
+        e.preventDefault();
+        openCompose();
       }
     };
     document.addEventListener("keydown", down);
     return () => document.removeEventListener("keydown", down);
-  }, []);
+  }, [openCompose]);
 
   // Fetch conversations based on filter
   useEffect(() => {
