@@ -2,7 +2,8 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
-import { useEffect } from "react";
+import { Extension } from "@tiptap/react";
+import { useEffect, useCallback } from "react";
 import {
   Bold, Italic, Strikethrough, List, ListOrdered, Link as LinkIcon, Code, Undo, Redo,
 } from "lucide-react";
@@ -18,6 +19,29 @@ type Props = {
 };
 
 export function RichTextEditor({ value, onChange, placeholder, className }: Props) {
+  const addLink = useCallback((editorInstance: any) => {
+    const previousUrl = editorInstance.getAttributes("link").href || "";
+    const url = window.prompt("URL du lien :", previousUrl);
+    if (url === null) return; // cancelled
+    if (url === "") {
+      editorInstance.chain().focus().extendMarkRange("link").unsetLink().run();
+    } else {
+      editorInstance.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+    }
+  }, []);
+
+  const LinkShortcut = Extension.create({
+    name: "linkShortcut",
+    addKeyboardShortcuts() {
+      return {
+        "Mod-k": ({ editor: e }) => {
+          addLink(e);
+          return true;
+        },
+      };
+    },
+  });
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -31,6 +55,7 @@ export function RichTextEditor({ value, onChange, placeholder, className }: Prop
       Placeholder.configure({
         placeholder: placeholder || "Tapez votre message…",
       }),
+      LinkShortcut,
     ],
     content: value,
     onUpdate: ({ editor }) => {
@@ -47,7 +72,6 @@ export function RichTextEditor({ value, onChange, placeholder, className }: Prop
   useEffect(() => {
     if (!editor) return;
     const currentHtml = editor.getHTML();
-    // Only update if value differs meaningfully (avoid cursor jump)
     if (value !== currentHtml && value !== "<p></p>") {
       editor.commands.setContent(value, { emitUpdate: false });
     }
@@ -55,12 +79,7 @@ export function RichTextEditor({ value, onChange, placeholder, className }: Prop
 
   if (!editor) return null;
 
-  const addLink = () => {
-    const url = window.prompt("URL du lien :");
-    if (url) {
-      editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
-    }
-  };
+  const handleAddLink = () => addLink(editor);
 
   const ToolbarButton = ({
     pressed,
