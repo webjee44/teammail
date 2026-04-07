@@ -280,6 +280,115 @@ const Index = () => {
     }
   }, [selectedId, fetchDetail]);
 
+  // Realtime: conversations
+  useEffect(() => {
+    const channel = supabase
+      .channel('rt-conversations')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'conversations' },
+        (payload) => {
+          const c = payload.new as any;
+          setConversations((prev) => {
+            if (prev.some((x) => x.id === c.id)) return prev;
+            return [{
+              id: c.id, subject: c.subject, snippet: c.snippet,
+              from_email: c.from_email, from_name: c.from_name,
+              status: c.status, assigned_to: c.assigned_to,
+              is_read: c.is_read, last_message_at: c.last_message_at,
+              tags: [], priority: c.priority, is_noise: c.is_noise,
+              ai_summary: c.ai_summary, category: c.category, entities: c.entities,
+            }, ...prev];
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'conversations' },
+        (payload) => {
+          const c = payload.new as any;
+          setConversations((prev) =>
+            prev.map((x) => x.id === c.id ? {
+              ...x, subject: c.subject, snippet: c.snippet, status: c.status,
+              assigned_to: c.assigned_to, is_read: c.is_read,
+              last_message_at: c.last_message_at, priority: c.priority,
+              is_noise: c.is_noise, ai_summary: c.ai_summary,
+              category: c.category, entities: c.entities,
+            } : x)
+          );
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'conversations' },
+        (payload) => {
+          const id = (payload.old as any).id;
+          setConversations((prev) => prev.filter((x) => x.id !== id));
+          if (selectedId === id) setSelectedId(null);
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [selectedId]);
+
+  // Realtime: messages (for selected conversation)
+  useEffect(() => {
+    if (!selectedId) return;
+    const channel = supabase
+      .channel(`rt-messages-${selectedId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${selectedId}` },
+        (payload) => {
+          const m = payload.new as any;
+          setMessages((prev) => {
+            if (prev.some((x) => x.id === m.id)) return prev;
+            return [...prev, { ...m, attachments: [] }];
+          });
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [selectedId]);
+
+  // Realtime: drafts (for drafts filter)
+  useEffect(() => {
+    if (filter !== "drafts") return;
+    const channel = supabase
+      .channel('rt-drafts')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'drafts' },
+        () => {
+          // Simple refetch for drafts
+          if (!user) return;
+          supabase
+            .from("drafts")
+            .select("*")
+            .is("conversation_id", null)
+            .eq("created_by", user.id)
+            .order("updated_at", { ascending: false })
+            .then(({ data: drafts }) => {
+              setConversations(
+                (drafts || []).map((d: any) => ({
+                  id: `draft-${d.id}`, subject: d.subject || "(sans objet)",
+                  snippet: d.body?.slice(0, 100) || null, from_email: d.from_email,
+                  from_name: null, status: "open" as const, assigned_to: null,
+                  is_read: true, last_message_at: d.updated_at, tags: [],
+                  priority: null, is_noise: false, ai_summary: null,
+                  category: null, entities: null,
+                }))
+              );
+            });
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [filter, user]);
+
   const selectedConv = selectedId
     ? conversations.find((c) => c.id === selectedId)
     : null;
