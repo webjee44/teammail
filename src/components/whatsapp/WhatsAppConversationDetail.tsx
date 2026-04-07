@@ -215,7 +215,7 @@ export function WhatsAppConversationDetail({ conversationId }: Props) {
   });
 
   return (
-    <>
+    <div className="flex flex-col h-full w-full">
       {/* Header */}
       <div className="px-4 py-3 border-b border-border flex items-center justify-between bg-background">
         <div className="flex items-center gap-3">
@@ -325,6 +325,6 @@ export function WhatsAppConversationDetail({ conversationId }: Props) {
           </Button>
         </div>
       </div>
-    </>
+    </div>
   );
 }
