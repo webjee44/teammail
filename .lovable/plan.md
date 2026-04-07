@@ -1,38 +1,55 @@
 
 
-## Plan : Mise à jour instantanée de l'app via Realtime
+## Gamification des temps de réponse
 
-### Problème
-Après envoi d'un email depuis la fenêtre de composition, la liste des conversations ne se met pas à jour. Il faut rafraîchir manuellement la page.
+Ajouter des indicateurs visuels gamifiés sur les temps de réponse à travers l'application : badges colorés, icônes, et feedback motivant.
 
-### Solution
-Utiliser les subscriptions Realtime de la base de données sur les tables clés (`conversations`, `messages`, `drafts`) pour que tout changement soit reflété instantanément dans l'interface.
+### Endroits concernés
 
-### Étapes
+1. **Liste des conversations** (`ConversationList.tsx`) — Afficher un badge de temps de réponse sur chaque conversation (calculé entre le dernier message entrant et la première réponse sortante)
+2. **Détail de conversation** (`MessageList.tsx`) — Afficher le temps de réponse entre chaque message entrant et sa réponse sortante, avec un badge coloré
+3. **Header de conversation** (`ConversationHeader.tsx`) — Afficher le temps de réponse moyen de la conversation
+4. **Page Analytics** (`Analytics.tsx`) — Ajouter des badges/objectifs gamifiés sur la KPI "temps de réponse moyen" et le graphique
 
-1. **Migration : activer Realtime sur les tables**
-   - `ALTER PUBLICATION supabase_realtime ADD TABLE public.conversations;`
-   - `ALTER PUBLICATION supabase_realtime ADD TABLE public.messages;`
-   - `ALTER PUBLICATION supabase_realtime ADD TABLE public.drafts;`
+### Système de gamification
 
-2. **`src/pages/Index.tsx` — abonnement Realtime sur `conversations`**
-   - Ajouter un `useEffect` avec `supabase.channel('conversations')` qui écoute les événements `INSERT`, `UPDATE`, `DELETE` sur `public.conversations`.
-   - Sur `INSERT` : ajouter la conversation à la liste locale.
-   - Sur `UPDATE` : mettre à jour la conversation dans la liste (statut, is_read, snippet, last_message_at, etc.).
-   - Sur `DELETE` : retirer la conversation de la liste.
-   - Cleanup du channel au démontage.
+Création d'un utilitaire partagé `src/lib/response-time.ts` :
 
-3. **`src/pages/Index.tsx` — abonnement Realtime sur `drafts`** (pour le filtre brouillons)
-   - Quand `filter === "drafts"`, écouter les changements sur `drafts` pour rafraîchir automatiquement.
+- **< 5 min** → 🟢 "Éclair" (vert, icône Zap)
+- **5–15 min** → 🔵 "Rapide" (bleu, icône Timer)
+- **15–60 min** → 🟡 "Correct" (jaune, icône Clock)
+- **1h–4h** → 🟠 "Lent" (orange, icône AlertTriangle)
+- **> 4h** → 🔴 "À améliorer" (rouge, icône TrendingDown)
 
-4. **`src/pages/Index.tsx` — abonnement Realtime sur `messages`**
-   - Quand une conversation est sélectionnée, écouter les nouveaux messages pour mettre à jour le détail sans rechargement.
+Chaque palier a un label, une couleur, et une icône. Fonction utilitaire `getResponseTimeTier(minutes: number)` retournant ces infos.
 
-5. **`src/components/inbox/FloatingCompose.tsx` — aucun changement nécessaire**
-   - L'envoi crée déjà un message et met à jour `last_message_at` en DB. Le realtime propagera le changement automatiquement.
+### Détail des modifications
 
-### Détails techniques
-- Les channels Supabase seront souscrits avec un filtre sur `schema: 'public'` et la table correspondante.
-- Le state local sera mis à jour via les callbacks `postgres_changes`, ce qui assure la réactivité sans refetch complet.
-- Les subscriptions seront nettoyées (`removeChannel`) au démontage des composants.
+**Fichier 1 : `src/lib/response-time.ts`** (nouveau)
+- Fonction `getResponseTimeTier(minutes)` → `{ label, color, icon, emoji }`
+- Fonction `formatResponseTime(minutes)` → chaîne lisible ("3 min", "1h 20min")
+
+**Fichier 2 : `ConversationList.tsx`**
+- Accepter une nouvelle prop optionnelle `responseTimes?: Map<string, number>` (conversation_id → minutes)
+- Afficher un petit badge gamifié à côté du timestamp si un temps de réponse est disponible
+
+**Fichier 3 : `src/pages/Index.tsx`**
+- Au chargement des conversations, calculer le temps de réponse pour chaque conversation (dernier message inbound → premier outbound reply)
+- Passer la Map au `ConversationList`
+
+**Fichier 4 : `MessageList.tsx`**
+- Entre chaque message entrant suivi d'une réponse sortante, afficher un petit indicateur "Répondu en X min" avec le badge gamifié correspondant
+
+**Fichier 5 : `ConversationHeader.tsx`**
+- Afficher le temps de réponse moyen de la conversation courante avec le badge gamifié
+
+**Fichier 6 : `Analytics.tsx`**
+- Remplacer le KPI brut "temps de réponse moyen" par un affichage gamifié avec badge, couleur et label
+- Ajouter des objectifs/seuils visuels sur le graphique de temps de réponse (lignes horizontales colorées pour chaque palier)
+
+### Composant réutilisable
+
+**Fichier 7 : `src/components/inbox/ResponseTimeBadge.tsx`** (nouveau)
+- Composant `<ResponseTimeBadge minutes={number} />` qui affiche le badge avec icône, couleur et label
+- Variantes : `compact` (juste icône + temps) et `full` (icône + temps + label)
 
