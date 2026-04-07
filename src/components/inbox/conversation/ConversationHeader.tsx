@@ -88,6 +88,12 @@ export function ConversationHeader({ conversation, onStatusChange, onDelete, onR
     entities.people?.length || entities.companies?.length || entities.amounts?.length || entities.dates?.length;
   const hasAiInfo = conversation.ai_summary || conversation.category || hasEntities;
 
+  // Calculate avg response time for this conversation
+  const responseTimes = calcResponseTimes(conversation.messages || []);
+  const avgResponseMin = responseTimes.length > 0
+    ? responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length
+    : null;
+
   return (
     <div className="px-4 py-3 border-b border-border space-y-2">
       <div className="flex items-center justify-between gap-2">
