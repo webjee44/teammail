@@ -15,6 +15,8 @@ type WAConversation = {
   last_message_at: string;
   is_read: boolean;
   status: string;
+  contact_id: string | null;
+  contacts: { name: string | null } | null;
 };
 
 interface Props {
