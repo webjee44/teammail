@@ -44,6 +44,8 @@ type Props = {
   noiseCount?: number;
   showAllMails?: boolean;
   onToggleAllMails?: () => void;
+  showUnreadOnly?: boolean;
+  onToggleUnreadOnly?: () => void;
   bulkSelected: Set<string>;
   onBulkToggle: (id: string) => void;
   onBulkSelectAll: () => void;
@@ -74,6 +76,8 @@ export function ConversationList({
   noiseCount,
   showAllMails,
   onToggleAllMails,
+  showUnreadOnly,
+  onToggleUnreadOnly,
   bulkSelected,
   onBulkToggle,
   onBulkSelectAll,
@@ -89,7 +93,7 @@ export function ConversationList({
     );
   }
 
-  const hasToggles = (noiseCount ?? 0) > 0 || showAllMails !== undefined;
+  const hasToggles = (noiseCount ?? 0) > 0 || showAllMails !== undefined || onToggleUnreadOnly;
   const allSelected = conversations.length > 0 && bulkSelected.size === conversations.length;
 
   return (
@@ -135,6 +139,19 @@ export function ConversationList({
                 />
                 <span className="text-xs text-muted-foreground whitespace-nowrap">
                   Tous les mails
+                </span>
+              </label>
+            )}
+            {onToggleUnreadOnly && (
+              <label htmlFor="unread-only" className="flex items-center gap-1.5 cursor-pointer">
+                <Switch
+                  id="unread-only"
+                  checked={showUnreadOnly}
+                  onCheckedChange={onToggleUnreadOnly}
+                  className="scale-75"
+                />
+                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                  Non lus
                 </span>
               </label>
             )}
