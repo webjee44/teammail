@@ -150,8 +150,8 @@ export function RichTextEditor({ value, onChange, placeholder, className }: Prop
 
         <ToolbarButton
           pressed={editor.isActive("link")}
-          onPressedChange={addLink}
-          title="Lien"
+          onPressedChange={handleAddLink}
+          title="Lien (⌘K)"
         >
           <LinkIcon className="h-3.5 w-3.5" />
         </ToolbarButton>
