@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { WhatsAppConversationList } from "@/components/whatsapp/WhatsAppConversationList";
 import { WhatsAppConversationDetail } from "@/components/whatsapp/WhatsAppConversationDetail";
 import { NewWhatsAppDialog } from "@/components/whatsapp/NewWhatsAppDialog";
-import { supabase } from "@/integrations/supabase/client";
+import { MessageCircle } from "lucide-react";
 
 export default function WhatsApp() {
   const [searchParams] = useSearchParams();
@@ -17,7 +17,7 @@ export default function WhatsApp() {
     <AppLayout>
       <div className="flex h-full w-full">
         {/* Conversation list */}
-        <div className="w-[380px] border-r border-border flex flex-col bg-background">
+        <div className="w-[340px] border-r border-border flex flex-col bg-background">
           <WhatsAppConversationList
             selectedId={selectedConversationId}
             onSelect={setSelectedConversationId}
@@ -30,11 +30,15 @@ export default function WhatsApp() {
           {selectedConversationId ? (
             <WhatsAppConversationDetail conversationId={selectedConversationId} />
           ) : (
-            <div className="flex-1 flex items-center justify-center text-muted-foreground">
+            <div className="flex-1 flex items-center justify-center">
               <div className="text-center">
-                <div className="text-4xl mb-3">💬</div>
-                <p className="text-[15px] font-medium">Sélectionnez une conversation</p>
-                <p className="text-[13px] mt-1">ou démarrez une nouvelle conversation WhatsApp</p>
+                <div className="w-16 h-16 rounded-2xl bg-muted/60 flex items-center justify-center mx-auto mb-4">
+                  <MessageCircle className="h-7 w-7 text-muted-foreground" />
+                </div>
+                <p className="text-[15px] font-medium text-foreground">Sélectionnez une conversation</p>
+                <p className="text-[13px] text-muted-foreground mt-1.5 max-w-[260px]">
+                  Choisissez une conversation WhatsApp dans la liste ou démarrez-en une nouvelle
+                </p>
               </div>
             </div>
           )}
