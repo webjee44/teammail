@@ -127,8 +127,18 @@ export function InboxSidebar() {
       if (data) setTags(data);
     };
 
+    const fetchWaUnread = async () => {
+      const { count } = await supabase
+        .from("whatsapp_conversations")
+        .select("id", { count: "exact", head: true })
+        .eq("is_read", false)
+        .eq("status", "open");
+      setWaUnread(count || 0);
+    };
+
     fetchCounts();
     fetchTags();
+    fetchWaUnread();
   }, [user]);
 
   const mbSuffix = activeMailbox ? `&mailbox=${activeMailbox}` : "";
