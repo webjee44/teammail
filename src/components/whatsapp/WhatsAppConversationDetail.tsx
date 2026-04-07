@@ -78,10 +78,10 @@ export function WhatsAppConversationDetail({ conversationId }: Props) {
 
   const fetchData = async () => {
     const [{ data: conv }, { data: msgs }] = await Promise.all([
-      supabase.from("whatsapp_conversations").select("id, phone_number, contact_name").eq("id", conversationId).single(),
+      supabase.from("whatsapp_conversations").select("id, phone_number, contact_name, contacts(name)").eq("id", conversationId).single(),
       supabase.from("whatsapp_messages").select("id, body, media_type, media_url, is_outbound, from_name, from_phone, sent_at").eq("conversation_id", conversationId).order("sent_at", { ascending: true }),
     ]);
-    if (conv) setConversation(conv);
+    if (conv) setConversation(conv as unknown as WAConversation);
     if (msgs) setMessages(msgs);
   };
 
