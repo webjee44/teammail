@@ -223,7 +223,7 @@ export function WhatsAppConversationDetail({ conversationId }: Props) {
             <User className="h-4 w-4 text-green-600" />
           </div>
           <div>
-            <p className="font-semibold text-[14px]">{conversation.contact_name || conversation.phone_number}</p>
+            <p className="font-semibold text-[14px]">{conversation.contacts?.name || conversation.contact_name || conversation.phone_number}</p>
             <p className="text-[12px] text-muted-foreground">{conversation.phone_number}</p>
           </div>
         </div>
