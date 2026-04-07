@@ -230,7 +230,10 @@ export function ConversationList({
                               </span>
                             )}
                           </div>
-                          <span className="text-xs text-muted-foreground shrink-0">
+                          <span className="text-xs text-muted-foreground shrink-0 flex items-center gap-1.5">
+                            {responseTimes?.has(conv.id) && (
+                              <ResponseTimeBadge minutes={responseTimes.get(conv.id)!} variant="compact" />
+                            )}
                             {formatDistanceToNow(new Date(conv.last_message_at), {
                               addSuffix: false,
                               locale: fr,
