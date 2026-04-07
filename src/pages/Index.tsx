@@ -848,6 +848,7 @@ const Index = () => {
             onBulkSelectAll={handleBulkSelectAll}
             onBulkDeselectAll={handleBulkDeselectAll}
             responseTimes={responseTimes}
+            freshlyUpdated={freshlyUpdated}
           />
         </div>
       </div>

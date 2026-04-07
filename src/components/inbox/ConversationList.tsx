@@ -53,6 +53,7 @@ type Props = {
   onBulkSelectAll: () => void;
   onBulkDeselectAll: () => void;
   responseTimes?: Map<string, number>;
+  freshlyUpdated?: Set<string>;
 };
 
 const priorityConfig: Record<string, { icon: typeof ArrowUp; className: string; label: string }> = {
@@ -87,6 +88,7 @@ export function ConversationList({
   onBulkSelectAll,
   onBulkDeselectAll,
   responseTimes,
+  freshlyUpdated,
 }: Props) {
   const bulkMode = bulkSelected.size > 0;
 
