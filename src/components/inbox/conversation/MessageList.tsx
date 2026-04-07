@@ -122,8 +122,8 @@ export function MessageList({ messages, comments, conversationSubject, currentUs
               </div>
               {msg.body_html ? (
                 <div
-                  className="text-sm text-foreground prose prose-sm max-w-none dark:prose-invert"
-                  dangerouslySetInnerHTML={{ __html: msg.body_html }}
+                  className="text-sm text-foreground prose prose-sm max-w-none dark:prose-invert [&_a:not([href^='mailto:'])]:target-blank"
+                  dangerouslySetInnerHTML={{ __html: msg.body_html.replace(/<a\s/gi, '<a target="_blank" rel="noopener noreferrer" ') }}
                   onClick={handleContentClick}
                 />
               ) : (
