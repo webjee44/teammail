@@ -48,6 +48,7 @@ const Index = () => {
   const [hideNoise, setHideNoise] = useState(true);
   const [commandOpen, setCommandOpen] = useState(false);
   const [showAllMails, setShowAllMails] = useState(false);
+  const [showUnreadOnly, setShowUnreadOnly] = useState(false);
   const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
   const [searchParams] = useSearchParams();
@@ -430,9 +431,9 @@ const Index = () => {
     }
   };
 
-  const filteredConversations = hideNoise
-    ? conversations.filter((c) => !c.is_noise)
-    : conversations;
+  const filteredConversations = conversations
+    .filter((c) => !hideNoise || !c.is_noise)
+    .filter((c) => !showUnreadOnly || !c.is_read);
 
   // Bulk action handlers
   const handleBulkToggle = useCallback((id: string) => {
@@ -589,6 +590,8 @@ const Index = () => {
             noiseCount={noiseCount}
             showAllMails={mailboxId ? showAllMails : undefined}
             onToggleAllMails={mailboxId ? () => setShowAllMails(!showAllMails) : undefined}
+            showUnreadOnly={showUnreadOnly}
+            onToggleUnreadOnly={() => setShowUnreadOnly(!showUnreadOnly)}
             bulkSelected={bulkSelected}
             onBulkToggle={handleBulkToggle}
             onBulkSelectAll={handleBulkSelectAll}
