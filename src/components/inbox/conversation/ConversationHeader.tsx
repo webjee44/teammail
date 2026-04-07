@@ -198,6 +198,9 @@ export function ConversationHeader({ conversation, onStatusChange, onDelete, onR
             {tag.name}
           </Badge>
         ))}
+        {avgResponseMin !== null && (
+          <ResponseTimeBadge minutes={avgResponseMin} variant="full" />
+        )}
       </div>
 
       {hasAiInfo && (
