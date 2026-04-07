@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/inbox/conversation/RichTextEditor";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -104,7 +104,14 @@ export function TemplatesSettings() {
   };
 
   const insertVar = (key: string) => {
-    setFormBody((prev) => prev + `{{${key}}}`);
+    setFormBody((prev) => {
+      // Insert before closing </p> if HTML, else just append
+      if (prev.includes("</p>")) {
+        const lastClose = prev.lastIndexOf("</p>");
+        return prev.slice(0, lastClose) + `{{${key}}}` + prev.slice(lastClose);
+      }
+      return prev + `{{${key}}}`;
+    });
   };
 
   const resolvePreview = (text: string) =>
@@ -245,14 +252,13 @@ export function TemplatesSettings() {
               </div>
               {showPreview ? (
                 <div className="min-h-[120px] p-3 rounded-md border border-input bg-background text-sm whitespace-pre-wrap">
-                  {resolvePreview(formBody)}
+                  {resolvePreview(formBody.replace(/<[^>]*>/g, ''))}
                 </div>
               ) : (
-                <Textarea
-                  placeholder="Bonjour {{nom}},&#10;&#10;Suite à notre échange..."
+                <RichTextEditor
                   value={formBody}
-                  onChange={(e) => setFormBody(e.target.value)}
-                  className="min-h-[120px]"
+                  onChange={setFormBody}
+                  placeholder="Bonjour {{nom}}, Suite à notre échange..."
                 />
               )}
             </div>
