@@ -128,7 +128,7 @@ export function WhatsAppConversationList({ selectedId, onSelect, onNewConversati
                   )}
                   <div className="min-w-0">
                     <p className={cn("text-[13px] truncate", !conv.is_read && "font-semibold")}>
-                      {conv.contact_name || conv.phone_number}
+                      {conv.contacts?.name || conv.contact_name || conv.phone_number}
                     </p>
                     <p className="text-[12px] text-muted-foreground truncate mt-0.5">
                       {conv.last_message || "..."}
