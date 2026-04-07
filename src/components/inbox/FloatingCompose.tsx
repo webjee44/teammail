@@ -339,6 +339,7 @@ export function FloatingCompose() {
           value={body}
           onChange={setBody}
           placeholder="Tapez votre message..."
+          onTemplateClick={() => setTemplateOpen(true)}
         />
 
         {/* Signature */}
