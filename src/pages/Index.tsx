@@ -52,6 +52,7 @@ const Index = () => {
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
   const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [freshlyUpdated, setFreshlyUpdated] = useState<Set<string>>(new Set());
   const [searchParams] = useSearchParams();
   const filter = searchParams.get("filter");
   const mailboxId = searchParams.get("mailbox");
@@ -393,6 +394,9 @@ const Index = () => {
               ai_summary: c.ai_summary, category: c.category, entities: c.entities,
             }, ...prev];
           });
+          // Flash highlight for new conversation
+          setFreshlyUpdated((prev) => new Set(prev).add(c.id));
+          setTimeout(() => setFreshlyUpdated((prev) => { const next = new Set(prev); next.delete(c.id); return next; }), 3000);
         }
       )
       .on(
@@ -410,6 +414,9 @@ const Index = () => {
             } : x)
             .sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime())
           );
+          // Flash highlight for updated conversation
+          setFreshlyUpdated((prev) => new Set(prev).add(c.id));
+          setTimeout(() => setFreshlyUpdated((prev) => { const next = new Set(prev); next.delete(c.id); return next; }), 3000);
         }
       )
       .on(
@@ -841,6 +848,7 @@ const Index = () => {
             onBulkSelectAll={handleBulkSelectAll}
             onBulkDeselectAll={handleBulkDeselectAll}
             responseTimes={responseTimes}
+            freshlyUpdated={freshlyUpdated}
           />
         </div>
       </div>

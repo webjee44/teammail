@@ -73,25 +73,25 @@ export default {
       },
       keyframes: {
         "accordion-down": {
-          from: {
-            height: "0",
-          },
-          to: {
-            height: "var(--radix-accordion-content-height)",
-          },
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
         },
         "accordion-up": {
-          from: {
-            height: "var(--radix-accordion-content-height)",
-          },
-          to: {
-            height: "0",
-          },
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
+        },
+        "pulse-highlight": {
+          "0%": { boxShadow: "inset 0 0 0 0 hsl(var(--primary) / 0.3)" },
+          "25%": { boxShadow: "inset 4px 0 0 0 hsl(var(--primary) / 0.6)", backgroundColor: "hsl(var(--primary) / 0.08)" },
+          "50%": { boxShadow: "inset 4px 0 0 0 hsl(var(--primary) / 0.3)", backgroundColor: "hsl(var(--primary) / 0.04)" },
+          "75%": { boxShadow: "inset 4px 0 0 0 hsl(var(--primary) / 0.6)", backgroundColor: "hsl(var(--primary) / 0.08)" },
+          "100%": { boxShadow: "inset 0 0 0 0 hsl(var(--primary) / 0)", backgroundColor: "transparent" },
         },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "pulse-highlight": "pulse-highlight 3s ease-out forwards",
       },
     },
   },
