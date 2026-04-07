@@ -132,6 +132,8 @@ export function useDraft({ conversationId = null, draftId = null }: UseDraftOpti
       await supabase.from("drafts").delete().eq("id", savedDraftId);
       setSavedDraftId(null);
     }
+    setDraft({});
+    latestDraft.current = {};
   }, [savedDraftId]);
 
   return { draft, updateDraft, deleteDraft, loading, savedDraftId, resetDraft };

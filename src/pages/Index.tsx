@@ -408,6 +408,7 @@ const Index = () => {
               is_noise: c.is_noise, ai_summary: c.ai_summary,
               category: c.category, entities: c.entities,
             } : x)
+            .sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime())
           );
         }
       )
