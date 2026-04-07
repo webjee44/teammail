@@ -19,6 +19,8 @@ import { ContactPanel } from "@/components/inbox/ContactPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { decodeHtml, categoryLabels, type ConversationDetailData } from "./types";
+import { ResponseTimeBadge } from "../ResponseTimeBadge";
+import { calcResponseTimes } from "@/lib/response-time";
 
 const priorityIcons: Record<string, { icon: typeof ArrowUp; className: string; label: string }> = {
   high: { icon: ArrowUp, className: "text-destructive", label: "Haute" },
