@@ -19,7 +19,7 @@ type Props = {
   onTemplateClick?: () => void;
 };
 
-export function RichTextEditor({ value, onChange, placeholder, className }: Props) {
+export function RichTextEditor({ value, onChange, placeholder, className, onTemplateClick }: Props) {
   const addLink = useCallback((editorInstance: any) => {
     const previousUrl = editorInstance.getAttributes("link").href || "";
     const url = window.prompt("URL du lien :", previousUrl);
