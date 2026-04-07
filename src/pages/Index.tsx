@@ -416,6 +416,13 @@ const Index = () => {
     toast.success(`Statut → ${status === "open" ? "Ouvert" : status === "snoozed" ? "En pause" : "Fermé"}`);
   };
 
+  const replyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const replyCancelledRef = useRef(false);
+
+  useEffect(() => {
+    return () => { if (replyTimerRef.current) clearTimeout(replyTimerRef.current); };
+  }, []);
+
   const handleReply = async (id: string, body: string, attachedFiles?: FileToUpload[]) => {
     const conv = conversations.find((c) => c.id === id);
     if (!conv?.from_email) return;
@@ -439,58 +446,80 @@ const Index = () => {
       data: f.base64,
     }));
 
-    const { data, error } = await supabase.functions.invoke("gmail-send", {
-      body: {
-        to: conv.from_email,
-        subject: `Re: ${conv.subject}`,
-        body,
-        from_email: fromEmail,
-        from_name: senderName,
-        attachments: gmailAttachments,
+    replyCancelledRef.current = false;
+
+    const toastId = toast("Réponse dans 15 secondes…", {
+      duration: 15500,
+      action: {
+        label: "Annuler",
+        onClick: () => {
+          replyCancelledRef.current = true;
+          if (replyTimerRef.current) {
+            clearTimeout(replyTimerRef.current);
+            replyTimerRef.current = null;
+          }
+          toast.dismiss(toastId);
+          toast.info("Envoi annulé");
+        },
       },
     });
 
-    if (error || data?.error) {
-      toast.error("Erreur d'envoi : " + (data?.error || error?.message));
-      return;
-    }
+    replyTimerRef.current = setTimeout(async () => {
+      if (replyCancelledRef.current) return;
+      toast.dismiss(toastId);
 
-    const { data: newMsg } = await supabase.from("messages").insert({
-      conversation_id: id,
-      from_email: fromEmail,
-      from_name: user?.user_metadata?.full_name || fromEmail,
-      to_email: conv.from_email,
-      body_text: body,
-      body_html: body.replace(/\n/g, "<br>"),
-      is_outbound: true,
-      gmail_message_id: data?.messageId || null,
-    }).select("id").single();
+      const { data, error } = await supabase.functions.invoke("gmail-send", {
+        body: {
+          to: conv.from_email,
+          subject: `Re: ${conv.subject}`,
+          body,
+          from_email: fromEmail,
+          from_name: senderName,
+          attachments: gmailAttachments,
+        },
+      });
 
-    // Upload attachments to storage and save metadata
-    if (newMsg && attachedFiles && attachedFiles.length > 0) {
-      for (const f of attachedFiles) {
-        const storagePath = `${id}/${newMsg.id}/${f.name}`;
-        await supabase.storage.from("attachments").upload(storagePath, f.file, {
-          contentType: f.file.type,
-          upsert: true,
-        });
-        await supabase.from("attachments").insert({
-          message_id: newMsg.id,
-          filename: f.name,
-          mime_type: f.file.type || "application/octet-stream",
-          size_bytes: f.file.size,
-          storage_path: storagePath,
-        });
+      if (error || data?.error) {
+        toast.error("Erreur d'envoi : " + (data?.error || error?.message));
+        return;
       }
-    }
 
-    await supabase
-      .from("conversations")
-      .update({ last_message_at: new Date().toISOString() })
-      .eq("id", id);
+      const { data: newMsg } = await supabase.from("messages").insert({
+        conversation_id: id,
+        from_email: fromEmail,
+        from_name: user?.user_metadata?.full_name || fromEmail,
+        to_email: conv.from_email,
+        body_text: body,
+        body_html: body.replace(/\n/g, "<br>"),
+        is_outbound: true,
+        gmail_message_id: data?.messageId || null,
+      }).select("id").single();
 
-    toast.success("Réponse envoyée");
-    fetchDetail(id);
+      if (newMsg && attachedFiles && attachedFiles.length > 0) {
+        for (const f of attachedFiles) {
+          const storagePath = `${id}/${newMsg.id}/${f.name}`;
+          await supabase.storage.from("attachments").upload(storagePath, f.file, {
+            contentType: f.file.type,
+            upsert: true,
+          });
+          await supabase.from("attachments").insert({
+            message_id: newMsg.id,
+            filename: f.name,
+            mime_type: f.file.type || "application/octet-stream",
+            size_bytes: f.file.size,
+            storage_path: storagePath,
+          });
+        }
+      }
+
+      await supabase
+        .from("conversations")
+        .update({ last_message_at: new Date().toISOString() })
+        .eq("id", id);
+
+      toast.success("Réponse envoyée");
+      fetchDetail(id);
+    }, 15000);
   };
 
   const handleComment = async (id: string, body: string) => {
