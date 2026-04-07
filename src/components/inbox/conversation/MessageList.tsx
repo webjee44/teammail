@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { AttachmentList } from "../Attachments";
 import { renderMentions } from "../MentionTextarea";
+import { ResponseTimeBadge } from "../ResponseTimeBadge";
 import { supabase } from "@/integrations/supabase/client";
 import type { Message, Comment } from "./types";
 
