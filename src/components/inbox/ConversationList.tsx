@@ -186,16 +186,18 @@ export function ConversationList({
               const prio = conv.priority ? priorityConfig[conv.priority] : null;
               const PrioIcon = prio?.icon;
               const isChecked = bulkSelected.has(conv.id);
+              const isFresh = freshlyUpdated?.has(conv.id);
 
               return (
-                <div
+                  <div
                   key={conv.id}
                   className={cn(
-                    "w-full text-left p-3 hover:bg-accent/50 transition-colors flex items-start gap-2",
+                    "w-full text-left p-3 hover:bg-accent/50 transition-all duration-500 flex items-start gap-2",
                     selectedId === conv.id && "bg-accent",
                     !conv.is_read && "bg-primary/5",
                     conv.is_noise && "opacity-60",
-                    isChecked && "bg-primary/10"
+                    isChecked && "bg-primary/10",
+                    isFresh && "animate-pulse-highlight"
                   )}
                 >
                   <Checkbox
