@@ -15,9 +15,12 @@ import {
   Cell,
   LineChart,
   Line,
+  ReferenceLine,
 } from "recharts";
 import { Clock, MessageSquare, Users, TrendingUp, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { getResponseTimeTier, formatResponseTime } from "@/lib/response-time";
+import { ResponseTimeBadge } from "@/components/inbox/ResponseTimeBadge";
 
 const DAY_LABELS = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
 
@@ -234,9 +237,12 @@ const Analytics = () => {
                 </div>
                 <div>
                   <p className="text-2xl font-bold">
-                    {avgResponseMin !== null ? `${avgResponseMin} min` : "—"}
+                    {avgResponseMin !== null ? formatResponseTime(avgResponseMin) : "—"}
                   </p>
                   <p className="text-xs text-muted-foreground">Temps de réponse moyen</p>
+                  {avgResponseMin !== null && (
+                    <ResponseTimeBadge minutes={avgResponseMin} variant="full" className="mt-1" />
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -359,7 +365,12 @@ const Analytics = () => {
                         border: "1px solid hsl(var(--border))",
                         borderRadius: "8px",
                       }}
+                      formatter={(value: number) => [formatResponseTime(value), "Temps"]}
                     />
+                    <ReferenceLine y={5} stroke="hsl(142, 72%, 40%)" strokeDasharray="4 4" label={{ value: "⚡ Éclair", position: "right", fill: "hsl(142, 72%, 40%)", fontSize: 10 }} />
+                    <ReferenceLine y={15} stroke="hsl(217, 91%, 60%)" strokeDasharray="4 4" label={{ value: "🚀 Rapide", position: "right", fill: "hsl(217, 91%, 60%)", fontSize: 10 }} />
+                    <ReferenceLine y={60} stroke="hsl(38, 92%, 50%)" strokeDasharray="4 4" label={{ value: "👍 Correct", position: "right", fill: "hsl(38, 92%, 50%)", fontSize: 10 }} />
+                    <ReferenceLine y={240} stroke="hsl(24, 95%, 53%)" strokeDasharray="4 4" label={{ value: "🐢 Lent", position: "right", fill: "hsl(24, 95%, 53%)", fontSize: 10 }} />
                     <Line
                       type="monotone"
                       dataKey="minutes"
