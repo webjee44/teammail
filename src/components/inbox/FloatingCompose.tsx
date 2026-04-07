@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -147,28 +147,73 @@ export function FloatingCompose() {
     updateDraft({ to_email: to, from_email: fromEmail, subject, body });
   }, [to, fromEmail, subject, body, draftInitialized, updateDraft, state.isOpen]);
 
+  const sendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelledRef = useRef(false);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (sendTimerRef.current) clearTimeout(sendTimerRef.current);
+    };
+  }, []);
+
   const handleSend = async () => {
     if (!to || !subject || !body || !fromEmail) return;
     setSending(true);
-    try {
-      const gmailAttachments = attachedFiles.map((f) => ({
+
+    // Capture values for deferred send
+    const sendPayload = {
+      to, subject, body, fromEmail,
+      attachments: attachedFiles.map((f) => ({
         filename: f.name,
         mime_type: f.file.type || "application/octet-stream",
         data: f.base64,
-      }));
-      const { data, error } = await supabase.functions.invoke("gmail-send", {
-        body: { to, subject, body, from_email: fromEmail, attachments: gmailAttachments.length > 0 ? gmailAttachments : undefined },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      await deleteDraft();
-      toast.success("Email envoyé !");
-      closeCompose();
-    } catch (err: any) {
-      toast.error("Erreur : " + (err.message || String(err)));
-    } finally {
-      setSending(false);
-    }
+      })),
+    };
+
+    cancelledRef.current = false;
+    closeCompose();
+
+    const toastId = toast("Envoi dans 15 secondes…", {
+      duration: 15500,
+      action: {
+        label: "Annuler",
+        onClick: () => {
+          cancelledRef.current = true;
+          if (sendTimerRef.current) {
+            clearTimeout(sendTimerRef.current);
+            sendTimerRef.current = null;
+          }
+          toast.dismiss(toastId);
+          toast.info("Envoi annulé");
+          setSending(false);
+        },
+      },
+    });
+
+    sendTimerRef.current = setTimeout(async () => {
+      if (cancelledRef.current) return;
+      toast.dismiss(toastId);
+      try {
+        const { data, error } = await supabase.functions.invoke("gmail-send", {
+          body: {
+            to: sendPayload.to,
+            subject: sendPayload.subject,
+            body: sendPayload.body,
+            from_email: sendPayload.fromEmail,
+            attachments: sendPayload.attachments.length > 0 ? sendPayload.attachments : undefined,
+          },
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+        await deleteDraft();
+        toast.success("Email envoyé !");
+      } catch (err: any) {
+        toast.error("Erreur : " + (err.message || String(err)));
+      } finally {
+        setSending(false);
+      }
+    }, 15000);
   };
 
   const handleSchedule = async () => {
