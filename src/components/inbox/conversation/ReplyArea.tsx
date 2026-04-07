@@ -270,6 +270,35 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
                   <FileText className="h-3 w-3" />
                   Template
                 </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={isReplyEmpty}
+                  onClick={async () => {
+                    try {
+                      const { data: { user: u } } = await supabase.auth.getUser();
+                      if (!u) throw new Error("Non authentifié");
+                      const { data: profile } = await supabase.from("profiles").select("team_id").eq("user_id", u.id).maybeSingle();
+                      if (!profile?.team_id) throw new Error("Aucune équipe");
+                      const plainBody = replyHtml.replace(/<[^>]*>/g, '');
+                      const { error } = await supabase.from("email_templates").insert({
+                        team_id: profile.team_id,
+                        created_by: u.id,
+                        name: replySubject || "Sans titre",
+                        subject: replySubject,
+                        body: plainBody,
+                      });
+                      if (error) throw error;
+                      toast.success("Template créé !");
+                    } catch (err: any) {
+                      toast.error("Erreur : " + (err.message || String(err)));
+                    }
+                  }}
+                  className="gap-1"
+                >
+                  <FileText className="h-3 w-3" />
+                  Sauver template
+                </Button>
                 <TemplatePickerDialog
                   open={templateOpen}
                   onOpenChange={setTemplateOpen}
