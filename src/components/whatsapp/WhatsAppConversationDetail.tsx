@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Phone, User, ArrowLeft } from "lucide-react";
+import { Send, Phone, User, Paperclip, X, FileText, Download } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -29,11 +29,50 @@ interface Props {
   conversationId: string;
 }
 
+function MediaRenderer({ media_type, media_url, body }: { media_type: string; media_url: string; body?: string | null }) {
+  if (media_type === "image") {
+    return (
+      <a href={media_url} target="_blank" rel="noopener noreferrer">
+        <img src={media_url} className="rounded max-w-full max-h-52 cursor-pointer hover:opacity-90 transition" alt={body || "image"} />
+      </a>
+    );
+  }
+  if (media_type === "video") {
+    return (
+      <video src={media_url} controls className="rounded max-w-full max-h-52" preload="metadata" />
+    );
+  }
+  if (media_type === "audio") {
+    return (
+      <audio src={media_url} controls className="w-full max-w-[240px]" preload="metadata" />
+    );
+  }
+  if (media_type === "document") {
+    const fileName = media_url.split("/").pop() || "Document";
+    return (
+      <a
+        href={media_url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-2 p-2 rounded bg-muted/50 hover:bg-muted transition text-[12px]"
+      >
+        <FileText className="h-5 w-5 text-muted-foreground shrink-0" />
+        <span className="truncate flex-1">{fileName}</span>
+        <Download className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+      </a>
+    );
+  }
+  return <div className="text-[12px] text-muted-foreground italic">[{media_type}]</div>;
+}
+
 export function WhatsAppConversationDetail({ conversationId }: Props) {
   const [conversation, setConversation] = useState<WAConversation | null>(null);
   const [messages, setMessages] = useState<WAMessage[]>([]);
   const [replyText, setReplyText] = useState("");
   const [sending, setSending] = useState(false);
+  const [attachedFile, setAttachedFile] = useState<File | null>(null);
+  const [attachedPreview, setAttachedPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const fetchData = async () => {
@@ -62,24 +101,84 @@ export function WhatsAppConversationDetail({ conversationId }: Props) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // 16MB limit
+    if (file.size > 16 * 1024 * 1024) {
+      toast.error("Fichier trop volumineux (max 16 Mo)");
+      return;
+    }
+
+    setAttachedFile(file);
+
+    if (file.type.startsWith("image/")) {
+      const url = URL.createObjectURL(file);
+      setAttachedPreview(url);
+    } else {
+      setAttachedPreview(null);
+    }
+  };
+
+  const clearAttachment = () => {
+    setAttachedFile(null);
+    if (attachedPreview) {
+      URL.revokeObjectURL(attachedPreview);
+      setAttachedPreview(null);
+    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        // Remove data:...;base64, prefix
+        resolve(result.split(",")[1]);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const getMediaType = (file: File): string => {
+    if (file.type.startsWith("image/")) return "image";
+    if (file.type.startsWith("video/")) return "video";
+    if (file.type.startsWith("audio/")) return "audio";
+    return "document";
+  };
+
   const handleSend = async () => {
-    if (!replyText.trim() || !conversation) return;
+    if ((!replyText.trim() && !attachedFile) || !conversation) return;
     setSending(true);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not authenticated");
 
-      const res = await supabase.functions.invoke("wasender-send", {
-        body: {
-          to: conversation.phone_number,
-          text: replyText.trim(),
-          conversation_id: conversationId,
-        },
-      });
+      const payload: Record<string, unknown> = {
+        to: conversation.phone_number,
+        conversation_id: conversationId,
+      };
+
+      if (replyText.trim()) payload.text = replyText.trim();
+
+      if (attachedFile) {
+        payload.media = {
+          data: await fileToBase64(attachedFile),
+          mimetype: attachedFile.type,
+          filename: attachedFile.name,
+          mediatype: getMediaType(attachedFile),
+        };
+      }
+
+      const res = await supabase.functions.invoke("wasender-send", { body: payload });
 
       if (res.error) throw new Error(res.error.message);
       setReplyText("");
+      clearAttachment();
     } catch (err: any) {
       toast.error("Erreur d'envoi: " + (err.message || "Erreur inconnue"));
     } finally {
@@ -156,11 +255,7 @@ export function WhatsAppConversationDetail({ conversationId }: Props) {
                   )}
                   {msg.media_type && msg.media_url && (
                     <div className="mb-1">
-                      {msg.media_type === "image" ? (
-                        <img src={msg.media_url} className="rounded max-w-full max-h-52" alt="media" />
-                      ) : (
-                        <div className="text-[12px] text-muted-foreground italic">[{msg.media_type}]</div>
-                      )}
+                      <MediaRenderer media_type={msg.media_type} media_url={msg.media_url} body={msg.body} />
                     </div>
                   )}
                   {msg.body && <p className="whitespace-pre-wrap break-words">{msg.body}</p>}
@@ -175,9 +270,42 @@ export function WhatsAppConversationDetail({ conversationId }: Props) {
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Attachment preview */}
+      {attachedFile && (
+        <div className="px-3 pt-2 bg-background border-t border-border">
+          <div className="flex items-center gap-2 p-2 rounded-md bg-muted/50 text-[12px]">
+            {attachedPreview ? (
+              <img src={attachedPreview} className="h-12 w-12 rounded object-cover" alt="preview" />
+            ) : (
+              <FileText className="h-5 w-5 text-muted-foreground shrink-0" />
+            )}
+            <span className="truncate flex-1">{attachedFile.name}</span>
+            <span className="text-muted-foreground shrink-0">{(attachedFile.size / 1024).toFixed(0)} Ko</span>
+            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={clearAttachment}>
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Reply area */}
       <div className="border-t border-border p-3 bg-background">
         <div className="flex items-end gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.zip,.txt"
+            className="hidden"
+            onChange={handleFileSelect}
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 shrink-0"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Paperclip className="h-4 w-4" />
+          </Button>
           <Textarea
             value={replyText}
             onChange={(e) => setReplyText(e.target.value)}
@@ -188,7 +316,7 @@ export function WhatsAppConversationDetail({ conversationId }: Props) {
           />
           <Button
             onClick={handleSend}
-            disabled={!replyText.trim() || sending}
+            disabled={(!replyText.trim() && !attachedFile) || sending}
             size="icon"
             className="h-9 w-9 bg-green-500 hover:bg-green-600 shrink-0"
           >

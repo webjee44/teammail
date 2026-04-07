@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const WASENDER_API_URL = "https://www.wasenderapi.com/api/send-message";
+const WASENDER_BASE = "https://www.wasenderapi.com/api";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -31,23 +31,66 @@ serve(async (req) => {
     if (authError || !user) throw new Error("Unauthorized");
 
     const body = await req.json();
-    const { to, text, conversation_id } = body;
+    const { to, text, conversation_id, media } = body;
 
-    if (!to || !text) {
-      return new Response(JSON.stringify({ error: "Missing 'to' or 'text'" }), {
+    if (!to || (!text && !media)) {
+      return new Response(JSON.stringify({ error: "Missing 'to' and either 'text' or 'media'" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    // Determine which Wasender endpoint to use
+    let wasenderEndpoint: string;
+    let wasenderBody: Record<string, unknown>;
+    let sentMediaType: string | null = null;
+
+    if (media) {
+      // media: { data: base64, mimetype: string, filename: string, mediatype: "image"|"video"|"audio"|"document" }
+      sentMediaType = media.mediatype || "document";
+
+      if (sentMediaType === "image") {
+        wasenderEndpoint = `${WASENDER_BASE}/send-image`;
+        wasenderBody = {
+          to,
+          imageUrl: `data:${media.mimetype};base64,${media.data}`,
+          caption: text || "",
+        };
+      } else if (sentMediaType === "video") {
+        wasenderEndpoint = `${WASENDER_BASE}/send-video`;
+        wasenderBody = {
+          to,
+          videoUrl: `data:${media.mimetype};base64,${media.data}`,
+          caption: text || "",
+        };
+      } else if (sentMediaType === "audio") {
+        wasenderEndpoint = `${WASENDER_BASE}/send-audio`;
+        wasenderBody = {
+          to,
+          audioUrl: `data:${media.mimetype};base64,${media.data}`,
+        };
+      } else {
+        wasenderEndpoint = `${WASENDER_BASE}/send-document`;
+        wasenderBody = {
+          to,
+          documentUrl: `data:${media.mimetype};base64,${media.data}`,
+          fileName: media.filename || "file",
+          caption: text || "",
+        };
+      }
+    } else {
+      wasenderEndpoint = `${WASENDER_BASE}/send-message`;
+      wasenderBody = { to, text };
+    }
+
     // Send via Wasender API
-    const wasenderRes = await fetch(WASENDER_API_URL, {
+    const wasenderRes = await fetch(wasenderEndpoint, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${wasenderApiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ to, text }),
+      body: JSON.stringify(wasenderBody),
     });
 
     const wasenderData = await wasenderRes.json();
@@ -73,7 +116,6 @@ serve(async (req) => {
     let convId = conversation_id;
 
     if (!convId) {
-      // Check existing conversation
       const { data: existing } = await supabase
         .from("whatsapp_conversations")
         .select("id")
@@ -84,7 +126,6 @@ serve(async (req) => {
       if (existing) {
         convId = existing.id;
       } else {
-        // Check contacts for name
         const { data: contact } = await supabase
           .from("contacts")
           .select("id, name")
@@ -99,7 +140,7 @@ serve(async (req) => {
             phone_number: to,
             contact_name: contact?.name || to,
             contact_id: contact?.id || null,
-            last_message: text,
+            last_message: text || (sentMediaType ? `[${sentMediaType}]` : ""),
             last_message_at: new Date().toISOString(),
             is_read: true,
             status: "open",
@@ -112,12 +153,16 @@ serve(async (req) => {
     }
 
     if (convId) {
+      const lastMsg = text || (sentMediaType ? `📎 ${sentMediaType}` : "");
+
       // Save outbound message
       await supabase.from("whatsapp_messages").insert({
         conversation_id: convId,
         wasender_message_id: wasenderData.data?.msgId?.toString() || null,
         to_phone: to,
-        body: text,
+        body: text || null,
+        media_type: sentMediaType,
+        media_url: null, // base64 not stored as URL
         is_outbound: true,
         status: "sent",
         sent_at: new Date().toISOString(),
@@ -127,7 +172,7 @@ serve(async (req) => {
       await supabase
         .from("whatsapp_conversations")
         .update({
-          last_message: text,
+          last_message: lastMsg,
           last_message_at: new Date().toISOString(),
           is_read: true,
         })
