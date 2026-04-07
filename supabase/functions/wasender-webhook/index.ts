@@ -121,7 +121,7 @@ serve(async (req) => {
       }
 
       // Insert message
-      await supabase.from("whatsapp_messages").insert({
+      const msgPayload = {
         conversation_id: conversationId,
         wasender_message_id: messageId,
         from_phone: fromPhone,
@@ -130,8 +130,13 @@ serve(async (req) => {
         media_type: mediaType,
         media_url: mediaUrl,
         is_outbound: fromMe,
-        sent_at: new Date(body.timestamp ? body.timestamp * 1000 : Date.now()).toISOString(),
-      });
+        sent_at: new Date(messages.messageTimestamp ? messages.messageTimestamp * 1000 : Date.now()).toISOString(),
+      };
+      console.log("Inserting WA message:", JSON.stringify(msgPayload));
+      const { error: msgErr } = await supabase.from("whatsapp_messages").insert(msgPayload);
+      if (msgErr) {
+        console.error("Failed to insert WA message:", msgErr);
+      }
 
       return new Response(JSON.stringify({ ok: true, conversationId }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
