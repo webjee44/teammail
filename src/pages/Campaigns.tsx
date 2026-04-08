@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Plus, Megaphone, Send, Clock, AlertCircle, FileEdit, Trash2 } from "lucide-react";
+import { Plus, Megaphone, Send, Clock, AlertCircle, FileEdit, Trash2, Eye, MousePointerClick } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { toast } from "@/hooks/use-toast";
@@ -18,6 +18,8 @@ type Campaign = {
   total_recipients: number;
   sent_count: number;
   failed_count: number;
+  open_count: number;
+  click_count: number;
   from_email: string | null;
   scheduled_at: string | null;
   created_at: string;
@@ -29,6 +31,28 @@ const statusConfig: Record<string, { label: string; variant: "default" | "second
   sent: { label: "Envoyée", variant: "outline", icon: Send },
   failed: { label: "Échouée", variant: "destructive", icon: AlertCircle },
 };
+
+function TrackingStats({ campaign }: { campaign: Campaign }) {
+  if (campaign.status === "draft" || campaign.sent_count === 0) return null;
+
+  const openRate = Math.round((campaign.open_count / campaign.sent_count) * 100);
+  const clickRate = Math.round((campaign.click_count / campaign.sent_count) * 100);
+
+  return (
+    <div className="flex items-center gap-3 text-xs">
+      <div className="flex items-center gap-1 text-muted-foreground" title="Taux d'ouverture">
+        <Eye className="h-3.5 w-3.5" />
+        <span className="tabular-nums font-medium">{openRate}%</span>
+        <span className="text-muted-foreground/60">({campaign.open_count})</span>
+      </div>
+      <div className="flex items-center gap-1 text-muted-foreground" title="Taux de clic">
+        <MousePointerClick className="h-3.5 w-3.5" />
+        <span className="tabular-nums font-medium">{clickRate}%</span>
+        <span className="text-muted-foreground/60">({campaign.click_count})</span>
+      </div>
+    </div>
+  );
+}
 
 export default function Campaigns() {
   const navigate = useNavigate();
@@ -42,7 +66,7 @@ export default function Campaigns() {
         .from("campaigns")
         .select("*")
         .order("created_at", { ascending: false });
-      if (data) setCampaigns(data);
+      if (data) setCampaigns(data as any);
       setLoading(false);
     };
     fetchCampaigns();
@@ -120,6 +144,7 @@ export default function Campaigns() {
                       {campaign.subject || "(sans objet)"} · {campaign.from_email || "—"}
                     </p>
                   </div>
+                  <TrackingStats campaign={campaign} />
                   <div className="text-right shrink-0">
                     <div className="text-sm tabular-nums font-medium">
                       {campaign.sent_count}/{campaign.total_recipients}

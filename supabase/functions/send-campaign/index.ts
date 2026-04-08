@@ -14,6 +14,32 @@ function replaceVariables(text: string, recipient: { name: string | null; email:
     .replace(/\{\{téléphone\}\}/g, "");
 }
 
+function injectTracking(html: string, campaignId: string, recipientId: string, trackingBaseUrl: string): string {
+  // 1. Inject open tracking pixel before </body> or at end
+  const pixelUrl = `${trackingBaseUrl}?t=open&c=${campaignId}&r=${recipientId}`;
+  const pixel = `<img src="${pixelUrl}" width="1" height="1" style="display:none;border:0;" alt="" />`;
+
+  let result = html;
+  if (result.includes("</body>")) {
+    result = result.replace("</body>", `${pixel}</body>`);
+  } else {
+    result += pixel;
+  }
+
+  // 2. Rewrite links for click tracking
+  result = result.replace(
+    /href=["'](https?:\/\/[^"']+)["']/gi,
+    (_match, url) => {
+      // Don't track mailto or tel links
+      if (url.startsWith("mailto:") || url.startsWith("tel:")) return _match;
+      const clickUrl = `${trackingBaseUrl}?t=click&c=${campaignId}&r=${recipientId}&u=${encodeURIComponent(url)}`;
+      return `href="${clickUrl}"`;
+    }
+  );
+
+  return result;
+}
+
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -35,6 +61,9 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Tracking base URL
+    const trackingBaseUrl = `${supabaseUrl}/functions/v1/campaign-track`;
 
     // Load campaign
     const { data: campaign, error: campErr } = await supabase
@@ -77,11 +106,13 @@ serve(async (req) => {
     let sentCount = 0;
     let failedCount = 0;
 
-    // Send in batches of 10
     for (let i = 0; i < recipients.length; i++) {
       const r = recipients[i];
       const personalizedSubject = replaceVariables(campaign.subject, r);
-      const personalizedBody = replaceVariables(campaign.body_html, r);
+      let personalizedBody = replaceVariables(campaign.body_html, r);
+
+      // Inject tracking pixel + rewrite links
+      personalizedBody = injectTracking(personalizedBody, campaign_id, r.id, trackingBaseUrl);
 
       try {
         const sendRes = await fetch(`${supabaseUrl}/functions/v1/gmail-send`, {
@@ -128,7 +159,7 @@ serve(async (req) => {
         }).eq("id", campaign_id);
       }
 
-      // Delay between sends (1s) to avoid rate limiting
+      // Delay between sends
       if (i < recipients.length - 1) {
         await delay(1000);
       }
