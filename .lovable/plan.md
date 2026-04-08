@@ -1,55 +1,70 @@
 
 
-## Gamification des temps de réponse
+# Plan : Campagnes Email groupées (type Lemlist)
 
-Ajouter des indicateurs visuels gamifiés sur les temps de réponse à travers l'application : badges colorés, icônes, et feedback motivant.
+## Résumé
 
-### Endroits concernés
+Créer une fonctionnalité complète de campagnes email avec un wizard multi-étapes accessible via un CTA "Campagne" dans la sidebar. Les emails seront envoyés via l'infrastructure Gmail existante (gmail-send edge function), avec personnalisation par variables dynamiques ({{nom}}, {{email}}, etc.).
 
-1. **Liste des conversations** (`ConversationList.tsx`) — Afficher un badge de temps de réponse sur chaque conversation (calculé entre le dernier message entrant et la première réponse sortante)
-2. **Détail de conversation** (`MessageList.tsx`) — Afficher le temps de réponse entre chaque message entrant et sa réponse sortante, avec un badge coloré
-3. **Header de conversation** (`ConversationHeader.tsx`) — Afficher le temps de réponse moyen de la conversation
-4. **Page Analytics** (`Analytics.tsx`) — Ajouter des badges/objectifs gamifiés sur la KPI "temps de réponse moyen" et le graphique
+## Architecture
 
-### Système de gamification
+```text
+┌─────────────────────────────────────────────┐
+│  /campaigns (page liste)                    │
+│  ┌─────────────────────────────────────────┐│
+│  │ Liste des campagnes + bouton "Nouvelle" ││
+│  └─────────────────────────────────────────┘│
+└─────────────────────────────────────────────┘
 
-Création d'un utilitaire partagé `src/lib/response-time.ts` :
+┌─────────────────────────────────────────────┐
+│  /campaigns/new (wizard 4 étapes)           │
+│  ┌──────┬──────┬──────┬──────┐             │
+│  │ 1.   │ 2.   │ 3.   │ 4.   │             │
+│  │Config│Desti-│Rédac-│Aperçu│             │
+│  │      │natai-│tion  │& Envoi│             │
+│  │      │res   │      │      │             │
+│  └──────┴──────┴──────┴──────┘             │
+└─────────────────────────────────────────────┘
+```
 
-- **< 5 min** → 🟢 "Éclair" (vert, icône Zap)
-- **5–15 min** → 🔵 "Rapide" (bleu, icône Timer)
-- **15–60 min** → 🟡 "Correct" (jaune, icône Clock)
-- **1h–4h** → 🟠 "Lent" (orange, icône AlertTriangle)
-- **> 4h** → 🔴 "À améliorer" (rouge, icône TrendingDown)
+## Étapes du wizard
 
-Chaque palier a un label, une couleur, et une icône. Fonction utilitaire `getResponseTimeTier(minutes: number)` retournant ces infos.
+1. **Configuration** — Nom de la campagne, choix de la mailbox d'envoi, objet
+2. **Destinataires** — Sélection depuis les contacts existants (recherche, filtres, sélection multiple, import CSV optionnel)
+3. **Rédaction** — Éditeur riche avec variables dynamiques ({{nom}}, {{email}}, {{entreprise}}), templates disponibles, polish IA
+4. **Aperçu & Envoi** — Preview personnalisée pour un destinataire, compteur total, confirmation, envoi immédiat ou programmé
 
-### Détail des modifications
+## Base de données (2 nouvelles tables)
 
-**Fichier 1 : `src/lib/response-time.ts`** (nouveau)
-- Fonction `getResponseTimeTier(minutes)` → `{ label, color, icon, emoji }`
-- Fonction `formatResponseTime(minutes)` → chaîne lisible ("3 min", "1h 20min")
+**campaigns** — Stocke la campagne
+- id, team_id, name, subject, body_html, from_email, status (draft/sending/sent/failed), total_recipients, sent_count, failed_count, created_by, scheduled_at, created_at, updated_at
 
-**Fichier 2 : `ConversationList.tsx`**
-- Accepter une nouvelle prop optionnelle `responseTimes?: Map<string, number>` (conversation_id → minutes)
-- Afficher un petit badge gamifié à côté du timestamp si un temps de réponse est disponible
+**campaign_recipients** — Liens campagne ↔ contacts
+- id, campaign_id, contact_id, email, name, company, status (pending/sent/failed), error_message, sent_at
 
-**Fichier 3 : `src/pages/Index.tsx`**
-- Au chargement des conversations, calculer le temps de réponse pour chaque conversation (dernier message inbound → premier outbound reply)
-- Passer la Map au `ConversationList`
+RLS team-scoped sur les deux tables.
 
-**Fichier 4 : `MessageList.tsx`**
-- Entre chaque message entrant suivi d'une réponse sortante, afficher un petit indicateur "Répondu en X min" avec le badge gamifié correspondant
+## Edge function : send-campaign
 
-**Fichier 5 : `ConversationHeader.tsx`**
-- Afficher le temps de réponse moyen de la conversation courante avec le badge gamifié
+Nouvelle edge function qui :
+1. Charge la campagne + ses destinataires pending
+2. Pour chaque destinataire, remplace les variables ({{nom}}, {{email}}, {{entreprise}}) dans le body/subject
+3. Appelle gmail-send pour chaque email (avec un délai entre chaque envoi pour éviter le rate-limiting)
+4. Met à jour le statut de chaque recipient (sent/failed)
+5. Met à jour les compteurs de la campagne
 
-**Fichier 6 : `Analytics.tsx`**
-- Remplacer le KPI brut "temps de réponse moyen" par un affichage gamifié avec badge, couleur et label
-- Ajouter des objectifs/seuils visuels sur le graphique de temps de réponse (lignes horizontales colorées pour chaque palier)
+## Modifications UI
 
-### Composant réutilisable
+1. **Sidebar** — Ajout d'un lien "Campagnes" avec icône Megaphone dans la section Outils
+2. **Page /campaigns** — Liste des campagnes avec statut, compteurs, date
+3. **Page /campaigns/new** — Wizard 4 étapes avec stepper visuel, animations de transition
+4. **App.tsx** — Nouvelles routes /campaigns et /campaigns/new
 
-**Fichier 7 : `src/components/inbox/ResponseTimeBadge.tsx`** (nouveau)
-- Composant `<ResponseTimeBadge minutes={number} />` qui affiche le badge avec icône, couleur et label
-- Variantes : `compact` (juste icône + temps) et `full` (icône + temps + label)
+## Détails techniques
+
+- Les variables supportées : `{{nom}}`, `{{email}}`, `{{entreprise}}`, `{{téléphone}}`
+- Envoi par batch de 10, avec 1s de délai entre chaque envoi pour respecter les limites Gmail
+- La campagne peut être sauvegardée en brouillon à chaque étape
+- Preview en temps réel du rendu avec les variables remplacées pour le premier destinataire
+- Le stepper du wizard reprend le style indigo du projet avec animations fluides
 
