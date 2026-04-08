@@ -141,16 +141,10 @@ const Index = () => {
         return;
       }
 
-      // Special handling for sent filter — conversations with outbound messages
+      // Special handling for sent filter — use RPC to get all sent conversation IDs (bypasses 1000-row limit)
       if (filter === "sent") {
-        // Get conversation IDs that have outbound messages
-        let sentQuery = supabase
-          .from("messages")
-          .select("conversation_id")
-          .eq("is_outbound", true);
-
-        const { data: sentMsgs } = await sentQuery;
-        const sentConvIds = [...new Set((sentMsgs || []).map((m) => m.conversation_id))];
+        const { data: sentConvs } = await supabase.rpc("get_sent_conversation_ids");
+        const sentConvIds = (sentConvs || []).map((r: any) => r.conversation_id);
 
         if (sentConvIds.length === 0) {
           setConversations([]);
@@ -775,6 +769,7 @@ const Index = () => {
     mine: "Assigné à moi",
     unassigned: "Non assigné",
     closed: "Fermé",
+    sent: "Envoyés",
     drafts: "Brouillons",
   };
   const headerTitle = filter ? filterLabels[filter] || "Boîte de réception" : "Boîte de réception";

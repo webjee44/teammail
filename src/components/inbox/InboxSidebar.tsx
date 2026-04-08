@@ -88,18 +88,11 @@ export function InboxSidebar() {
         .select("id", { count: "exact", head: true })
         .eq("status", "pending");
 
-      // Count conversations with outbound messages
-      const convIds = data.map((c) => c.id);
+      // Count conversations with outbound messages using RPC to bypass row limit
       let sentCount = 0;
-      if (convIds.length > 0) {
-        const { data: sentMsgs } = await supabase
-          .from("messages")
-          .select("conversation_id")
-          .eq("is_outbound", true)
-          .in("conversation_id", convIds);
-        if (sentMsgs) {
-          sentCount = new Set(sentMsgs.map((m) => m.conversation_id)).size;
-        }
+      const { data: sentConvs } = await supabase.rpc("get_sent_conversation_ids");
+      if (sentConvs) {
+        sentCount = sentConvs.length;
       }
 
       setCounts({

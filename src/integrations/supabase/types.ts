@@ -1320,6 +1320,12 @@ export type Database = {
       }
     }
     Functions: {
+      get_sent_conversation_ids: {
+        Args: never
+        Returns: {
+          conversation_id: string
+        }[]
+      }
       get_user_team_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
