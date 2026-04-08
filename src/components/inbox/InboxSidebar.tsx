@@ -92,14 +92,22 @@ export function InboxSidebar() {
       const convIds = data.map((c) => c.id);
       let sentCount = 0;
       if (convIds.length > 0) {
-        const { data: sentMsgs } = await supabase
-          .from("messages")
-          .select("conversation_id")
-          .eq("is_outbound", true)
-          .in("conversation_id", convIds);
-        if (sentMsgs) {
-          sentCount = new Set(sentMsgs.map((m) => m.conversation_id)).size;
+        // Use count query to avoid 1000-row default limit
+        const batchSize = 200;
+        const sentConvSet = new Set<string>();
+        for (let i = 0; i < convIds.length; i += batchSize) {
+          const batch = convIds.slice(i, i + batchSize);
+          const { data: sentMsgs } = await supabase
+            .from("messages")
+            .select("conversation_id")
+            .eq("is_outbound", true)
+            .in("conversation_id", batch)
+            .limit(5000);
+          if (sentMsgs) {
+            sentMsgs.forEach((m) => sentConvSet.add(m.conversation_id));
+          }
         }
+        sentCount = sentConvSet.size;
       }
 
       setCounts({

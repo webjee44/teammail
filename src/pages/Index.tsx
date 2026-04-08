@@ -143,11 +143,12 @@ const Index = () => {
 
       // Special handling for sent filter — conversations with outbound messages
       if (filter === "sent") {
-        // Get conversation IDs that have outbound messages
+        // Get conversation IDs that have outbound messages — use large limit to avoid default 1000-row cap
         let sentQuery = supabase
           .from("messages")
           .select("conversation_id")
-          .eq("is_outbound", true);
+          .eq("is_outbound", true)
+          .limit(5000);
 
         const { data: sentMsgs } = await sentQuery;
         const sentConvIds = [...new Set((sentMsgs || []).map((m) => m.conversation_id))];
@@ -775,6 +776,7 @@ const Index = () => {
     mine: "Assigné à moi",
     unassigned: "Non assigné",
     closed: "Fermé",
+    sent: "Envoyés",
     drafts: "Brouillons",
   };
   const headerTitle = filter ? filterLabels[filter] || "Boîte de réception" : "Boîte de réception";
