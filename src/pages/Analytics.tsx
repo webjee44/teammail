@@ -64,13 +64,12 @@ const Analytics = () => {
     const { data: allConvosStatus } = await supabase
       .from("conversations")
       .select("status");
-    const statusCounts = { open: 0, snoozed: 0, closed: 0 };
+    const statusCounts = { open: 0, closed: 0 };
     for (const c of allConvosStatus || []) {
       if (c.status in statusCounts) statusCounts[c.status as keyof typeof statusCounts]++;
     }
     setStatusData([
       { name: "Ouvert", value: statusCounts.open, color: "hsl(142, 72%, 40%)" },
-      { name: "En pause", value: statusCounts.snoozed, color: "hsl(38, 92%, 50%)" },
       { name: "Fermé", value: statusCounts.closed, color: "hsl(220, 10%, 46%)" },
     ]);
 
