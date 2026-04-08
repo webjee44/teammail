@@ -1,70 +1,49 @@
 
 
-# Plan : Campagnes Email groupées (type Lemlist)
+# Plan : Tags de contacts + filtre par tag dans les campagnes
 
 ## Résumé
 
-Créer une fonctionnalité complète de campagnes email avec un wizard multi-étapes accessible via un CTA "Campagne" dans la sidebar. Les emails seront envoyés via l'infrastructure Gmail existante (gmail-send edge function), avec personnalisation par variables dynamiques ({{nom}}, {{email}}, etc.).
+Réutiliser la table `tags` existante (déjà utilisée pour les conversations) et créer une table de liaison `contact_tags` pour associer des tags aux contacts. Dans `/contacts`, on pourra sélectionner plusieurs contacts et leur attribuer un tag (existant ou nouveau). Dans le wizard campagne (étape Destinataires), on pourra filtrer/sélectionner par tag pour charger un groupe entier.
 
-## Architecture
+## Base de données
 
-```text
-┌─────────────────────────────────────────────┐
-│  /campaigns (page liste)                    │
-│  ┌─────────────────────────────────────────┐│
-│  │ Liste des campagnes + bouton "Nouvelle" ││
-│  └─────────────────────────────────────────┘│
-└─────────────────────────────────────────────┘
+**Nouvelle table `contact_tags`** (junction) :
+- `contact_id` uuid (ref contacts.id ON DELETE CASCADE)
+- `tag_id` uuid (ref tags.id ON DELETE CASCADE)
+- PRIMARY KEY (contact_id, tag_id)
+- RLS team-scoped (via join sur contacts)
 
-┌─────────────────────────────────────────────┐
-│  /campaigns/new (wizard 4 étapes)           │
-│  ┌──────┬──────┬──────┬──────┐             │
-│  │ 1.   │ 2.   │ 3.   │ 4.   │             │
-│  │Config│Desti-│Rédac-│Aperçu│             │
-│  │      │natai-│tion  │& Envoi│             │
-│  │      │res   │      │      │             │
-│  └──────┴──────┴──────┴──────┘             │
-└─────────────────────────────────────────────┘
-```
-
-## Étapes du wizard
-
-1. **Configuration** — Nom de la campagne, choix de la mailbox d'envoi, objet
-2. **Destinataires** — Sélection depuis les contacts existants (recherche, filtres, sélection multiple, import CSV optionnel)
-3. **Rédaction** — Éditeur riche avec variables dynamiques ({{nom}}, {{email}}, {{entreprise}}), templates disponibles, polish IA
-4. **Aperçu & Envoi** — Preview personnalisée pour un destinataire, compteur total, confirmation, envoi immédiat ou programmé
-
-## Base de données (2 nouvelles tables)
-
-**campaigns** — Stocke la campagne
-- id, team_id, name, subject, body_html, from_email, status (draft/sending/sent/failed), total_recipients, sent_count, failed_count, created_by, scheduled_at, created_at, updated_at
-
-**campaign_recipients** — Liens campagne ↔ contacts
-- id, campaign_id, contact_id, email, name, company, status (pending/sent/failed), error_message, sent_at
-
-RLS team-scoped sur les deux tables.
-
-## Edge function : send-campaign
-
-Nouvelle edge function qui :
-1. Charge la campagne + ses destinataires pending
-2. Pour chaque destinataire, remplace les variables ({{nom}}, {{email}}, {{entreprise}}) dans le body/subject
-3. Appelle gmail-send pour chaque email (avec un délai entre chaque envoi pour éviter le rate-limiting)
-4. Met à jour le statut de chaque recipient (sent/failed)
-5. Met à jour les compteurs de la campagne
+Pas besoin de modifier la table `tags` existante — elle a déjà `id`, `name`, `color`, `team_id`.
 
 ## Modifications UI
 
-1. **Sidebar** — Ajout d'un lien "Campagnes" avec icône Megaphone dans la section Outils
-2. **Page /campaigns** — Liste des campagnes avec statut, compteurs, date
-3. **Page /campaigns/new** — Wizard 4 étapes avec stepper visuel, animations de transition
-4. **App.tsx** — Nouvelles routes /campaigns et /campaigns/new
+### 1. Page `/contacts` — Sélection multiple + attribution de tags
+
+- Ajouter un mode sélection avec checkboxes sur chaque contact
+- Barre d'actions en haut quand des contacts sont sélectionnés : "Ajouter un tag" (ouvre un popover avec les tags existants + création rapide)
+- Afficher les tags de chaque contact dans la liste (petits badges colorés)
+- Filtre par tag dans la barre de recherche (dropdown ou badges cliquables)
+- Dans le panneau de détail du contact, section "Tags" avec possibilité d'ajouter/retirer
+
+### 2. Wizard campagne — Étape Destinataires
+
+- Ajouter un filtre par tag au-dessus de la liste des contacts (badges cliquables des tags disponibles)
+- Cliquer sur un tag filtre la liste ET pré-sélectionne tous les contacts de ce tag
+- Bouton "Sélectionner par tag" pour charger un groupe entier d'un coup
+
+## Fichiers impactés
+
+| Fichier | Changement |
+|---------|-----------|
+| Migration SQL | Créer `contact_tags` + RLS |
+| `src/pages/Contacts.tsx` | Mode sélection, attribution de tags, affichage tags, filtre par tag |
+| `src/components/campaigns/CampaignStepRecipients.tsx` | Filtre et sélection par tag |
 
 ## Détails techniques
 
-- Les variables supportées : `{{nom}}`, `{{email}}`, `{{entreprise}}`, `{{téléphone}}`
-- Envoi par batch de 10, avec 1s de délai entre chaque envoi pour respecter les limites Gmail
-- La campagne peut être sauvegardée en brouillon à chaque étape
-- Preview en temps réel du rendu avec les variables remplacées pour le premier destinataire
-- Le stepper du wizard reprend le style indigo du projet avec animations fluides
+- Les tags sont partagés entre conversations et contacts (même table `tags`)
+- La sélection multiple dans `/contacts` utilise un `Set<string>` d'IDs sélectionnés
+- Le popover d'attribution de tag permet de créer un nouveau tag à la volée
+- Dans le wizard campagne, les tags sont chargés avec un count de contacts associés pour guider l'utilisateur
 
