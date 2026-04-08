@@ -40,7 +40,7 @@ export type ConversationDetailData = {
   subject: string;
   from_email: string | null;
   from_name: string | null;
-  status: "open" | "snoozed" | "closed";
+  status: "open" | "closed";
   assigned_to: string | null;
   assignee_name?: string;
   tags?: { id: string; name: string; color: string }[];
@@ -56,7 +56,7 @@ export type ConversationDetailData = {
 export type ConversationDetailProps = {
   conversation: ConversationDetailData | null;
   currentUserId?: string;
-  onStatusChange?: (id: string, status: "open" | "snoozed" | "closed") => void;
+  onStatusChange?: (id: string, status: "open" | "closed") => void;
   onReply?: (id: string, body: string, attachments?: FileToUpload[]) => void;
   onComment?: (id: string, body: string) => void;
   onEditComment?: (commentId: string, newBody: string) => void;

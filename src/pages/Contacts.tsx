@@ -941,7 +941,7 @@ function ContactDetailView({
                 <p className="text-sm font-medium text-foreground truncate">{conv.subject}</p>
                 <div className="flex items-center gap-2 mt-1">
                   <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                    {conv.status === "open" ? "Ouvert" : conv.status === "snoozed" ? "Pause" : "Fermé"}
+                    {conv.status === "open" ? "Ouvert" : "Fermé"}
                   </Badge>
                   <span className="text-[10px] text-muted-foreground">
                     {format(new Date(conv.last_message_at), "d MMM yyyy", { locale: fr })}

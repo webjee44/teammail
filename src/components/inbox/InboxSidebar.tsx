@@ -64,7 +64,7 @@ export function InboxSidebar() {
   const activeMailbox = searchParams.get("mailbox");
   const { openCompose } = useComposeWindow();
 
-  const [counts, setCounts] = useState({ open: 0, mine: 0, unassigned: 0, snoozed: 0, closed: 0, drafts: 0, scheduled: 0, sent: 0 });
+  const [counts, setCounts] = useState({ open: 0, mine: 0, unassigned: 0, closed: 0, drafts: 0, scheduled: 0, sent: 0 });
   const [waUnread, setWaUnread] = useState(0);
   const [tags, setTags] = useState<{ id: string; name: string; color: string }[]>([]);
   const [mailboxes, setMailboxes] = useState<{ id: string; email: string; label: string | null; openCount: number }[]>([]);
@@ -106,7 +106,7 @@ export function InboxSidebar() {
         open: data.filter((c) => c.status === "open").length,
         mine: data.filter((c) => c.assigned_to === user.id).length,
         unassigned: data.filter((c) => !c.assigned_to && c.status === "open").length,
-        snoozed: data.filter((c) => c.status === "snoozed").length,
+        
         closed: data.filter((c) => c.status === "closed").length,
         drafts: draftCount || 0,
         scheduled: scheduledCount || 0,
@@ -148,7 +148,7 @@ export function InboxSidebar() {
     { title: "Boîte de réception", url: `/${activeMailbox ? `?mailbox=${activeMailbox}` : ""}`, icon: Inbox, count: counts.open, shortcut: "G I" },
     { title: "Assigné à moi", url: `/?filter=mine${mbSuffix}`, icon: User, count: counts.mine, shortcut: "G M" },
     { title: "Non assigné", url: `/?filter=unassigned${mbSuffix}`, icon: Users, count: counts.unassigned },
-    { title: "En pause", url: `/?filter=snoozed${mbSuffix}`, icon: Clock, count: counts.snoozed },
+    
     { title: "Fermé", url: `/?filter=closed${mbSuffix}`, icon: CheckCircle, count: counts.closed },
     { title: "Envoyés", url: `/?filter=sent${mbSuffix}`, icon: SendHorizonal, count: counts.sent },
     { title: "Brouillons", url: `/?filter=drafts${mbSuffix}`, icon: FileEdit, count: counts.drafts },

@@ -30,7 +30,7 @@ const priorityIcons: Record<string, { icon: typeof ArrowUp; className: string; l
 
 type Props = {
   conversation: ConversationDetailData;
-  onStatusChange?: (id: string, status: "open" | "snoozed" | "closed") => void;
+  onStatusChange?: (id: string, status: "open" | "closed") => void;
   onDelete?: (id: string) => void;
   onReplyClick: () => void;
   onSelectConversation?: (id: string) => void;
@@ -75,13 +75,12 @@ export function ConversationHeader({ conversation, onStatusChange, onDelete, onR
     }
   };
 
-  const statusConfig = {
+  const statusConfig: Record<string, { label: string; icon: typeof MessageSquare; className: string }> = {
     open: { label: "Ouvert", icon: MessageSquare, className: "text-green-600" },
-    snoozed: { label: "En pause", icon: Clock, className: "text-amber-500" },
     closed: { label: "Fermé", icon: CheckCircle, className: "text-muted-foreground" },
   };
 
-  const status = statusConfig[conversation.status];
+  const status = statusConfig[conversation.status] || statusConfig.open;
   const prio = conversation.priority ? priorityIcons[conversation.priority] : null;
   const entities = conversation.entities || {};
   const hasEntities =
@@ -138,14 +137,6 @@ export function ConversationHeader({ conversation, onStatusChange, onDelete, onR
           )}
           <Button variant="outline" size="sm" className="h-9 px-4 font-semibold gap-1.5" onClick={() => onDelete?.(conversation.id)}>
             <Trash2 className="h-4 w-4" /> Archiver
-          </Button>
-          <Button
-            variant={conversation.status === "snoozed" ? "secondary" : "outline"}
-            size="sm"
-            className="h-9 px-4 font-semibold gap-1.5"
-            onClick={() => onStatusChange?.(conversation.id, conversation.status === "snoozed" ? "open" : "snoozed")}
-          >
-            <Clock className="h-4 w-4" /> {conversation.status === "snoozed" ? "Reprendre" : "Todo"}
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

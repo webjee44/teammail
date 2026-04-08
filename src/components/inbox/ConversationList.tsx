@@ -21,7 +21,7 @@ export type Conversation = {
   snippet: string | null;
   from_email: string | null;
   from_name: string | null;
-  status: "open" | "snoozed" | "closed";
+  status: "open" | "closed";
   assigned_to: string | null;
   is_read: boolean;
   last_message_at: string;

@@ -180,7 +180,7 @@ const Index = () => {
               snippet: c.snippet,
               from_email: c.from_email,
               from_name: c.from_name,
-              status: c.status as "open" | "snoozed" | "closed",
+              status: c.status as "open" | "closed",
               assigned_to: c.assigned_to,
               is_read: c.is_read,
               last_message_at: c.last_message_at,
@@ -205,8 +205,6 @@ const Index = () => {
       // Apply filter — skip status filter when showing all mails for a mailbox
       if (mailboxId && showAllMails) {
         // No status filter — show all
-      } else if (filter === "snoozed") {
-        query = query.eq("status", "snoozed");
       } else if (filter === "closed") {
         query = query.eq("status", "closed");
       } else if (filter === "mine") {
@@ -248,7 +246,7 @@ const Index = () => {
             snippet: c.snippet,
             from_email: c.from_email,
             from_name: c.from_name,
-            status: c.status as "open" | "snoozed" | "closed",
+            status: c.status as "open" | "closed",
             assigned_to: c.assigned_to,
             is_read: c.is_read,
             last_message_at: c.last_message_at,
@@ -502,7 +500,7 @@ const Index = () => {
       }
     : null;
 
-  const handleStatusChange = async (id: string, status: "open" | "snoozed" | "closed") => {
+  const handleStatusChange = async (id: string, status: "open" | "closed") => {
     const { error } = await supabase
       .from("conversations")
       .update({ status })
@@ -514,7 +512,7 @@ const Index = () => {
     setConversations((prev) =>
       prev.map((c) => (c.id === id ? { ...c, status } : c))
     );
-    toast.success(`Statut → ${status === "open" ? "Ouvert" : status === "snoozed" ? "En pause" : "Fermé"}`);
+    toast.success(`Statut → ${status === "open" ? "Ouvert" : "Fermé"}`);
   };
 
   const replyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -725,7 +723,7 @@ const Index = () => {
     }
   };
 
-  const handleBulkStatusChange = async (status: "open" | "snoozed" | "closed") => {
+  const handleBulkStatusChange = async (status: "open" | "closed") => {
     if (bulkSelected.size === 0) return;
     setBulkLoading(true);
     const ids = Array.from(bulkSelected);
@@ -739,7 +737,7 @@ const Index = () => {
         prev.map((c) => (bulkSelected.has(c.id) ? { ...c, status } : c))
       );
       setBulkSelected(new Set());
-      const labels = { open: "Ouvert", snoozed: "En pause", closed: "Fermé" };
+      const labels = { open: "Ouvert", closed: "Fermé" } as Record<string, string>;
       toast.success(`${ids.length} conversation(s) → ${labels[status]}`);
     } catch (err: any) {
       toast.error("Erreur : " + (err.message || String(err)));
@@ -776,7 +774,6 @@ const Index = () => {
   const filterLabels: Record<string, string> = {
     mine: "Assigné à moi",
     unassigned: "Non assigné",
-    snoozed: "En pause",
     closed: "Fermé",
     drafts: "Brouillons",
   };
@@ -814,9 +811,6 @@ const Index = () => {
               <div className="flex items-center gap-1 ml-auto">
                 <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={handleBulkMarkRead} disabled={bulkLoading}>
                   <MailOpen className="h-3.5 w-3.5" /> Lu
-                </Button>
-                <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => handleBulkStatusChange("snoozed")} disabled={bulkLoading}>
-                  <Clock className="h-3.5 w-3.5" /> En pause
                 </Button>
                 <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => handleBulkStatusChange("closed")} disabled={bulkLoading}>
                   <CheckCircle className="h-3.5 w-3.5" /> Fermer

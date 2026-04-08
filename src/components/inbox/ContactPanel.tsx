@@ -190,7 +190,6 @@ export function ContactPanel({ contactEmail, onSelectConversation }: Props) {
 
   const statusColors: Record<string, string> = {
     open: "text-green-600",
-    snoozed: "text-amber-500",
     closed: "text-muted-foreground",
   };
 
@@ -385,7 +384,7 @@ export function ContactPanel({ contactEmail, onSelectConversation }: Props) {
                   <p className="text-xs font-medium text-foreground truncate">{conv.subject}</p>
                   <div className="flex items-center gap-2 mt-0.5">
                     <Badge variant="outline" className={`text-[10px] px-1 py-0 ${statusColors[conv.status] || ""}`}>
-                      {conv.status === "open" ? "Ouvert" : conv.status === "snoozed" ? "Pause" : "Fermé"}
+                      {conv.status === "open" ? "Ouvert" : "Fermé"}
                     </Badge>
                     <span className="text-[10px] text-muted-foreground">
                       {format(new Date(conv.last_message_at), "d MMM", { locale: fr })}
