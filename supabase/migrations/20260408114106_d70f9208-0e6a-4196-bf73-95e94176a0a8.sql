@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS whatsapp_messages_wasender_message_id_unique ON public.whatsapp_messages (wasender_message_id) WHERE wasender_message_id IS NOT NULL;
