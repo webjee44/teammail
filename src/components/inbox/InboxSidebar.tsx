@@ -88,26 +88,11 @@ export function InboxSidebar() {
         .select("id", { count: "exact", head: true })
         .eq("status", "pending");
 
-      // Count conversations with outbound messages
-      const convIds = data.map((c) => c.id);
+      // Count conversations with outbound messages using RPC to bypass row limit
       let sentCount = 0;
-      if (convIds.length > 0) {
-        // Use count query to avoid 1000-row default limit
-        const batchSize = 200;
-        const sentConvSet = new Set<string>();
-        for (let i = 0; i < convIds.length; i += batchSize) {
-          const batch = convIds.slice(i, i + batchSize);
-          const { data: sentMsgs } = await supabase
-            .from("messages")
-            .select("conversation_id")
-            .eq("is_outbound", true)
-            .in("conversation_id", batch)
-            .limit(5000);
-          if (sentMsgs) {
-            sentMsgs.forEach((m) => sentConvSet.add(m.conversation_id));
-          }
-        }
-        sentCount = sentConvSet.size;
+      const { data: sentConvs } = await supabase.rpc("get_sent_conversation_ids");
+      if (sentConvs) {
+        sentCount = sentConvs.length;
       }
 
       setCounts({
