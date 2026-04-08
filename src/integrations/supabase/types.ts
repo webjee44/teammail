@@ -52,9 +52,58 @@ export type Database = {
           },
         ]
       }
+      campaign_events: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          event_type: string
+          id: string
+          ip_address: string | null
+          link_url: string | null
+          recipient_id: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          event_type: string
+          id?: string
+          ip_address?: string | null
+          link_url?: string | null
+          recipient_id?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          event_type?: string
+          id?: string
+          ip_address?: string | null
+          link_url?: string | null
+          recipient_id?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_events_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_events_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_recipients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       campaign_recipients: {
         Row: {
           campaign_id: string
+          clicked_at: string | null
           company: string | null
           contact_id: string | null
           created_at: string
@@ -62,11 +111,13 @@ export type Database = {
           error_message: string | null
           id: string
           name: string | null
+          opened_at: string | null
           sent_at: string | null
           status: string
         }
         Insert: {
           campaign_id: string
+          clicked_at?: string | null
           company?: string | null
           contact_id?: string | null
           created_at?: string
@@ -74,11 +125,13 @@ export type Database = {
           error_message?: string | null
           id?: string
           name?: string | null
+          opened_at?: string | null
           sent_at?: string | null
           status?: string
         }
         Update: {
           campaign_id?: string
+          clicked_at?: string | null
           company?: string | null
           contact_id?: string | null
           created_at?: string
@@ -86,6 +139,7 @@ export type Database = {
           error_message?: string | null
           id?: string
           name?: string | null
+          opened_at?: string | null
           sent_at?: string | null
           status?: string
         }
@@ -116,12 +170,14 @@ export type Database = {
       campaigns: {
         Row: {
           body_html: string
+          click_count: number
           created_at: string
           created_by: string
           failed_count: number
           from_email: string | null
           id: string
           name: string
+          open_count: number
           scheduled_at: string | null
           sent_count: number
           status: string
@@ -132,12 +188,14 @@ export type Database = {
         }
         Insert: {
           body_html?: string
+          click_count?: number
           created_at?: string
           created_by: string
           failed_count?: number
           from_email?: string | null
           id?: string
           name: string
+          open_count?: number
           scheduled_at?: string | null
           sent_count?: number
           status?: string
@@ -148,12 +206,14 @@ export type Database = {
         }
         Update: {
           body_html?: string
+          click_count?: number
           created_at?: string
           created_by?: string
           failed_count?: number
           from_email?: string | null
           id?: string
           name?: string
+          open_count?: number
           scheduled_at?: string | null
           sent_count?: number
           status?: string
