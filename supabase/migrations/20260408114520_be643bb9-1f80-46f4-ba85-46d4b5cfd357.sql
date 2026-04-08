@@ -1,0 +1,2 @@
+DROP INDEX IF EXISTS whatsapp_messages_wasender_message_id_unique;
+ALTER TABLE public.whatsapp_messages ADD CONSTRAINT whatsapp_messages_wasender_message_id_key UNIQUE (wasender_message_id);
