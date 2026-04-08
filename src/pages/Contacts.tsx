@@ -264,7 +264,13 @@ const Contacts = () => {
                         </p>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           {c.company && <span className="truncate">{c.company}</span>}
-                          {c.company && c.conversation_count !== undefined && <span>·</span>}
+                          {c.salesperson && (
+                            <>
+                              {c.company && <span>·</span>}
+                              <span className="truncate text-primary/70">{c.salesperson}</span>
+                            </>
+                          )}
+                          {(c.company || c.salesperson) && c.conversation_count !== undefined && <span>·</span>}
                           <span className="flex items-center gap-0.5 shrink-0">
                             <MessageSquare className="h-3 w-3" />
                             {c.conversation_count}
