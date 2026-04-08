@@ -14,8 +14,17 @@ export function CampaignStepConfig({ data, onChange }: Props) {
   const [mailboxes, setMailboxes] = useState<{ id: string; email: string; label: string | null }[]>([]);
 
   useEffect(() => {
-    supabase.from("team_mailboxes").select("id, email, label").eq("sync_enabled", true).then(({ data }) => {
-      if (data) setMailboxes(data);
+    supabase.from("team_mailboxes").select("id, email, label").eq("sync_enabled", true).then(({ data: mbData }) => {
+      if (mbData) {
+        setMailboxes(mbData);
+        // Auto-select "commercial@cloudvapor.com" as default if no from_email set
+        if (!data.from_email) {
+          const commercial = mbData.find((mb) => mb.label?.toLowerCase() === "commercial") || mbData[0];
+          if (commercial) {
+            onChange({ ...data, from_email: commercial.email });
+          }
+        }
+      }
     });
   }, []);
 
@@ -40,7 +49,7 @@ export function CampaignStepConfig({ data, onChange }: Props) {
           <SelectContent>
             {mailboxes.map((mb) => (
               <SelectItem key={mb.id} value={mb.email}>
-                {mb.label || mb.email}
+                {mb.email}
               </SelectItem>
             ))}
           </SelectContent>
