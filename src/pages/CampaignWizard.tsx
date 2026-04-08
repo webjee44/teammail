@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
-import { ArrowLeft, ArrowRight, Check, Megaphone } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Megaphone, Send } from "lucide-react";
 import { CampaignStepConfig } from "@/components/campaigns/CampaignStepConfig";
 import { CampaignStepRecipients } from "@/components/campaigns/CampaignStepRecipients";
 import { CampaignStepCompose } from "@/components/campaigns/CampaignStepCompose";
