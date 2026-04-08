@@ -239,6 +239,21 @@ const Contacts = () => {
     await assignTagToSelected(tag.id);
   };
 
+  const deleteTag = async (tagId: string) => {
+    const tag = tags.find((t) => t.id === tagId);
+    if (!tag) return;
+    if (!confirm(`Supprimer le tag "${tag.name}" ? Il sera retiré de tous les contacts.`)) return;
+    const { error } = await supabase.from("tags").delete().eq("id", tagId);
+    if (error) {
+      toast.error("Erreur : " + error.message);
+      return;
+    }
+    toast.success(`Tag "${tag.name}" supprimé`);
+    if (filterTagId === tagId) setFilterTagId(null);
+    fetchTags();
+    fetchContactTags();
+  };
+
   const getTagById = (id: string) => tags.find((t) => t.id === id);
 
   const filtered = contacts.filter((c) => {
@@ -346,19 +361,31 @@ const Contacts = () => {
             {tags.length > 0 && (
               <div className="flex gap-1 flex-wrap">
                 {tags.map((tag) => (
-                  <button
-                    key={tag.id}
-                    onClick={() => setFilterTagId(filterTagId === tag.id ? null : tag.id)}
-                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border transition-colors ${
-                      filterTagId === tag.id
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-muted/50 text-muted-foreground border-border hover:border-primary/30"
-                    }`}
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: tag.color }} />
-                    {tag.name}
-                    {filterTagId === tag.id && <X className="h-2.5 w-2.5" />}
-                  </button>
+                  <div key={tag.id} className="group/tag inline-flex items-center gap-0.5">
+                    <button
+                      onClick={() => setFilterTagId(filterTagId === tag.id ? null : tag.id)}
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-l-full text-[10px] font-medium border transition-colors ${
+                        filterTagId === tag.id
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-muted/50 text-muted-foreground border-border hover:border-primary/30"
+                      }`}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: tag.color }} />
+                      {tag.name}
+                      {filterTagId === tag.id && <X className="h-2.5 w-2.5" />}
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); deleteTag(tag.id); }}
+                      className={`inline-flex items-center px-1 py-0.5 rounded-r-full text-[10px] border border-l-0 transition-colors opacity-0 group-hover/tag:opacity-100 ${
+                        filterTagId === tag.id
+                          ? "bg-primary text-primary-foreground border-primary hover:bg-destructive hover:border-destructive"
+                          : "bg-muted/50 text-muted-foreground border-border hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30"
+                      }`}
+                      title={`Supprimer le tag "${tag.name}"`}
+                    >
+                      <Trash2 className="h-2.5 w-2.5" />
+                    </button>
+                  </div>
                 ))}
               </div>
             )}
