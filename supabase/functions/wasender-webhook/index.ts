@@ -120,6 +120,30 @@ serve(async (req) => {
         conversationId = newConv.id;
       }
 
+      // Deduplicate: check if same body+phone within 30s already exists
+      const sentAtDate = new Date(messages.messageTimestamp ? messages.messageTimestamp * 1000 : Date.now());
+      const windowStart = new Date(sentAtDate.getTime() - 30000).toISOString();
+      const windowEnd = new Date(sentAtDate.getTime() + 30000).toISOString();
+
+      const { data: existingMsg } = await supabase
+        .from("whatsapp_messages")
+        .select("id")
+        .eq("conversation_id", conversationId)
+        .eq("body", messageBody || "")
+        .eq("from_phone", fromPhone)
+        .eq("is_outbound", fromMe)
+        .gte("sent_at", windowStart)
+        .lte("sent_at", windowEnd)
+        .limit(1)
+        .maybeSingle();
+
+      if (existingMsg) {
+        console.log("Duplicate WA message detected, skipping:", messageId);
+        return new Response(JSON.stringify({ ok: true, skipped: "duplicate" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       // Insert message
       const msgPayload = {
         conversation_id: conversationId,
@@ -130,7 +154,7 @@ serve(async (req) => {
         media_type: mediaType,
         media_url: mediaUrl,
         is_outbound: fromMe,
-        sent_at: new Date(messages.messageTimestamp ? messages.messageTimestamp * 1000 : Date.now()).toISOString(),
+        sent_at: sentAtDate.toISOString(),
       };
       console.log("Inserting WA message:", JSON.stringify(msgPayload));
       const { error: msgErr } = messageId
