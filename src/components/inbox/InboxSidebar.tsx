@@ -18,6 +18,7 @@ import {
   Mail,
   SendHorizonal,
   MessageCircle,
+  Megaphone,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
@@ -47,6 +48,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useComposeWindow } from "@/hooks/useComposeWindow";
 
 const toolItems = [
+  { title: "Campagnes", url: "/campaigns", icon: Megaphone },
   { title: "Tâches", url: "/tasks", icon: ListTodo, shortcut: "G T" },
   { title: "Contacts", url: "/contacts", icon: Users, shortcut: "G C" },
   { title: "Règles", url: "/rules", icon: Zap },

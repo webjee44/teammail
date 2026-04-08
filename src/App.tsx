@@ -16,6 +16,8 @@ import Contacts from "./pages/Contacts.tsx";
 import Tasks from "./pages/Tasks.tsx";
 import ScheduledEmails from "./pages/ScheduledEmails.tsx";
 import WhatsAppPage from "./pages/WhatsApp.tsx";
+import Campaigns from "./pages/Campaigns.tsx";
+import CampaignWizard from "./pages/CampaignWizard.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import { ReactNode } from "react";
 
@@ -54,6 +56,8 @@ const App = () => (
               <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
               <Route path="/scheduled" element={<ProtectedRoute><ScheduledEmails /></ProtectedRoute>} />
               <Route path="/whatsapp" element={<ProtectedRoute><WhatsAppPage /></ProtectedRoute>} />
+              <Route path="/campaigns" element={<ProtectedRoute><Campaigns /></ProtectedRoute>} />
+              <Route path="/campaigns/new" element={<ProtectedRoute><CampaignWizard /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
             <FloatingCompose />
