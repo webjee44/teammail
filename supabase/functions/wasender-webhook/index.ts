@@ -133,7 +133,9 @@ serve(async (req) => {
         sent_at: new Date(messages.messageTimestamp ? messages.messageTimestamp * 1000 : Date.now()).toISOString(),
       };
       console.log("Inserting WA message:", JSON.stringify(msgPayload));
-      const { error: msgErr } = await supabase.from("whatsapp_messages").insert(msgPayload);
+      const { error: msgErr } = messageId
+        ? await supabase.from("whatsapp_messages").upsert(msgPayload, { onConflict: "wasender_message_id", ignoreDuplicates: true })
+        : await supabase.from("whatsapp_messages").insert(msgPayload);
       if (msgErr) {
         console.error("Failed to insert WA message:", msgErr);
       }

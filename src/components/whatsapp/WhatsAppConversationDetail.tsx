@@ -91,7 +91,8 @@ export function WhatsAppConversationDetail({ conversationId }: Props) {
     const channel = supabase
       .channel(`wa-messages-${conversationId}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "whatsapp_messages", filter: `conversation_id=eq.${conversationId}` }, (payload) => {
-        setMessages((prev) => [...prev, payload.new as WAMessage]);
+        const newMsg = payload.new as WAMessage;
+        setMessages((prev) => prev.some((m) => m.id === newMsg.id) ? prev : [...prev, newMsg]);
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
