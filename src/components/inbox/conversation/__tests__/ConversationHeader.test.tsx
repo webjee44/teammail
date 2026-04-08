@@ -58,14 +58,14 @@ describe("ConversationHeader", () => {
     expect(screen.getByText("Ouvert")).toBeInTheDocument();
   });
 
-  it("renders status badge as En pause for snoozed conversations", () => {
+  it("renders status badge as Fermé for closed conversations", () => {
     render(
       <ConversationHeader
-        conversation={{ ...baseConversation, status: "snoozed" }}
+        conversation={{ ...baseConversation, status: "closed" }}
         onReplyClick={onReplyClick}
       />
     );
-    expect(screen.getByText("En pause")).toBeInTheDocument();
+    expect(screen.getByText("Fermé")).toBeInTheDocument();
   });
 
   it("renders priority badge when set", () => {
