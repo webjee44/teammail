@@ -558,6 +558,7 @@ function ContactDetailView({
           <EditableRow icon={Mail} field="email" value={contact.email} label="Email" />
           <EditableRow icon={Building2} field="company" value={contact.company} label="Entreprise" />
           <EditableRow icon={Phone} field="phone" value={contact.phone} label="Téléphone" />
+          <EditableRow icon={User} field="salesperson" value={contact.salesperson} label="Commercial" />
         </div>
 
         <Separator className="my-2" />
