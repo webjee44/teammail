@@ -5,7 +5,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
-import { Search, Users, X } from "lucide-react";
+import { Search, Users, X, Tag } from "lucide-react";
 import type { CampaignData, Recipient } from "@/pages/CampaignWizard";
 
 type Props = {
@@ -21,27 +21,72 @@ type Contact = {
   phone: string | null;
 };
 
+type TagType = {
+  id: string;
+  name: string;
+  color: string;
+  count: number;
+};
+
 export function CampaignStepRecipients({ data, onChange }: Props) {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [tags, setTags] = useState<TagType[]>([]);
+  const [contactTagMap, setContactTagMap] = useState<Record<string, string[]>>({}); // contact_id -> tag_id[]
+  const [filterTagId, setFilterTagId] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.from("contacts").select("id, email, name, company, phone").order("name").then(({ data }) => {
-      if (data) setContacts(data);
+    const loadData = async () => {
+      const [contactsRes, tagsRes, ctRes] = await Promise.all([
+        supabase.from("contacts").select("id, email, name, company, phone").order("name"),
+        supabase.from("tags").select("id, name, color").order("name"),
+        supabase.from("contact_tags").select("contact_id, tag_id"),
+      ]);
+
+      if (contactsRes.data) setContacts(contactsRes.data);
+
+      // Build contact-tag map
+      const map: Record<string, string[]> = {};
+      (ctRes.data || []).forEach((ct: any) => {
+        if (!map[ct.contact_id]) map[ct.contact_id] = [];
+        map[ct.contact_id].push(ct.tag_id);
+      });
+      setContactTagMap(map);
+
+      // Build tags with count
+      const tagCounts: Record<string, number> = {};
+      (ctRes.data || []).forEach((ct: any) => {
+        tagCounts[ct.tag_id] = (tagCounts[ct.tag_id] || 0) + 1;
+      });
+
+      if (tagsRes.data) {
+        setTags(
+          tagsRes.data
+            .map((t: any) => ({ ...t, count: tagCounts[t.id] || 0 }))
+            .filter((t: TagType) => t.count > 0)
+        );
+      }
+
       setLoading(false);
-    });
+    };
+    loadData();
   }, []);
 
   const selectedEmails = new Set(data.recipients.map((r) => r.email));
 
   const filtered = contacts.filter((c) => {
     const q = search.toLowerCase();
-    return (
+    const matchesSearch =
       c.email.toLowerCase().includes(q) ||
       (c.name?.toLowerCase().includes(q)) ||
-      (c.company?.toLowerCase().includes(q))
-    );
+      (c.company?.toLowerCase().includes(q));
+
+    if (filterTagId) {
+      const cTags = contactTagMap[c.id] || [];
+      return matchesSearch && cTags.includes(filterTagId);
+    }
+    return matchesSearch;
   });
 
   const toggleContact = (contact: Contact) => {
@@ -73,9 +118,21 @@ export function CampaignStepRecipients({ data, onChange }: Props) {
       name: c.name || "",
       company: c.company || "",
     }));
-    // Merge with existing (avoid duplicates)
     const existing = new Map(data.recipients.map((r) => [r.email, r]));
     all.forEach((r) => existing.set(r.email, r));
+    onChange({ ...data, recipients: Array.from(existing.values()) });
+  };
+
+  const selectByTag = (tagId: string) => {
+    const tagContacts = contacts.filter((c) => (contactTagMap[c.id] || []).includes(tagId));
+    const toAdd: Recipient[] = tagContacts.map((c) => ({
+      contact_id: c.id,
+      email: c.email,
+      name: c.name || "",
+      company: c.company || "",
+    }));
+    const existing = new Map(data.recipients.map((r) => [r.email, r]));
+    toAdd.forEach((r) => existing.set(r.email, r));
     onChange({ ...data, recipients: Array.from(existing.values()) });
   };
 
@@ -105,6 +162,36 @@ export function CampaignStepRecipients({ data, onChange }: Props) {
           </Button>
         )}
       </div>
+
+      {/* Tag filter chips */}
+      {tags.length > 0 && (
+        <div className="flex gap-1.5 flex-wrap mb-3">
+          <Tag className="h-3.5 w-3.5 text-muted-foreground mt-0.5" />
+          {tags.map((tag) => (
+            <button
+              key={tag.id}
+              onClick={() => {
+                if (filterTagId === tag.id) {
+                  setFilterTagId(null);
+                } else {
+                  setFilterTagId(tag.id);
+                  selectByTag(tag.id);
+                }
+              }}
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border transition-colors ${
+                filterTagId === tag.id
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-muted/50 text-muted-foreground border-border hover:border-primary/30"
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: filterTagId === tag.id ? "currentColor" : tag.color }} />
+              {tag.name}
+              <span className="opacity-60">({tag.count})</span>
+              {filterTagId === tag.id && <X className="h-2.5 w-2.5" />}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="flex items-center gap-2 mb-3">
         <Users className="h-4 w-4 text-muted-foreground" />
@@ -158,6 +245,24 @@ export function CampaignStepRecipients({ data, onChange }: Props) {
                     {contact.company && ` · ${contact.company}`}
                   </div>
                 </div>
+                {/* Show contact tags */}
+                {(contactTagMap[contact.id] || []).length > 0 && (
+                  <div className="flex gap-1 shrink-0">
+                    {(contactTagMap[contact.id] || []).slice(0, 2).map((tagId) => {
+                      const tag = tags.find((t) => t.id === tagId);
+                      if (!tag) return null;
+                      return (
+                        <span
+                          key={tagId}
+                          className="inline-flex items-center px-1.5 py-0 rounded-full text-[9px] font-medium"
+                          style={{ backgroundColor: tag.color + "20", color: tag.color }}
+                        >
+                          {tag.name}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
               </label>
             ))
           )}
