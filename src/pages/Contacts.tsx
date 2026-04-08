@@ -46,6 +46,7 @@ type Contact = {
   phone: string | null;
   avatar_url: string | null;
   notes: string | null;
+  salesperson: string | null;
   created_at: string;
   conversation_count?: number;
   last_interaction?: string | null;
@@ -83,6 +84,7 @@ const Contacts = () => {
         phone: c.phone,
         avatar_url: c.avatar_url,
         notes: c.notes,
+        salesperson: c.salesperson ?? null,
         created_at: c.created_at,
         conversation_count: c.conversation_count ?? 0,
         last_interaction: c.last_interaction ?? null,
