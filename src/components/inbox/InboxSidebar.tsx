@@ -148,7 +148,7 @@ export function InboxSidebar() {
     { title: "Boîte de réception", url: `/${activeMailbox ? `?mailbox=${activeMailbox}` : ""}`, icon: Inbox, count: counts.open, shortcut: "G I" },
     { title: "Assigné à moi", url: `/?filter=mine${mbSuffix}`, icon: User, count: counts.mine, shortcut: "G M" },
     { title: "Non assigné", url: `/?filter=unassigned${mbSuffix}`, icon: Users, count: counts.unassigned },
-    { title: "En pause", url: `/?filter=snoozed${mbSuffix}`, icon: Clock, count: counts.snoozed },
+    
     { title: "Fermé", url: `/?filter=closed${mbSuffix}`, icon: CheckCircle, count: counts.closed },
     { title: "Envoyés", url: `/?filter=sent${mbSuffix}`, icon: SendHorizonal, count: counts.sent },
     { title: "Brouillons", url: `/?filter=drafts${mbSuffix}`, icon: FileEdit, count: counts.drafts },
