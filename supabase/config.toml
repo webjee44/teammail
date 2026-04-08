@@ -1,1 +1,4 @@
 project_id = "yrofditplxilqdtcwovq"
+
+[functions.campaign-track]
+verify_jwt = false
