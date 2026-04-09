@@ -1,17 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import {
   Inbox,
   User,
   Users,
-  Clock,
   CheckCircle,
   Settings,
   BarChart3,
   Zap,
   LogOut,
   PenSquare,
-  AtSign,
   ListTodo,
   FileEdit,
   Keyboard,
@@ -19,6 +17,8 @@ import {
   SendHorizonal,
   MessageCircle,
   Megaphone,
+  X,
+  ChevronDown,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
@@ -60,88 +60,83 @@ export function InboxSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const { user, signOut } = useAuth();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const activeMailbox = searchParams.get("mailbox");
   const { openCompose } = useComposeWindow();
 
-  const [counts, setCounts] = useState({ open: 0, mine: 0, unassigned: 0, closed: 0, drafts: 0, scheduled: 0, sent: 0 });
+  const [conversations, setConversations] = useState<{ id: string; status: string; assigned_to: string | null; mailbox_id: string | null }[]>([]);
+  const [rawCounts, setRawCounts] = useState({ drafts: 0, scheduled: 0, sent: 0 });
   const [waUnread, setWaUnread] = useState(0);
   const [tags, setTags] = useState<{ id: string; name: string; color: string }[]>([]);
-  const [mailboxes, setMailboxes] = useState<{ id: string; email: string; label: string | null; openCount: number }[]>([]);
+  const [mailboxes, setMailboxes] = useState<{ id: string; email: string; label: string | null }[]>([]);
 
   useEffect(() => {
-    const fetchCounts = async () => {
+    const fetchData = async () => {
       if (!user) return;
-      const { data } = await supabase
-        .from("conversations")
-        .select("id, status, assigned_to, mailbox_id");
 
-      if (!data) return;
-      const { count: draftCount } = await supabase
-        .from("drafts")
-        .select("id", { count: "exact", head: true })
-        .is("conversation_id", null)
-        .eq("created_by", user.id);
+      const [convRes, draftRes, schedRes, sentRes, mbRes, tagRes, waRes] = await Promise.all([
+        supabase.from("conversations").select("id, status, assigned_to, mailbox_id"),
+        supabase.from("drafts").select("id", { count: "exact", head: true }).is("conversation_id", null).eq("created_by", user.id),
+        supabase.from("scheduled_emails").select("id", { count: "exact", head: true }).eq("status", "pending"),
+        supabase.rpc("get_sent_conversation_ids"),
+        supabase.from("team_mailboxes").select("id, email, label").order("email"),
+        supabase.from("tags").select("id, name, color").order("name"),
+        supabase.from("whatsapp_conversations").select("id", { count: "exact", head: true }).eq("is_read", false).eq("status", "open"),
+      ]);
 
-      const { count: scheduledCount } = await supabase
-        .from("scheduled_emails")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "pending");
-
-      // Count conversations with outbound messages using RPC to bypass row limit
-      let sentCount = 0;
-      const { data: sentConvs } = await supabase.rpc("get_sent_conversation_ids");
-      if (sentConvs) {
-        sentCount = sentConvs.length;
-      }
-
-      setCounts({
-        open: data.filter((c) => c.status === "open").length,
-        mine: data.filter((c) => c.assigned_to === user.id).length,
-        unassigned: data.filter((c) => !c.assigned_to && c.status === "open").length,
-        
-        closed: data.filter((c) => c.status === "closed").length,
-        drafts: draftCount || 0,
-        scheduled: scheduledCount || 0,
-        sent: sentCount,
+      if (convRes.data) setConversations(convRes.data);
+      setRawCounts({
+        drafts: draftRes.count || 0,
+        scheduled: schedRes.count || 0,
+        sent: sentRes.data?.length || 0,
       });
-
-      const mbCounts = new Map<string, number>();
-      data.filter((c) => c.status === "open" && c.mailbox_id).forEach((c) => {
-        mbCounts.set(c.mailbox_id!, (mbCounts.get(c.mailbox_id!) || 0) + 1);
-      });
-
-      const { data: mbData } = await supabase.from("team_mailboxes").select("id, email, label").order("email");
-      if (mbData) {
-        setMailboxes(mbData.map((mb) => ({ ...mb, openCount: mbCounts.get(mb.id) || 0 })));
-      }
+      if (mbRes.data) setMailboxes(mbRes.data);
+      if (tagRes.data) setTags(tagRes.data);
+      setWaUnread(waRes.count || 0);
     };
 
-    const fetchTags = async () => {
-      const { data } = await supabase.from("tags").select("id, name, color").order("name");
-      if (data) setTags(data);
-    };
-
-    const fetchWaUnread = async () => {
-      const { count } = await supabase
-        .from("whatsapp_conversations")
-        .select("id", { count: "exact", head: true })
-        .eq("is_read", false)
-        .eq("status", "open");
-      setWaUnread(count || 0);
-    };
-
-    fetchCounts();
-    fetchTags();
-    fetchWaUnread();
+    fetchData();
   }, [user]);
+
+  // Compute counts scoped to selected mailbox
+  const counts = useMemo(() => {
+    const filtered = activeMailbox
+      ? conversations.filter((c) => c.mailbox_id === activeMailbox)
+      : conversations;
+
+    return {
+      open: filtered.filter((c) => c.status === "open").length,
+      mine: filtered.filter((c) => c.assigned_to === user?.id).length,
+      unassigned: filtered.filter((c) => !c.assigned_to && c.status === "open").length,
+      closed: filtered.filter((c) => c.status === "closed").length,
+      drafts: rawCounts.drafts,
+      scheduled: rawCounts.scheduled,
+      sent: rawCounts.sent,
+    };
+  }, [conversations, activeMailbox, user?.id, rawCounts]);
+
+  const selectMailbox = (mbId: string | null) => {
+    const params = new URLSearchParams(searchParams);
+    if (mbId) {
+      params.set("mailbox", mbId);
+    } else {
+      params.delete("mailbox");
+    }
+    setSearchParams(params, { replace: true });
+  };
+
+  const activeMailboxLabel = useMemo(() => {
+    if (!activeMailbox) return null;
+    const mb = mailboxes.find((m) => m.id === activeMailbox);
+    if (!mb) return null;
+    return mb.label || mb.email.split("@")[0];
+  }, [activeMailbox, mailboxes]);
 
   const mbSuffix = activeMailbox ? `&mailbox=${activeMailbox}` : "";
   const inboxItems = [
     { title: "Boîte de réception", url: `/${activeMailbox ? `?mailbox=${activeMailbox}` : ""}`, icon: Inbox, count: counts.open, shortcut: "G I" },
     { title: "Assigné à moi", url: `/?filter=mine${mbSuffix}`, icon: User, count: counts.mine, shortcut: "G M" },
     { title: "Non assigné", url: `/?filter=unassigned${mbSuffix}`, icon: Users, count: counts.unassigned },
-    
     { title: "Fermé", url: `/?filter=closed${mbSuffix}`, icon: CheckCircle, count: counts.closed },
     { title: "Envoyés", url: `/?filter=sent${mbSuffix}`, icon: SendHorizonal, count: counts.sent },
     { title: "Brouillons", url: `/?filter=drafts${mbSuffix}`, icon: FileEdit, count: counts.drafts },
@@ -187,59 +182,53 @@ export function InboxSidebar() {
           )}
         </div>
 
-        {/* Mailboxes */}
-        {mailboxes.length > 0 && (
-          <SidebarGroup className="mt-2">
-            {!collapsed && (
-              <span className="px-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/60 mb-1">
-                Boîtes mail
-              </span>
-            )}
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild className="h-7">
-                    <NavLink
-                      to={searchParams.get("filter") ? `/?filter=${searchParams.get("filter")}` : "/"}
-                      end={!searchParams.get("filter")}
-                      className="sidebar-item"
-                      activeClassName="sidebar-item-active"
+        {/* Mailbox scope selector */}
+        {mailboxes.length > 0 && !collapsed && (
+          <div className="px-3 mt-2 mb-1">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-2 w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-[13px] hover:bg-accent/50 transition-colors outline-none">
+                  <Inbox className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <span className="flex-1 text-left truncate font-medium">
+                    {activeMailboxLabel || "Toutes les boîtes"}
+                  </span>
+                  {activeMailbox && (
+                    <span
+                      role="button"
+                      className="shrink-0 rounded-sm p-0.5 hover:bg-muted"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        selectMailbox(null);
+                      }}
                     >
-                      <span className="flex items-center gap-2">
-                        <Inbox className="h-3.5 w-3.5" />
-                        {!collapsed && <span>Toutes</span>}
-                      </span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                {mailboxes.map((mb) => {
-                  const filterParam = searchParams.get("filter");
-                  const mbUrl = filterParam
-                    ? `/?filter=${filterParam}&mailbox=${mb.id}`
-                    : `/?mailbox=${mb.id}`;
-                  return (
-                    <SidebarMenuItem key={mb.id}>
-                      <SidebarMenuButton asChild className="h-7">
-                        <NavLink
-                          to={mbUrl}
-                          className="sidebar-item"
-                          activeClassName="sidebar-item-active"
-                        >
-                          <span className="flex items-center gap-2">
-                            <AtSign className="h-3.5 w-3.5" />
-                            {!collapsed && <span className="truncate">{mb.label || mb.email.split("@")[0]}</span>}
-                          </span>
-                          {!collapsed && mb.openCount > 0 && (
-                            <span className="text-xs tabular-nums text-muted-foreground">{mb.openCount}</span>
-                          )}
-                        </NavLink>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+                      <X className="h-3 w-3 text-muted-foreground" />
+                    </span>
+                  )}
+                  <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuItem
+                  onClick={() => selectMailbox(null)}
+                  className={!activeMailbox ? "bg-accent" : ""}
+                >
+                  <Inbox className="h-3.5 w-3.5 mr-2" />
+                  Toutes les boîtes
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                {mailboxes.map((mb) => (
+                  <DropdownMenuItem
+                    key={mb.id}
+                    onClick={() => selectMailbox(mb.id)}
+                    className={activeMailbox === mb.id ? "bg-accent" : ""}
+                  >
+                    <Mail className="h-3.5 w-3.5 mr-2" />
+                    <span className="truncate">{mb.label || mb.email}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         )}
 
         <Separator className="mx-3 my-1 w-auto" />
