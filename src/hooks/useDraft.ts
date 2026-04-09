@@ -22,6 +22,9 @@ export function useDraft({ conversationId = null, draftId = null }: UseDraftOpti
   const [loading, setLoading] = useState(true);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestDraft = useRef<DraftData>({});
+  const savedDraftIdRef = useRef<string | null>(draftId);
+  const lifecycleRef = useRef(0);
+  const saveChainRef = useRef<Promise<void>>(Promise.resolve());
 
   // Load existing draft
   useEffect(() => {
@@ -53,6 +56,7 @@ export function useDraft({ conversationId = null, draftId = null }: UseDraftOpti
         setDraft(d);
         latestDraft.current = d;
         setSavedDraftId(data.id);
+        savedDraftIdRef.current = data.id;
       }
       setLoading(false);
     };
@@ -61,8 +65,10 @@ export function useDraft({ conversationId = null, draftId = null }: UseDraftOpti
 
   const resetDraft = useCallback((newDraftId: string | null) => {
     if (timerRef.current) clearTimeout(timerRef.current);
+    lifecycleRef.current += 1;
     setDraft({});
     latestDraft.current = {};
+    savedDraftIdRef.current = newDraftId;
     setSavedDraftId(newDraftId);
     setActiveDraftId(newDraftId);
     if (!newDraftId) {
@@ -70,7 +76,7 @@ export function useDraft({ conversationId = null, draftId = null }: UseDraftOpti
     }
   }, []);
 
-  const saveDraft = useCallback(async (data: DraftData) => {
+  const saveDraft = useCallback(async (data: DraftData, generation: number) => {
     if (!user) return;
     // Don't save if all fields are empty
     const hasContent = data.to_email || data.subject || data.body;
@@ -82,7 +88,7 @@ export function useDraft({ conversationId = null, draftId = null }: UseDraftOpti
         .select("team_id")
         .eq("user_id", user.id)
         .maybeSingle();
-      if (!profile?.team_id) return;
+      if (!profile?.team_id || generation !== lifecycleRef.current) return;
 
       const record: any = {
         team_id: profile.team_id,
@@ -94,20 +100,31 @@ export function useDraft({ conversationId = null, draftId = null }: UseDraftOpti
         conversation_id: conversationId || null,
       };
 
-      if (savedDraftId) {
-        await supabase.from("drafts").update(record).eq("id", savedDraftId);
+      const currentDraftId = savedDraftIdRef.current;
+
+      if (currentDraftId) {
+        await supabase.from("drafts").update(record).eq("id", currentDraftId);
       } else {
         const { data: inserted } = await supabase
           .from("drafts")
           .insert({ ...record, id: undefined })
           .select("id")
           .single();
-        if (inserted) setSavedDraftId(inserted.id);
+
+        if (inserted?.id) {
+          if (generation !== lifecycleRef.current) {
+            await supabase.from("drafts").delete().eq("id", inserted.id);
+            return;
+          }
+
+          savedDraftIdRef.current = inserted.id;
+          setSavedDraftId(inserted.id);
+        }
       }
     } catch (err) {
       console.error("Draft save failed:", err);
     }
-  }, [user, conversationId, savedDraftId]);
+  }, [user, conversationId]);
 
   // Debounced auto-save
   const updateDraft = useCallback((data: DraftData) => {
@@ -115,7 +132,10 @@ export function useDraft({ conversationId = null, draftId = null }: UseDraftOpti
     latestDraft.current = data;
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
-      saveDraft(data);
+      const generation = lifecycleRef.current;
+      saveChainRef.current = saveChainRef.current
+        .catch(() => undefined)
+        .then(() => saveDraft(data, generation));
     }, 1500);
   }, [saveDraft]);
 
@@ -128,13 +148,18 @@ export function useDraft({ conversationId = null, draftId = null }: UseDraftOpti
 
   const deleteDraft = useCallback(async () => {
     if (timerRef.current) clearTimeout(timerRef.current);
-    if (savedDraftId) {
-      await supabase.from("drafts").delete().eq("id", savedDraftId);
-      setSavedDraftId(null);
+    lifecycleRef.current += 1;
+    const currentDraftId = savedDraftIdRef.current;
+    savedDraftIdRef.current = null;
+    setSavedDraftId(null);
+    setActiveDraftId(null);
+
+    if (currentDraftId) {
+      await supabase.from("drafts").delete().eq("id", currentDraftId);
     }
     setDraft({});
     latestDraft.current = {};
-  }, [savedDraftId]);
+  }, []);
 
   return { draft, updateDraft, deleteDraft, loading, savedDraftId, resetDraft };
 }
