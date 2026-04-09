@@ -21,6 +21,7 @@ export type Conversation = {
   snippet: string | null;
   from_email: string | null;
   from_name: string | null;
+  to_email?: string | null;
   status: "open" | "closed";
   assigned_to: string | null;
   is_read: boolean;
@@ -34,6 +35,7 @@ export type Conversation = {
   entities?: any;
   has_draft?: boolean;
   needs_reply?: boolean;
+  is_sent?: boolean;
 };
 
 type Props = {
@@ -175,14 +177,24 @@ export function ConversationList({
         <div className="flex-1 overflow-y-auto">
           <div className="divide-y divide-border">
             {conversations.map((conv) => {
-              const initials = conv.from_name
-                ? conv.from_name
-                    .split(" ")
-                    .map((n) => n[0])
-                    .join("")
-                    .toUpperCase()
-                    .slice(0, 2)
-                : conv.from_email?.slice(0, 2).toUpperCase() ?? "?";
+              // For sent conversations, display recipient instead of sender
+              const displayName = conv.is_sent && conv.to_email
+                ? conv.to_email
+                : (conv.from_name || conv.from_email || "Unknown");
+              const displayEmail = conv.is_sent && conv.to_email
+                ? conv.to_email
+                : (conv.from_name && conv.from_email ? conv.from_email : null);
+
+              const initials = conv.is_sent && conv.to_email
+                ? conv.to_email.slice(0, 2).toUpperCase()
+                : conv.from_name
+                  ? conv.from_name
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")
+                      .toUpperCase()
+                      .slice(0, 2)
+                  : conv.from_email?.slice(0, 2).toUpperCase() ?? "?";
 
               const prio = conv.priority ? priorityConfig[conv.priority] : null;
               const PrioIcon = prio?.icon;
@@ -226,15 +238,16 @@ export function ConversationList({
                           <div className="flex flex-col min-w-0">
                             <span
                               className={cn(
-                                "text-sm truncate",
+                                "text-sm truncate flex items-center gap-1",
                                 !conv.is_read ? "font-semibold text-foreground" : "text-foreground"
                               )}
                             >
-                              {conv.from_name || conv.from_email || "Unknown"}
+                              {conv.is_sent && <span className="text-muted-foreground">→</span>}
+                              {displayName}
                             </span>
-                            {conv.from_name && conv.from_email && (
+                            {displayEmail && displayEmail !== displayName && (
                               <span className="text-[11px] text-muted-foreground truncate">
-                                {conv.from_email}
+                                {displayEmail}
                               </span>
                             )}
                           </div>
