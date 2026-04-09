@@ -171,6 +171,9 @@ export function FloatingCompose() {
       })),
     };
 
+    // Delete draft immediately so it disappears from brouillons
+    await deleteDraft();
+
     cancelledRef.current = false;
     closeCompose();
 
@@ -206,7 +209,6 @@ export function FloatingCompose() {
         });
         if (error) throw error;
         if (data?.error) throw new Error(data.error);
-        await deleteDraft();
         toast.success("Email envoyé !");
       } catch (err: any) {
         toast.error("Erreur : " + (err.message || String(err)));
