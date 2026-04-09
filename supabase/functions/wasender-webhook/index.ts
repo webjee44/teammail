@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -40,19 +41,69 @@ serve(async (req) => {
       // Detect media
       let mediaType: string | null = null;
       let mediaUrl: string | null = null;
-      if (rawMsg.imageMessage) {
-        mediaType = "image";
-        mediaUrl = rawMsg.imageMessage.url || null;
-      } else if (rawMsg.videoMessage) {
-        mediaType = "video";
-        mediaUrl = rawMsg.videoMessage.url || null;
-      } else if (rawMsg.audioMessage) {
-        mediaType = "audio";
-        mediaUrl = rawMsg.audioMessage.url || null;
-      } else if (rawMsg.documentMessage) {
-        mediaType = "document";
-        mediaUrl = rawMsg.documentMessage.url || null;
+    let rawMediaUrl: string | null = null;
+    let mediaMimetype = "application/octet-stream";
+    if (rawMsg.imageMessage) {
+      mediaType = "image";
+      rawMediaUrl = rawMsg.imageMessage.url || null;
+      mediaMimetype = rawMsg.imageMessage.mimetype || "image/jpeg";
+    } else if (rawMsg.videoMessage) {
+      mediaType = "video";
+      rawMediaUrl = rawMsg.videoMessage.url || null;
+      mediaMimetype = rawMsg.videoMessage.mimetype || "video/mp4";
+    } else if (rawMsg.audioMessage) {
+      mediaType = "audio";
+      rawMediaUrl = rawMsg.audioMessage.url || null;
+      mediaMimetype = rawMsg.audioMessage.mimetype || "audio/ogg";
+    } else if (rawMsg.documentMessage) {
+      mediaType = "document";
+      rawMediaUrl = rawMsg.documentMessage.url || null;
+      mediaMimetype = rawMsg.documentMessage.mimetype || "application/octet-stream";
+    }
+
+    // Download media and upload to storage for permanent access
+    if (mediaType && rawMediaUrl) {
+      try {
+        console.log("Downloading WA media:", rawMediaUrl.substring(0, 100));
+        const mediaRes = await fetch(rawMediaUrl);
+        if (mediaRes.ok) {
+          const mediaBytes = new Uint8Array(await mediaRes.arrayBuffer());
+          const ext = mediaMimetype.split("/")[1]?.split(";")[0] || "bin";
+          const storagePath = `whatsapp/${Date.now()}_${messageId || crypto.randomUUID()}.${ext}`;
+
+          const { error: uploadErr } = await supabase.storage
+            .from("attachments")
+            .upload(storagePath, mediaBytes, {
+              contentType: mediaMimetype,
+              upsert: false,
+            });
+
+          if (uploadErr) {
+            console.error("Failed to upload WA media to storage:", uploadErr);
+            mediaUrl = rawMediaUrl; // fallback to temp URL
+          } else {
+            // Generate a signed URL valid for 10 years
+            const { data: signedData, error: signErr } = await supabase.storage
+              .from("attachments")
+              .createSignedUrl(storagePath, 60 * 60 * 24 * 365 * 10);
+            if (signErr || !signedData?.signedUrl) {
+              console.error("Failed to create signed URL:", signErr);
+              mediaUrl = rawMediaUrl;
+            } else {
+              mediaUrl = signedData.signedUrl;
+              console.log("WA media stored permanently:", storagePath);
+            }
+          }
+        } else {
+          console.error("Failed to download WA media, status:", mediaRes.status);
+          await mediaRes.text(); // consume body
+          mediaUrl = rawMediaUrl; // fallback
+        }
+      } catch (dlErr) {
+        console.error("Error downloading WA media:", dlErr);
+        mediaUrl = rawMediaUrl; // fallback
       }
+    }
 
       // Get the first team (single-team app)
       const { data: team } = await supabase.from("teams").select("id").limit(1).single();
