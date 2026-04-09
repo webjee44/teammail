@@ -40,6 +40,17 @@ function injectTracking(html: string, campaignId: string, recipientId: string, t
   return result;
 }
 
+function inlineStyles(html: string): string {
+  let result = html
+    .replace(/<p>/g, '<p style="margin:0 0 16px 0;line-height:1.5;">')
+    .replace(/<ul>/g, '<ul style="margin:0 0 16px 0;padding-left:24px;">')
+    .replace(/<ol>/g, '<ol style="margin:0 0 16px 0;padding-left:24px;">')
+    .replace(/<li>/g, '<li style="margin:0 0 4px 0;">')
+    .replace(/<a /g, '<a style="color:#6366f1;text-decoration:underline;" ');
+
+  return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#1a1a1a;line-height:1.5;">${result}</div>`;
+}
+
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
