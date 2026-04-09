@@ -2,8 +2,11 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Send, Users, Mail, Eye } from "lucide-react";
+import { Send, Users, Mail, Eye, FlaskConical, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 import type { CampaignData } from "@/pages/CampaignWizard";
 
 type Props = {
@@ -22,6 +25,8 @@ function replaceVariables(text: string, recipient: { name: string; email: string
 
 export function CampaignStepPreview({ data, onSend, sending }: Props) {
   const [previewIdx, setPreviewIdx] = useState("0");
+  const [testEmail, setTestEmail] = useState("");
+  const [sendingTest, setSendingTest] = useState(false);
   const recipient = data.recipients[parseInt(previewIdx)] || data.recipients[0];
 
   if (!recipient) {
@@ -30,6 +35,27 @@ export function CampaignStepPreview({ data, onSend, sending }: Props) {
 
   const previewSubject = replaceVariables(data.subject, recipient);
   const previewBody = replaceVariables(data.body_html, recipient);
+
+  const sendTestEmail = async () => {
+    if (!testEmail.trim()) return;
+    setSendingTest(true);
+    try {
+      const { error } = await supabase.functions.invoke("gmail-send", {
+        body: {
+          to: testEmail.trim(),
+          subject: `[TEST] ${previewSubject}`,
+          body: previewBody,
+          from_email: data.from_email,
+          skip_signature: true,
+        },
+      });
+      if (error) throw error;
+      toast({ title: "Email de test envoyé", description: `Envoyé à ${testEmail}` });
+    } catch (e: any) {
+      toast({ title: "Erreur", description: e.message, variant: "destructive" });
+    }
+    setSendingTest(false);
+  };
 
   return (
     <div className="space-y-6">
@@ -64,8 +90,8 @@ export function CampaignStepPreview({ data, onSend, sending }: Props) {
         </Card>
       </div>
 
-      {/* Preview selector */}
-      <div className="flex items-center gap-3">
+      {/* Preview selector + Test mail */}
+      <div className="flex items-center gap-3 flex-wrap">
         <Eye className="h-4 w-4 text-muted-foreground" />
         <span className="text-sm text-muted-foreground">Aperçu pour :</span>
         <Select value={previewIdx} onValueChange={setPreviewIdx}>
@@ -80,6 +106,26 @@ export function CampaignStepPreview({ data, onSend, sending }: Props) {
             ))}
           </SelectContent>
         </Select>
+
+        <div className="ml-auto flex items-center gap-2">
+          <Input
+            type="email"
+            placeholder="email@test.com"
+            value={testEmail}
+            onChange={(e) => setTestEmail(e.target.value)}
+            className="w-[200px] h-8 text-sm"
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={sendTestEmail}
+            disabled={sendingTest || !testEmail.trim()}
+            className="gap-1.5 h-8"
+          >
+            {sendingTest ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FlaskConical className="h-3.5 w-3.5" />}
+            Test mail
+          </Button>
+        </div>
       </div>
 
       {/* Email preview */}
