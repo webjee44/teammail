@@ -33,6 +33,7 @@ export type Conversation = {
   category?: string | null;
   entities?: any;
   has_draft?: boolean;
+  needs_reply?: boolean;
 };
 
 type Props = {
@@ -188,6 +189,8 @@ export function ConversationList({
               const isChecked = bulkSelected.has(conv.id);
               const isFresh = freshlyUpdated?.has(conv.id);
 
+              const isUrgent = conv.needs_reply && (conv.priority === "high" || (responseTimes?.has(conv.id) && (responseTimes.get(conv.id)! > 60)));
+
               return (
                   <div
                   key={conv.id}
@@ -197,7 +200,8 @@ export function ConversationList({
                     !conv.is_read && "bg-primary/5",
                     conv.is_noise && "opacity-60",
                     isChecked && "bg-primary/10",
-                    isFresh && "animate-pulse-highlight"
+                    isFresh && "animate-pulse-highlight",
+                    isUrgent && "border-l-[3px] border-l-destructive bg-destructive/5"
                   )}
                 >
                   <Checkbox
@@ -258,6 +262,11 @@ export function ConversationList({
                           <p className="text-xs text-muted-foreground truncate">{stripHtml(conv.snippet)}</p>
                         ) : null}
                         <div className="flex items-center gap-1.5 mt-1">
+                          {conv.needs_reply && (
+                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-destructive/15 text-destructive">
+                              ⏳ En attente
+                            </span>
+                          )}
                           {PrioIcon && (
                             <span className={cn("flex items-center", prio?.className)}>
                               <PrioIcon className="h-3 w-3" />
