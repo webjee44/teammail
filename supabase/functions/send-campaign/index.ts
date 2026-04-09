@@ -128,6 +128,9 @@ serve(async (req) => {
         personalizedBody = personalizedBody.replace(/\n/g, "<br>");
       }
 
+      // Inline styles for Gmail compatibility
+      personalizedBody = inlineStyles(personalizedBody);
+
       // Inject tracking pixel + rewrite links
       personalizedBody = injectTracking(personalizedBody, campaign_id, r.id, trackingBaseUrl);
 
