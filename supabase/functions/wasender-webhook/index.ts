@@ -118,11 +118,11 @@ serve(async (req) => {
         });
       }
 
-      // Find or create WhatsApp conversation
+      // Look up conversation by wasender_chat_id (the actual chat/group ID) to avoid duplicates
       const { data: existingConv } = await supabase
         .from("whatsapp_conversations")
         .select("id")
-        .eq("phone_number", fromPhone)
+        .eq("wasender_chat_id", chatId)
         .eq("team_id", team.id)
         .maybeSingle();
 
