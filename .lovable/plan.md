@@ -1,54 +1,39 @@
 
 
-# Améliorer l'affichage des mails envoyés — destinataire visible
+# Créer la campagne de correction (erratum Félix)
 
-## Problème
+## Ce qui va être fait
 
-Dans la vue "Envoyés" et dans le détail des messages sortants :
-1. **Liste des conversations** : affiche `from_email` (= votre propre adresse) au lieu du destinataire — toutes les lignes montrent "commercial@cloudvapor.com" sans distinction
-2. **Détail du message** : les messages outbound n'affichent pas le `to_email` (à qui on a envoyé)
-3. **Header de conversation** : pas d'info sur le destinataire pour les conversations initiées par nous
+Créer une nouvelle campagne **en brouillon** dans la base de données avec :
+- **Nom** : `Erratum — Félix Nicolon`
+- **Objet** : `Erratum — Félix Nicolon n'a pas quitté CloudVapor (promis)`
+- **From** : `commercial@cloudvapor.com`
+- **Corps HTML** : le texte correctif validé précédemment (ton pro + légèrement humoristique)
+- **139 destinataires** : copiés depuis la campagne d'origine `18503520-6dcf-41bc-90d9-75b860a3b2be`
 
-## Plan
+## Étapes techniques
 
-### 1. ConversationList — Afficher le destinataire pour les mails envoyés
+1. **Insérer la campagne** dans la table `campaigns` avec `status = 'draft'`, le `team_id` et `created_by` de la campagne d'origine
+2. **Copier les 139 recipients** depuis `campaign_recipients` vers la nouvelle campagne
+3. **Mettre à jour `total_recipients`** à 139
 
-**Fichier** : `src/components/inbox/ConversationList.tsx`
+## Corps de l'email
 
-- Ajouter un champ optionnel `to_email` au type `Conversation`
-- Quand on est en filtre "sent" ou quand la conversation est outbound : afficher "→ destinataire@email.com" au lieu de `from_email` comme nom principal
-- Utiliser le premier message outbound `to_email` comme source d'info destinataire
+```html
+<p>Bonjour,</p>
 
-### 2. Index.tsx — Passer l'info destinataire dans la liste "Envoyés"
+<p>Suite à notre précédent email, nous tenons à apporter une <strong>correction importante</strong> :</p>
 
-**Fichier** : `src/pages/Index.tsx`
+<p><strong>Félix Nicolon n'a pas quitté CloudVapor.</strong> Il est toujours bien présent parmi nous et continue d'assurer ses fonctions avec la même énergie (et ses multiples casquettes 🎩).</p>
 
-- Pour le filtre `sent`, fetch le `to_email` du premier message de chaque conversation (via une requête messages groupée)
-- Mapper le `to_email` dans les données de conversation pour l'affichage
+<p>Un bug dans notre outil d'automatisation a malencontreusement inversé les noms. C'est en réalité <strong>Johanny</strong> qui est concerné par ce changement.</p>
 
-### 3. MessageList — Afficher le destinataire sur les messages outbound
+<p>Nous vous prions de nous excuser pour cette confusion et vous remercions de votre compréhension.</p>
 
-**Fichier** : `src/components/inbox/conversation/MessageList.tsx`
+<p>Cordialement,<br>L'équipe CloudVapor</p>
+```
 
-- Pour les messages `is_outbound`, afficher une ligne "→ destinataire@email.com" sous le nom de l'expéditeur
-- Style discret avec une flèche et texte muted
+## Résultat
 
-### 4. ConversationHeader — Montrer le destinataire
-
-**Fichier** : `src/components/inbox/conversation/ConversationHeader.tsx`
-
-- Afficher un badge ou une ligne avec le destinataire (`to_email` du premier message outbound) dans le header
-- Le bouton "Contact" doit aussi fonctionner avec le `to_email` quand `from_email` est notre propre adresse
-
-### 5. Types — Ajouter `to_email` au type Conversation
-
-**Fichier** : `src/components/inbox/ConversationList.tsx` (type) + `src/components/inbox/conversation/types.ts`
-
-- Ajouter `to_email?: string | null` aux types pertinents
-
-## Résultat attendu
-
-- Liste "Envoyés" : chaque ligne affiche le **destinataire** (pas l'expéditeur)
-- Détail message outbound : ligne "À: destinataire@email.com" visible
-- Header : badge destinataire visible
+La campagne apparaîtra en **brouillon** dans la page Campagnes. Tu pourras la relire, modifier le texte si besoin, puis lancer l'envoi quand tu es prêt.
 
