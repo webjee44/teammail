@@ -172,6 +172,19 @@ export function ConversationList({
                 </span>
               </label>
             )}
+            {onToggleReplied && (
+              <label htmlFor="show-replied" className="flex items-center gap-1.5 cursor-pointer">
+                <Switch
+                  id="show-replied"
+                  checked={showReplied}
+                  onCheckedChange={onToggleReplied}
+                  className="scale-75"
+                />
+                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                  Répondus{repliedCount != null ? ` (${repliedCount})` : ''}
+                </span>
+              </label>
+            )}
           </div>
         )}
       </div>
