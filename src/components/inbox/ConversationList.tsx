@@ -33,6 +33,7 @@ export type Conversation = {
   category?: string | null;
   entities?: any;
   has_draft?: boolean;
+  needs_reply?: boolean;
 };
 
 type Props = {
