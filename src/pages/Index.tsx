@@ -264,6 +264,7 @@ const Index = () => {
           .order("sent_at", { ascending: true });
         if (allMsgs) {
           const rtMap = new Map<string, number>();
+          const needsReplySet = new Set<string>();
           const byConvo = new Map<string, typeof allMsgs>();
           for (const m of allMsgs) {
             const list = byConvo.get(m.conversation_id) || [];
@@ -271,6 +272,10 @@ const Index = () => {
             byConvo.set(m.conversation_id, list);
           }
           for (const [cid, msgs] of byConvo) {
+            // Check if last message is inbound (needs reply)
+            if (msgs.length > 0 && !msgs[msgs.length - 1].is_outbound) {
+              needsReplySet.add(cid);
+            }
             const times: number[] = [];
             for (let i = 0; i < msgs.length; i++) {
               if (!msgs[i].is_outbound) {
@@ -288,6 +293,11 @@ const Index = () => {
             }
           }
           setResponseTimes(rtMap);
+          // Update conversations with needs_reply flag
+          setConversations(prev => prev.map(c => ({
+            ...c,
+            needs_reply: needsReplySet.has(c.id),
+          })));
         }
       }
       setLoading(false);
