@@ -40,6 +40,14 @@ export function MessageList({ messages, comments, conversationSubject, currentUs
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editBody, setEditBody] = useState("");
   const [scheduledEmails, setScheduledEmails] = useState<ScheduledEmail[]>([]);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      bottomRef.current?.scrollIntoView({ behavior: "instant" });
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [messages]);
 
   // Fetch pending scheduled emails matching this conversation
   useEffect(() => {
