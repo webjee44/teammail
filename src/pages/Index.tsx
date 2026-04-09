@@ -288,25 +288,88 @@ const Index = () => {
           }
         }
 
+        // Detect outbound conversations and enrich with recipient info
+        // Fetch mailbox emails to detect outbound conversations
+        let mailboxEmails = new Set<string>();
+        const { data: mailboxes } = await supabase.from("team_mailboxes").select("email");
+        if (mailboxes) {
+          mailboxEmails = new Set(mailboxes.map((m: any) => m.email.toLowerCase()));
+        }
+
+        const outboundConvIds = (data || [])
+          .filter((c: any) => c.from_email && mailboxEmails.has(c.from_email.toLowerCase()))
+          .map((c: any) => c.id);
+
+        let toEmailMap = new Map<string, string>();
+        let toNameMap = new Map<string, string>();
+
+        if (outboundConvIds.length > 0) {
+          const BATCH = 50;
+          const allMsgsOut: { conversation_id: string; to_email: string | null }[] = [];
+          for (let i = 0; i < outboundConvIds.length; i += BATCH) {
+            const batch = outboundConvIds.slice(i, i + BATCH);
+            const { data: batchMsgs } = await supabase
+              .from("messages")
+              .select("conversation_id, to_email")
+              .in("conversation_id", batch)
+              .eq("is_outbound", true)
+              .order("sent_at", { ascending: true })
+              .limit(500);
+            if (batchMsgs) allMsgsOut.push(...batchMsgs);
+          }
+          const rawEmails = new Set<string>();
+          for (const m of allMsgsOut) {
+            if (m.to_email && !toEmailMap.has(m.conversation_id)) {
+              const match = m.to_email.match(/^(.+?)\s*<(.+?)>$/);
+              const email = match ? match[2] : m.to_email;
+              const parsedName = match ? match[1].trim() : null;
+              toEmailMap.set(m.conversation_id, email);
+              if (parsedName) toNameMap.set(m.conversation_id, parsedName);
+              rawEmails.add(email.toLowerCase());
+            }
+          }
+          if (rawEmails.size > 0) {
+            const { data: contacts } = await supabase
+              .from("contacts")
+              .select("email, name")
+              .in("email", Array.from(rawEmails));
+            if (contacts) {
+              const contactMap = new Map(contacts.map((c: any) => [c.email.toLowerCase(), c.name]));
+              for (const [convId, email] of toEmailMap) {
+                if (!toNameMap.has(convId)) {
+                  const contactName = contactMap.get(email.toLowerCase());
+                  if (contactName) toNameMap.set(convId, contactName);
+                }
+              }
+            }
+          }
+        }
+
         setConversations(
-          (data || []).map((c: any) => ({
-            id: c.id,
-            subject: c.subject,
-            snippet: c.snippet,
-            from_email: c.from_email,
-            from_name: c.from_name,
-            status: c.status as "open" | "closed",
-            assigned_to: c.assigned_to,
-            is_read: c.is_read,
-            last_message_at: c.last_message_at,
-            tags: [],
-            priority: c.priority,
-            is_noise: c.is_noise,
-            ai_summary: c.ai_summary,
-            category: c.category,
-            entities: c.entities,
-            has_draft: draftConvIds.has(c.id),
-          }))
+          (data || []).map((c: any) => {
+            const isSent = c.from_email && mailboxEmails.has(c.from_email.toLowerCase());
+            return {
+              id: c.id,
+              subject: c.subject,
+              snippet: c.snippet,
+              from_email: c.from_email,
+              from_name: c.from_name,
+              to_email: isSent ? (toEmailMap.get(c.id) || null) : undefined,
+              to_name: isSent ? (toNameMap.get(c.id) || null) : undefined,
+              status: c.status as "open" | "closed",
+              assigned_to: c.assigned_to,
+              is_read: c.is_read,
+              last_message_at: c.last_message_at,
+              tags: [],
+              priority: c.priority,
+              is_noise: c.is_noise,
+              ai_summary: c.ai_summary,
+              category: c.category,
+              entities: c.entities,
+              has_draft: draftConvIds.has(c.id),
+              is_sent: isSent || false,
+            };
+          })
         );
       }
       // Calculate response times for loaded conversations
