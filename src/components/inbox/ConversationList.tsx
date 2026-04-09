@@ -52,6 +52,9 @@ type Props = {
   showUnreadOnly?: boolean;
   onToggleUnreadOnly?: () => void;
   unreadCount?: number;
+  showReplied?: boolean;
+  onToggleReplied?: () => void;
+  repliedCount?: number;
   bulkSelected: Set<string>;
   onBulkToggle: (id: string) => void;
   onBulkSelectAll: () => void;

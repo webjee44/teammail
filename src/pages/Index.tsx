@@ -994,6 +994,9 @@ const Index = () => {
             showUnreadOnly={showUnreadOnly}
             onToggleUnreadOnly={() => setShowUnreadOnly(!showUnreadOnly)}
             unreadCount={conversations.filter((c) => !c.is_read).length}
+            showReplied={isInboxView ? showReplied : undefined}
+            onToggleReplied={isInboxView ? () => setShowReplied(!showReplied) : undefined}
+            repliedCount={repliedCount}
             bulkSelected={bulkSelected}
             onBulkToggle={handleBulkToggle}
             onBulkSelectAll={handleBulkSelectAll}
