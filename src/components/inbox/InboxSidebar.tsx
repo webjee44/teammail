@@ -249,7 +249,7 @@ export function InboxSidebar() {
                     className={activeMailbox === mb.id ? "bg-accent" : ""}
                   >
                     <Mail className="h-3.5 w-3.5 mr-2" />
-                    <span className="truncate">{mb.label || mb.email}</span>
+                    <span className="truncate">{mb.label || mb.email.split("@")[0]}</span>
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
