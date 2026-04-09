@@ -242,12 +242,17 @@ serve(async (req) => {
     const accessToken = await getAccessToken(serviceAccountKey, from_email.toLowerCase());
 
     // Build body with signature
+    // Detect if body is already HTML (from rich text editor)
+    const isHtml = /<[a-z][\s\S]*>/i.test(body);
+    const plainBody = isHtml ? body.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">") : body;
+    const htmlBody = isHtml ? body : body.replace(/\n/g, "<br>");
+
     const bodyText = signatureHtml
-      ? `${body}\n\n--\n${signatureHtml.replace(/<[^>]*>/g, "")}`
-      : body;
+      ? `${plainBody}\n\n--\n${signatureHtml.replace(/<[^>]*>/g, "")}`
+      : plainBody;
     const bodyHtmlContent = signatureHtml
-      ? `${body.replace(/\n/g, "<br>")}<br><br>--<br>${signatureHtml}`
-      : body.replace(/\n/g, "<br>");
+      ? `${htmlBody}<br><br>--<br>${signatureHtml}`
+      : htmlBody;
 
     const fromHeader = from_name ? `"${from_name}" <${from_email}>` : from_email;
     const rawEmail = buildRawEmail(fromHeader, to, subject, bodyHtmlContent, bodyText, attachments, cc, bcc);
