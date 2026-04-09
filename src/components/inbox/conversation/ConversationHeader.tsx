@@ -87,6 +87,14 @@ export function ConversationHeader({ conversation, onStatusChange, onDelete, onR
     entities.people?.length || entities.companies?.length || entities.amounts?.length || entities.dates?.length;
   const hasAiInfo = conversation.ai_summary || conversation.category || hasEntities;
 
+  // Determine the recipient email from the first outbound message
+  const firstOutbound = (conversation.messages || []).find((m) => m.is_outbound && m.to_email);
+  const recipientEmail = firstOutbound?.to_email || null;
+  // Use recipient for Contact button when from_email is our own mailbox
+  const contactEmail = recipientEmail && conversation.from_email === firstOutbound?.from_email
+    ? recipientEmail
+    : conversation.from_email;
+
   // Calculate avg response time for this conversation
   const responseTimes = calcResponseTimes(conversation.messages || []);
   const avgResponseMin = responseTimes.length > 0
@@ -130,7 +138,7 @@ export function ConversationHeader({ conversation, onStatusChange, onDelete, onR
           <Button size="sm" className="h-9 px-4 font-semibold gap-1.5" onClick={onReplyClick}>
             <Send className="h-4 w-4" /> Répondre
           </Button>
-          {conversation.from_email && (
+          {contactEmail && (
             <Button variant="outline" size="sm" className="h-9 px-4 font-semibold gap-1.5" onClick={() => setContactOpen(true)}>
               <Contact className="h-4 w-4" /> Contact
             </Button>
@@ -157,6 +165,12 @@ export function ConversationHeader({ conversation, onStatusChange, onDelete, onR
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
+        {recipientEmail && (
+          <Badge variant="outline" className="gap-1 text-primary border-primary/30">
+            <Send className="h-3 w-3" />
+            → {recipientEmail}
+          </Badge>
+        )}
         <Badge variant="outline" className={cn("gap-1", status.className)}>
           <status.icon className="h-3 w-3" />
           {status.label}
@@ -242,7 +256,7 @@ export function ConversationHeader({ conversation, onStatusChange, onDelete, onR
         <SheetContent side="right" className="p-0 w-[320px] sm:max-w-[320px]">
           <SheetTitle className="sr-only">Fiche contact</SheetTitle>
           <ContactPanel
-            contactEmail={conversation.from_email || null}
+            contactEmail={contactEmail || null}
             onSelectConversation={(id) => {
               setContactOpen(false);
               onSelectConversation?.(id);
