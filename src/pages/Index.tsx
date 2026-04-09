@@ -174,10 +174,11 @@ const Index = () => {
           if (ids.length > 0) {
             const { data: msgs } = await supabase
               .from("messages")
-              .select("conversation_id, to_email, is_outbound")
+              .select("conversation_id, to_email")
               .in("conversation_id", ids)
               .eq("is_outbound", true)
-              .order("sent_at", { ascending: true });
+              .order("sent_at", { ascending: true })
+              .limit(5000);
             if (msgs) {
               const rawEmails = new Set<string>();
               for (const m of msgs) {
