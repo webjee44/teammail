@@ -923,8 +923,9 @@ const Index = () => {
     }
   };
 
-  const totalCount = conversations.length;
+  const totalCount = filteredConversations.length;
   const noiseCount = conversations.filter((c) => c.is_noise).length;
+  const repliedCount = isInboxView ? conversations.filter((c) => c.needs_reply === false && (!hideNoise || !c.is_noise) && (!showUnreadOnly || !c.is_read)).length : 0;
 
   const filterLabels: Record<string, string> = {
     mine: "Assigné à moi",
