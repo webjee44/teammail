@@ -118,6 +118,22 @@ const Index = () => {
           .eq("created_by", user.id)
           .order("updated_at", { ascending: false });
 
+        // Enrich drafts with contact names
+        const draftEmails = new Set<string>();
+        for (const d of drafts || []) {
+          if (d.to_email) draftEmails.add(d.to_email.toLowerCase());
+        }
+        let draftContactMap = new Map<string, string>();
+        if (draftEmails.size > 0) {
+          const { data: contacts } = await supabase
+            .from("contacts")
+            .select("email, name")
+            .in("email", Array.from(draftEmails));
+          if (contacts) {
+            draftContactMap = new Map(contacts.map((c: any) => [c.email.toLowerCase(), c.name]));
+          }
+        }
+
         setConversations(
           (drafts || []).map((d: any) => ({
             id: `draft-${d.id}`,
@@ -126,7 +142,7 @@ const Index = () => {
             from_email: d.from_email,
             from_name: null,
             to_email: d.to_email || null,
-            to_name: null,
+            to_name: d.to_email ? (draftContactMap.get(d.to_email.toLowerCase()) || null) : null,
             status: "open" as const,
             assigned_to: null,
             is_read: true,
