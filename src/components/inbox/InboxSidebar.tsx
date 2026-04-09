@@ -387,9 +387,6 @@ export function InboxSidebar() {
                         <item.icon className="h-3.5 w-3.5" />
                         {!collapsed && <span>{item.title}</span>}
                       </span>
-                      {!collapsed && item.shortcut && (
-                        <span className="ml-auto text-[10px] text-muted-foreground/50 font-mono">{item.shortcut}</span>
-                      )}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
