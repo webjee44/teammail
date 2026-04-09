@@ -170,6 +170,7 @@ const Index = () => {
           // Fetch first outbound message to_email for each conversation
           const ids = (data || []).map((c: any) => c.id);
           let toEmailMap = new Map<string, string>();
+          let toNameMap = new Map<string, string>();
           if (ids.length > 0) {
             const { data: msgs } = await supabase
               .from("messages")
@@ -178,9 +179,32 @@ const Index = () => {
               .eq("is_outbound", true)
               .order("sent_at", { ascending: true });
             if (msgs) {
+              const rawEmails = new Set<string>();
               for (const m of msgs) {
                 if (m.to_email && !toEmailMap.has(m.conversation_id)) {
-                  toEmailMap.set(m.conversation_id, m.to_email);
+                  // Parse "Name <email>" format
+                  const match = m.to_email.match(/^(.+?)\s*<(.+?)>$/);
+                  const email = match ? match[2] : m.to_email;
+                  const parsedName = match ? match[1].trim() : null;
+                  toEmailMap.set(m.conversation_id, email);
+                  if (parsedName) toNameMap.set(m.conversation_id, parsedName);
+                  rawEmails.add(email.toLowerCase());
+                }
+              }
+              // Lookup contact names by email
+              if (rawEmails.size > 0) {
+                const { data: contacts } = await supabase
+                  .from("contacts")
+                  .select("email, name")
+                  .in("email", Array.from(rawEmails));
+                if (contacts) {
+                  const contactMap = new Map(contacts.map((c: any) => [c.email.toLowerCase(), c.name]));
+                  for (const [convId, email] of toEmailMap) {
+                    if (!toNameMap.has(convId)) {
+                      const contactName = contactMap.get(email.toLowerCase());
+                      if (contactName) toNameMap.set(convId, contactName);
+                    }
+                  }
                 }
               }
             }
@@ -194,6 +218,7 @@ const Index = () => {
               from_email: c.from_email,
               from_name: c.from_name,
               to_email: toEmailMap.get(c.id) || null,
+              to_name: toNameMap.get(c.id) || null,
               status: c.status as "open" | "closed",
               assigned_to: c.assigned_to,
               is_read: c.is_read,
