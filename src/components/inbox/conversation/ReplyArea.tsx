@@ -283,7 +283,6 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
                       if (!u) throw new Error("Non authentifié");
                       const { data: profile } = await supabase.from("profiles").select("team_id").eq("user_id", u.id).maybeSingle();
                       if (!profile?.team_id) throw new Error("Aucune équipe");
-                      const plainBody = replyHtml.replace(/<[^>]*>/g, '');
                       const { error } = await supabase.from("email_templates").insert({
                         team_id: profile.team_id,
                         created_by: u.id,
