@@ -175,7 +175,9 @@ serve(async (req) => {
       }
 
       // Deduplicate: check if same body+phone within 30s already exists
-      const sentAtDate = new Date(messages.messageTimestamp ? messages.messageTimestamp * 1000 : Date.now());
+      const rawTs = messages.messageTimestamp;
+      const tsNum = typeof rawTs === "string" ? parseInt(rawTs, 10) : Number(rawTs);
+      const sentAtDate = new Date(tsNum && !isNaN(tsNum) && tsNum > 0 ? tsNum * 1000 : Date.now());
       const windowStart = new Date(sentAtDate.getTime() - 30000).toISOString();
       const windowEnd = new Date(sentAtDate.getTime() + 30000).toISOString();
 
