@@ -90,6 +90,9 @@ export function ConversationList({
   showUnreadOnly,
   onToggleUnreadOnly,
   unreadCount,
+  showReplied,
+  onToggleReplied,
+  repliedCount,
   bulkSelected,
   onBulkToggle,
   onBulkSelectAll,
@@ -107,7 +110,7 @@ export function ConversationList({
     );
   }
 
-  const hasToggles = (noiseCount ?? 0) > 0 || showAllMails !== undefined || onToggleUnreadOnly;
+  const hasToggles = (noiseCount ?? 0) > 0 || showAllMails !== undefined || onToggleUnreadOnly || onToggleReplied;
   const allSelected = conversations.length > 0 && bulkSelected.size === conversations.length;
 
   return (
