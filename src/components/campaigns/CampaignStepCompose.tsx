@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { RichTextEditor } from "@/components/inbox/conversation/RichTextEditor";
 import type { CampaignData } from "@/pages/CampaignWizard";
 
 type Props = {
@@ -75,11 +75,11 @@ export function CampaignStepCompose({ data, onChange }: Props) {
             {polishing ? "Amélioration…" : "Améliorer avec l'IA"}
           </Button>
         </div>
-        <Textarea
+        <RichTextEditor
           value={data.body_html}
-          onChange={(e) => onChange({ ...data, body_html: e.target.value })}
-          placeholder={`Bonjour {{nom}},\n\nNous avons le plaisir de vous informer...\n\nCordialement,\nL'équipe`}
-          className="min-h-[300px] font-mono text-sm"
+          onChange={(html) => onChange({ ...data, body_html: html })}
+          placeholder="Bonjour {{nom}},&#10;&#10;Nous avons le plaisir de vous informer...&#10;&#10;Cordialement,&#10;L'équipe"
+          className="min-h-[300px]"
         />
       </div>
 
