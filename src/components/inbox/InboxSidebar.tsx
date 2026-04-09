@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import {
   Inbox,
   User,
@@ -49,12 +49,24 @@ import { useComposeWindow } from "@/hooks/useComposeWindow";
 
 const toolItems = [
   { title: "Campagnes", url: "/campaigns", icon: Megaphone },
-  { title: "Tâches", url: "/tasks", icon: ListTodo, shortcut: "G T" },
-  { title: "Contacts", url: "/contacts", icon: Users, shortcut: "G C" },
+  { title: "Tâches", url: "/tasks", icon: ListTodo },
+  { title: "Contacts", url: "/contacts", icon: Users },
   { title: "Règles", url: "/rules", icon: Zap },
   { title: "Statistiques", url: "/analytics", icon: BarChart3 },
-  { title: "Paramètres", url: "/settings", icon: Settings, shortcut: "G S" },
+  { title: "Paramètres", url: "/settings", icon: Settings },
 ];
+
+type ConversationCounter = {
+  id: string;
+  status: string;
+  assigned_to: string | null;
+  mailbox_id: string | null;
+};
+
+type MailboxScopedEmail = {
+  id: string;
+  from_email: string | null;
+};
 
 export function InboxSidebar() {
   const { state } = useSidebar();
@@ -64,8 +76,10 @@ export function InboxSidebar() {
   const activeMailbox = searchParams.get("mailbox");
   const { openCompose } = useComposeWindow();
 
-  const [conversations, setConversations] = useState<{ id: string; status: string; assigned_to: string | null; mailbox_id: string | null }[]>([]);
-  const [rawCounts, setRawCounts] = useState({ drafts: 0, scheduled: 0, sent: 0 });
+  const [conversations, setConversations] = useState<ConversationCounter[]>([]);
+  const [drafts, setDrafts] = useState<MailboxScopedEmail[]>([]);
+  const [scheduledEmails, setScheduledEmails] = useState<MailboxScopedEmail[]>([]);
+  const [sentConversationIds, setSentConversationIds] = useState<string[]>([]);
   const [waUnread, setWaUnread] = useState(0);
   const [tags, setTags] = useState<{ id: string; name: string; color: string }[]>([]);
   const [mailboxes, setMailboxes] = useState<{ id: string; email: string; label: string | null }[]>([]);
@@ -76,8 +90,8 @@ export function InboxSidebar() {
 
       const [convRes, draftRes, schedRes, sentRes, mbRes, tagRes, waRes] = await Promise.all([
         supabase.from("conversations").select("id, status, assigned_to, mailbox_id"),
-        supabase.from("drafts").select("id", { count: "exact", head: true }).is("conversation_id", null).eq("created_by", user.id),
-        supabase.from("scheduled_emails").select("id", { count: "exact", head: true }).eq("status", "pending"),
+        supabase.from("drafts").select("id, from_email").is("conversation_id", null).eq("created_by", user.id),
+        supabase.from("scheduled_emails").select("id, from_email").eq("status", "pending"),
         supabase.rpc("get_sent_conversation_ids"),
         supabase.from("team_mailboxes").select("id, email, label").order("email"),
         supabase.from("tags").select("id, name, color").order("name"),
@@ -85,11 +99,9 @@ export function InboxSidebar() {
       ]);
 
       if (convRes.data) setConversations(convRes.data);
-      setRawCounts({
-        drafts: draftRes.count || 0,
-        scheduled: schedRes.count || 0,
-        sent: sentRes.data?.length || 0,
-      });
+      if (draftRes.data) setDrafts(draftRes.data);
+      if (schedRes.data) setScheduledEmails(schedRes.data);
+      setSentConversationIds((sentRes.data || []).map((row: { conversation_id: string }) => row.conversation_id));
       if (mbRes.data) setMailboxes(mbRes.data);
       if (tagRes.data) setTags(tagRes.data);
       setWaUnread(waRes.count || 0);
@@ -98,22 +110,39 @@ export function InboxSidebar() {
     fetchData();
   }, [user]);
 
-  // Compute counts scoped to selected mailbox
+  const activeMailboxData = useMemo(
+    () => mailboxes.find((mailbox) => mailbox.id === activeMailbox) || null,
+    [activeMailbox, mailboxes],
+  );
+
   const counts = useMemo(() => {
-    const filtered = activeMailbox
-      ? conversations.filter((c) => c.mailbox_id === activeMailbox)
+    const mailboxScopedConversations = activeMailbox
+      ? conversations.filter((conversation) => conversation.mailbox_id === activeMailbox)
       : conversations;
 
+    const mailboxScopedEmail = activeMailboxData?.email ?? null;
+    const mailboxConversationIds = new Set(mailboxScopedConversations.map((conversation) => conversation.id));
+
     return {
-      open: filtered.filter((c) => c.status === "open").length,
-      mine: filtered.filter((c) => c.assigned_to === user?.id).length,
-      unassigned: filtered.filter((c) => !c.assigned_to && c.status === "open").length,
-      closed: filtered.filter((c) => c.status === "closed").length,
-      drafts: rawCounts.drafts,
-      scheduled: rawCounts.scheduled,
-      sent: rawCounts.sent,
+      open: mailboxScopedConversations.filter((conversation) => conversation.status === "open").length,
+      mine: mailboxScopedConversations.filter(
+        (conversation) => conversation.status === "open" && conversation.assigned_to === user?.id,
+      ).length,
+      unassigned: mailboxScopedConversations.filter(
+        (conversation) => conversation.status === "open" && !conversation.assigned_to,
+      ).length,
+      closed: mailboxScopedConversations.filter((conversation) => conversation.status === "closed").length,
+      drafts: mailboxScopedEmail
+        ? drafts.filter((draft) => draft.from_email === mailboxScopedEmail).length
+        : drafts.length,
+      scheduled: mailboxScopedEmail
+        ? scheduledEmails.filter((email) => email.from_email === mailboxScopedEmail).length
+        : scheduledEmails.length,
+      sent: activeMailbox
+        ? sentConversationIds.filter((conversationId) => mailboxConversationIds.has(conversationId)).length
+        : sentConversationIds.length,
     };
-  }, [conversations, activeMailbox, user?.id, rawCounts]);
+  }, [activeMailbox, activeMailboxData, conversations, drafts, scheduledEmails, sentConversationIds, user?.id]);
 
   const selectMailbox = (mbId: string | null) => {
     const params = new URLSearchParams(searchParams);
@@ -125,17 +154,14 @@ export function InboxSidebar() {
     setSearchParams(params, { replace: true });
   };
 
-  const activeMailboxLabel = useMemo(() => {
-    if (!activeMailbox) return null;
-    const mb = mailboxes.find((m) => m.id === activeMailbox);
-    if (!mb) return null;
-    return mb.label || mb.email.split("@")[0];
-  }, [activeMailbox, mailboxes]);
+  const activeMailboxLabel = activeMailboxData
+    ? activeMailboxData.label || activeMailboxData.email.split("@")[0]
+    : null;
 
   const mbSuffix = activeMailbox ? `&mailbox=${activeMailbox}` : "";
   const inboxItems = [
-    { title: "Boîte de réception", url: `/${activeMailbox ? `?mailbox=${activeMailbox}` : ""}`, icon: Inbox, count: counts.open, shortcut: "G I" },
-    { title: "Assigné à moi", url: `/?filter=mine${mbSuffix}`, icon: User, count: counts.mine, shortcut: "G M" },
+    { title: "Boîte de réception", url: `/${activeMailbox ? `?mailbox=${activeMailbox}` : ""}`, icon: Inbox, count: counts.open },
+    { title: "Assigné à moi", url: `/?filter=mine${mbSuffix}`, icon: User, count: counts.mine },
     { title: "Non assigné", url: `/?filter=unassigned${mbSuffix}`, icon: Users, count: counts.unassigned },
     { title: "Fermé", url: `/?filter=closed${mbSuffix}`, icon: CheckCircle, count: counts.closed },
     { title: "Envoyés", url: `/?filter=sent${mbSuffix}`, icon: SendHorizonal, count: counts.sent },
