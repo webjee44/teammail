@@ -315,7 +315,13 @@ const Index = () => {
           mailboxEmails = new Set(mailboxes.map((m: any) => m.email.toLowerCase()));
         }
 
-        const outboundConvIds = (data || [])
+        // Filter out pure outbound conversations from inbox views (keep them only in closed/show-all)
+        const isInboxView = !filter || filter === "mine" || filter === "unassigned";
+        const filteredData = isInboxView
+          ? (data || []).filter((c: any) => !c.from_email || !mailboxEmails.has(c.from_email.toLowerCase()))
+          : (data || []);
+
+        const outboundConvIds = filteredData
           .filter((c: any) => c.from_email && mailboxEmails.has(c.from_email.toLowerCase()))
           .map((c: any) => c.id);
 
