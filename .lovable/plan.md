@@ -1,62 +1,66 @@
 
 
-# Améliorer le switch de boîtes mail — Approche UX
+# Cohérence de mise en forme : Rédaction = Aperçu = Gmail
 
-## Comment font Missive et Front ?
+## Problème identifié
 
-**Missive** : La sidebar a une section "Inbox" (vue agrégée) puis chaque compte email est listé en dessous comme un **dossier de premier niveau**. Quand on clique sur un compte, toute la vue (liste + filtres) se scope automatiquement à ce compte. Les sous-filtres (Assigné, Non assigné, Fermé, etc.) sont **contextuels** — ils s'appliquent au scope sélectionné. Un indicateur visuel clair montre quel scope est actif.
+Trois rendus différents du même HTML :
 
-**Front** : Même logique. La sidebar affiche les "inboxes" (partagées ou personnelles) comme des entrées de premier niveau. Cliquer sur une inbox filtre tout. Les filtres secondaires (Open, Assigned, Unassigned) sont **imbriqués** sous l'inbox sélectionnée ou affichés dans la toolbar de la liste.
+1. **Éditeur (TipTap)** : utilise `prose prose-sm` + `[&>p+p]:mt-4` pour l'espacement entre paragraphes
+2. **Aperçu (CampaignStepPreview)** : utilise `prose prose-sm leading-relaxed` — espacement différent, pas de `[&>p+p]:mt-4`
+3. **Gmail** : reçoit le HTML brut des `<p>` sans aucun style inline — Gmail applique ses propres marges (souvent `margin: 0` sur les `<p>`)
 
-## Le problème actuel dans TeamMail
+Le HTML produit par TipTap est une suite de `<p>...</p>` sans styles inline. L'apparence dépend entièrement du CSS appliqué côté affichage — d'où les différences.
 
-- Les boîtes mail et les filtres de conversation sont **deux sections séparées et indépendantes** dans la sidebar
-- Quand on clique sur `commercial@cloudvapor.com`, les filtres "Boîte de réception", "Assigné à moi", etc. ne changent pas visuellement → l'utilisateur ne comprend pas qu'ils sont scopés
-- Pas d'indicateur visuel du scope actif (quelle boîte est sélectionnée)
-- Le paramètre `mailbox` est passé via query string de façon peu visible
+## Solution
 
-## Approche proposée : Mailbox comme scope contextuel (style Missive)
+### 1. Aperçu identique à l'éditeur (`CampaignStepPreview.tsx`)
 
-### Principe
+Appliquer exactement les mêmes classes CSS que l'éditeur TipTap sur le conteneur de rendu :
 
-Transformer les boîtes mail en **sélecteur de scope** en haut de la section Conversations. Quand une boîte est sélectionnée, tous les filtres en dessous s'y appliquent automatiquement, avec un feedback visuel clair.
-
-### Changements UI
-
-1. **Remplacer la section "Boîtes mail"** par un **dropdown/sélecteur compact** placé juste au-dessus des filtres Conversations :
-
-```text
-┌─────────────────────────┐
-│ 📬 Toutes les boîtes  ▾ │  ← dropdown
-├─────────────────────────┤
-│  Boîte de réception  12 │  ← filtres scopés
-│  Assigné à moi        3 │
-│  Non assigné           5 │
-│  Fermé                 8 │
-│  Envoyés             101 │
-│  Brouillons            2 │
-│  Programmés            1 │
-└─────────────────────────┘
+```
+prose prose-sm max-w-none text-sm [&>p+p]:mt-4
 ```
 
-2. **Quand une boîte est sélectionnée** :
-   - Le label du dropdown affiche le nom de la boîte (ex: `commercial@...`)
-   - Les compteurs se mettent à jour pour ne refléter que cette boîte
-   - Un badge ou style distinct indique le scope actif
-   - Un bouton × permet de revenir à "Toutes"
+Au lieu de l'actuel `prose prose-sm max-w-none text-sm leading-relaxed`.
 
-3. **Les compteurs sont recalculés** selon le scope (boîte sélectionnée ou toutes)
+### 2. HTML envoyé à Gmail avec styles inline (`send-campaign/index.ts`)
 
-### Changements techniques
+Avant d'envoyer le HTML à `gmail-send`, injecter des styles inline sur chaque balise HTML pour que Gmail les respecte :
 
-- **`InboxSidebar.tsx`** : Remplacer la liste de mailboxes par un `<Select>` ou `<DropdownMenu>`. Stocker le `mailboxId` sélectionné dans le state. Recalculer les compteurs filtrés par mailbox.
-- **`Index.tsx`** : Conserver la logique `mailbox` en query param pour que l'URL reste partageable, mais piloter la sélection depuis le dropdown.
-- **Compteurs contextuels** : Filtrer `counts` par `mailbox_id` quand un scope est actif, au lieu de toujours afficher les totaux.
+- `<p>` → `<p style="margin:0 0 16px 0; line-height:1.5;">` (dernier `<p>` sans margin-bottom)
+- `<strong>` / `<em>` / `<s>` → inchangés (Gmail les respecte nativement)
+- `<a>` → ajouter `style="color:#6366f1; text-decoration:underline;"` si absent
+- `<ul>` / `<ol>` → `style="margin:0 0 16px 0; padding-left:24px;"`
+- `<li>` → `style="margin:0 0 4px 0;"`
 
-### Avantages
+Wrapper le tout dans un conteneur :
+```html
+<div style="font-family:Arial,Helvetica,sans-serif; font-size:14px; color:#1a1a1a; line-height:1.5;">
+  ...contenu...
+</div>
+```
 
-- **Clarté** : l'utilisateur voit immédiatement que les filtres sont scopés
-- **Moins de clics** : un seul dropdown au lieu de naviguer entre sections
-- **Cohérence** : même pattern que Missive/Front, familier pour les utilisateurs
-- **URL stable** : le query param `mailbox=` reste pour le partage de liens
+### 3. Fichiers modifiés
+
+| Fichier | Changement |
+|---------|-----------|
+| `src/components/campaigns/CampaignStepPreview.tsx` | Aligner les classes CSS du rendu HTML sur celles de l'éditeur |
+| `supabase/functions/send-campaign/index.ts` | Ajouter une fonction `inlineStyles(html)` qui injecte des styles inline sur les balises avant envoi |
+
+### Détail technique — fonction `inlineStyles`
+
+```typescript
+function inlineStyles(html: string): string {
+  let result = html
+    .replace(/<p>/g, '<p style="margin:0 0 16px 0;line-height:1.5;">')
+    .replace(/<ul>/g, '<ul style="margin:0 0 16px 0;padding-left:24px;">')
+    .replace(/<ol>/g, '<ol style="margin:0 0 16px 0;padding-left:24px;">')
+    .replace(/<li>/g, '<li style="margin:0 0 4px 0;">');
+  
+  return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#1a1a1a;line-height:1.5;">${result}</div>`;
+}
+```
+
+Appelée juste avant `injectTracking` dans la boucle d'envoi.
 
