@@ -52,6 +52,9 @@ type Props = {
   showUnreadOnly?: boolean;
   onToggleUnreadOnly?: () => void;
   unreadCount?: number;
+  showReplied?: boolean;
+  onToggleReplied?: () => void;
+  repliedCount?: number;
   bulkSelected: Set<string>;
   onBulkToggle: (id: string) => void;
   onBulkSelectAll: () => void;
@@ -87,6 +90,9 @@ export function ConversationList({
   showUnreadOnly,
   onToggleUnreadOnly,
   unreadCount,
+  showReplied,
+  onToggleReplied,
+  repliedCount,
   bulkSelected,
   onBulkToggle,
   onBulkSelectAll,
@@ -104,7 +110,7 @@ export function ConversationList({
     );
   }
 
-  const hasToggles = (noiseCount ?? 0) > 0 || showAllMails !== undefined || onToggleUnreadOnly;
+  const hasToggles = (noiseCount ?? 0) > 0 || showAllMails !== undefined || onToggleUnreadOnly || onToggleReplied;
   const allSelected = conversations.length > 0 && bulkSelected.size === conversations.length;
 
   return (
@@ -163,6 +169,19 @@ export function ConversationList({
                 />
                 <span className="text-xs text-muted-foreground whitespace-nowrap">
                   Non lus{unreadCount != null ? ` (${unreadCount})` : ''}
+                </span>
+              </label>
+            )}
+            {onToggleReplied && (
+              <label htmlFor="show-replied" className="flex items-center gap-1.5 cursor-pointer">
+                <Switch
+                  id="show-replied"
+                  checked={showReplied}
+                  onCheckedChange={onToggleReplied}
+                  className="scale-75"
+                />
+                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                  Répondus{repliedCount != null ? ` (${repliedCount})` : ''}
                 </span>
               </label>
             )}

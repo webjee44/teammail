@@ -50,6 +50,7 @@ const Index = () => {
   const [commandOpen, setCommandOpen] = useState(false);
   const [showAllMails, setShowAllMails] = useState(false);
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
+  const [showReplied, setShowReplied] = useState(false);
   const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
   const [freshlyUpdated, setFreshlyUpdated] = useState<Set<string>>(new Set());
@@ -826,9 +827,16 @@ const Index = () => {
     }
   };
 
+  // In inbox views, hide already-replied conversations by default (unless showReplied is on)
+  const isInboxView = !filter || filter === "mine" || filter === "unassigned";
   const filteredConversations = conversations
     .filter((c) => !hideNoise || !c.is_noise)
-    .filter((c) => !showUnreadOnly || !c.is_read);
+    .filter((c) => !showUnreadOnly || !c.is_read)
+    .filter((c) => {
+      if (!isInboxView || showReplied) return true;
+      // Keep conversations that need a reply (last message is inbound) or where needs_reply is undefined (not yet computed)
+      return c.needs_reply !== false;
+    });
 
   // Bulk action handlers
   const handleBulkToggle = useCallback((id: string) => {
@@ -915,8 +923,9 @@ const Index = () => {
     }
   };
 
-  const totalCount = conversations.length;
+  const totalCount = filteredConversations.length;
   const noiseCount = conversations.filter((c) => c.is_noise).length;
+  const repliedCount = isInboxView ? conversations.filter((c) => c.needs_reply === false && (!hideNoise || !c.is_noise) && (!showUnreadOnly || !c.is_read)).length : 0;
 
   const filterLabels: Record<string, string> = {
     mine: "Assigné à moi",
@@ -985,6 +994,9 @@ const Index = () => {
             showUnreadOnly={showUnreadOnly}
             onToggleUnreadOnly={() => setShowUnreadOnly(!showUnreadOnly)}
             unreadCount={conversations.filter((c) => !c.is_read).length}
+            showReplied={isInboxView ? showReplied : undefined}
+            onToggleReplied={isInboxView ? () => setShowReplied(!showReplied) : undefined}
+            repliedCount={repliedCount}
             bulkSelected={bulkSelected}
             onBulkToggle={handleBulkToggle}
             onBulkSelectAll={handleBulkSelectAll}
