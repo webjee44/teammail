@@ -152,7 +152,6 @@ export function useDraft({ conversationId = null, draftId = null }: UseDraftOpti
     const currentDraftId = savedDraftIdRef.current;
     savedDraftIdRef.current = null;
     setSavedDraftId(null);
-    setActiveDraftId(null);
 
     if (currentDraftId) {
       await supabase.from("drafts").delete().eq("id", currentDraftId);
