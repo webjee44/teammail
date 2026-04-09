@@ -134,12 +134,16 @@ export function FloatingCompose() {
   // Restore draft
   useEffect(() => {
     if (draftLoading || draftInitialized || !state.isOpen) return;
+    if (!state.draftId) {
+      setDraftInitialized(true);
+      return;
+    }
     if (draft.to_email && !state.initialTo) setTo(draft.to_email);
     if (draft.subject && !state.initialSubject) setSubject(draft.subject);
     if (draft.body && !state.initialBody) setBody(draft.body);
     if (draft.from_email) setFromEmail(draft.from_email);
     setDraftInitialized(true);
-  }, [draftLoading, draft, draftInitialized, state]);
+  }, [draftLoading, draft, draftInitialized, state.isOpen, state.draftId, state.initialTo, state.initialSubject, state.initialBody]);
 
   // Auto-save draft
   useEffect(() => {
