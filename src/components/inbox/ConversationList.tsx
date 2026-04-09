@@ -179,15 +179,17 @@ export function ConversationList({
           <div className="divide-y divide-border">
             {conversations.map((conv) => {
               // For sent conversations, display recipient instead of sender
-              const displayName = conv.is_sent && conv.to_email
-                ? conv.to_email
+              const displayName = conv.is_sent
+                ? (conv.to_name || conv.to_email || "Unknown")
                 : (conv.from_name || conv.from_email || "Unknown");
-              const displayEmail = conv.is_sent && conv.to_email
-                ? conv.to_email
+              const displayEmail = conv.is_sent
+                ? (conv.to_name && conv.to_email ? conv.to_email : null)
                 : (conv.from_name && conv.from_email ? conv.from_email : null);
 
-              const initials = conv.is_sent && conv.to_email
-                ? conv.to_email.slice(0, 2).toUpperCase()
+              const initials = conv.is_sent
+                ? conv.to_name
+                  ? conv.to_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
+                  : conv.to_email?.slice(0, 2).toUpperCase() ?? "?"
                 : conv.from_name
                   ? conv.from_name
                       .split(" ")
