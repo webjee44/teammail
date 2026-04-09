@@ -167,6 +167,25 @@ const Index = () => {
           console.error("Failed to fetch sent conversations:", error);
           toast.error("Erreur lors du chargement des conversations envoyées");
         } else {
+          // Fetch first outbound message to_email for each conversation
+          const ids = (data || []).map((c: any) => c.id);
+          let toEmailMap = new Map<string, string>();
+          if (ids.length > 0) {
+            const { data: msgs } = await supabase
+              .from("messages")
+              .select("conversation_id, to_email, is_outbound")
+              .in("conversation_id", ids)
+              .eq("is_outbound", true)
+              .order("sent_at", { ascending: true });
+            if (msgs) {
+              for (const m of msgs) {
+                if (m.to_email && !toEmailMap.has(m.conversation_id)) {
+                  toEmailMap.set(m.conversation_id, m.to_email);
+                }
+              }
+            }
+          }
+
           setConversations(
             (data || []).map((c: any) => ({
               id: c.id,
@@ -174,6 +193,7 @@ const Index = () => {
               snippet: c.snippet,
               from_email: c.from_email,
               from_name: c.from_name,
+              to_email: toEmailMap.get(c.id) || null,
               status: c.status as "open" | "closed",
               assigned_to: c.assigned_to,
               is_read: c.is_read,
@@ -184,6 +204,7 @@ const Index = () => {
               ai_summary: c.ai_summary,
               category: c.category,
               entities: c.entities,
+              is_sent: true,
             }))
           );
         }

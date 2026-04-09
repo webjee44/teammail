@@ -136,9 +136,16 @@ export function MessageList({ messages, comments, conversationSubject, currentUs
                       {initials}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="text-sm font-medium text-foreground">
-                    {msg.from_name || msg.from_email}
-                  </span>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-sm font-medium text-foreground">
+                      {msg.from_name || msg.from_email}
+                    </span>
+                    {msg.is_outbound && msg.to_email && (
+                      <span className="text-xs text-muted-foreground truncate">
+                        → {msg.to_email}
+                      </span>
+                    )}
+                  </div>
                   <span className="text-xs text-muted-foreground ml-auto">
                     {format(new Date(msg.sent_at), "d MMM yyyy, HH:mm", { locale: fr })}
                   </span>
