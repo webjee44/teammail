@@ -85,8 +85,8 @@ export default function CampaignWizard() {
     load();
   }, [searchParams]);
 
-  const saveDraft = async () => {
-    if (!user) return;
+  const saveDraft = async (): Promise<string | undefined> => {
+    if (!user) return undefined;
     setSaving(true);
     try {
       const { data: profile } = await supabase
@@ -105,7 +105,6 @@ export default function CampaignWizard() {
           total_recipients: data.recipients.length,
         }).eq("id", data.id);
 
-        // Replace recipients
         await supabase.from("campaign_recipients").delete().eq("campaign_id", data.id);
         if (data.recipients.length > 0) {
           await supabase.from("campaign_recipients").insert(
@@ -118,6 +117,9 @@ export default function CampaignWizard() {
             }))
           );
         }
+        setSaving(false);
+        toast({ title: "Brouillon sauvegardé" });
+        return data.id;
       } else {
         const { data: campaign, error } = await supabase
           .from("campaigns")
@@ -146,29 +148,25 @@ export default function CampaignWizard() {
           );
         }
         setData((prev) => ({ ...prev, id: campaign.id }));
+        setSaving(false);
+        toast({ title: "Brouillon sauvegardé" });
+        return campaign.id;
       }
-      toast({ title: "Brouillon sauvegardé" });
     } catch (e: any) {
       toast({ title: "Erreur", description: e.message, variant: "destructive" });
+      setSaving(false);
+      return undefined;
     }
-    setSaving(false);
   };
 
   const sendCampaign = async () => {
-    if (!data.id) {
-      await saveDraft();
-    }
-    if (!data.id && !data.name) return;
-
     setSending(true);
     try {
-      // Save draft first if needed
-      if (!data.id) {
-        await saveDraft();
-      }
+      const campaignId = data.id || await saveDraft();
+      if (!campaignId) throw new Error("Impossible de sauvegarder la campagne");
 
       const { data: result, error } = await supabase.functions.invoke("send-campaign", {
-        body: { campaign_id: data.id },
+        body: { campaign_id: campaignId },
       });
 
       if (error) throw error;
