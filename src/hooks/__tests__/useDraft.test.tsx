@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { renderHook, act, waitFor } from "@testing-library/react";
+import { renderHook, act } from "@testing-library/react";
 import { useDraft } from "../useDraft";
 
 const profileMaybeSingle = vi.fn();
@@ -83,12 +83,12 @@ describe("useDraft", () => {
 
     const { result } = renderHook(() => useDraft());
 
-    act(() => {
+    await act(async () => {
       result.current.updateDraft({ subject: "Bonjour" });
-      vi.advanceTimersByTime(1500);
+      await vi.advanceTimersByTimeAsync(1500);
     });
 
-    await waitFor(() => expect(insert).toHaveBeenCalledTimes(1));
+    expect(insert).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       await result.current.deleteDraft();
@@ -97,9 +97,10 @@ describe("useDraft", () => {
     await act(async () => {
       resolveInsert?.({ data: { id: "draft-1" } });
       await Promise.resolve();
+      await Promise.resolve();
     });
 
-    await waitFor(() => expect(deleteEq).toHaveBeenCalledWith("id", "draft-1"));
+    expect(deleteEq).toHaveBeenCalledWith("id", "draft-1");
     expect(result.current.savedDraftId).toBeNull();
   });
 
@@ -114,16 +115,16 @@ describe("useDraft", () => {
 
     const { result } = renderHook(() => useDraft());
 
-    act(() => {
+    await act(async () => {
       result.current.updateDraft({ subject: "Version 1" });
-      vi.advanceTimersByTime(1500);
+      await vi.advanceTimersByTimeAsync(1500);
     });
 
-    await waitFor(() => expect(insert).toHaveBeenCalledTimes(1));
+    expect(insert).toHaveBeenCalledTimes(1);
 
-    act(() => {
+    await act(async () => {
       result.current.updateDraft({ subject: "Version 2" });
-      vi.advanceTimersByTime(1500);
+      await vi.advanceTimersByTimeAsync(1500);
     });
 
     expect(insert).toHaveBeenCalledTimes(1);
@@ -134,7 +135,7 @@ describe("useDraft", () => {
       await Promise.resolve();
     });
 
-    await waitFor(() => expect(updateEq).toHaveBeenCalledWith("id", "draft-2"));
+    expect(updateEq).toHaveBeenCalledWith("id", "draft-2");
     expect(insert).toHaveBeenCalledTimes(1);
   });
 });
