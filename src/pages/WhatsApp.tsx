@@ -5,6 +5,8 @@ import { WhatsAppConversationList } from "@/components/whatsapp/WhatsAppConversa
 import { WhatsAppConversationDetail } from "@/components/whatsapp/WhatsAppConversationDetail";
 import { NewWhatsAppDialog } from "@/components/whatsapp/NewWhatsAppDialog";
 import { MessageCircle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export default function WhatsApp() {
   const [searchParams] = useSearchParams();
@@ -13,10 +15,22 @@ export default function WhatsApp() {
   );
   const [showNewDialog, setShowNewDialog] = useState(false);
 
+  const handleDelete = async (id: string) => {
+    if (!confirm("Supprimer cette conversation et tous ses messages ?")) return;
+    // Delete messages first, then conversation
+    await supabase.from("whatsapp_messages").delete().eq("conversation_id", id);
+    const { error } = await supabase.from("whatsapp_conversations").delete().eq("id", id);
+    if (error) {
+      toast.error("Erreur lors de la suppression");
+    } else {
+      toast.success("Conversation supprimée");
+      if (selectedConversationId === id) setSelectedConversationId(null);
+    }
+  };
+
   return (
     <AppLayout>
       <div className="flex h-full w-full">
-        {/* Conversation list */}
         <div className="w-[340px] border-r border-border flex flex-col bg-background">
           <WhatsAppConversationList
             selectedId={selectedConversationId}
@@ -25,10 +39,12 @@ export default function WhatsApp() {
           />
         </div>
 
-        {/* Conversation detail */}
         <div className="flex-1 flex flex-col bg-background">
           {selectedConversationId ? (
-            <WhatsAppConversationDetail conversationId={selectedConversationId} />
+            <WhatsAppConversationDetail
+              conversationId={selectedConversationId}
+              onDelete={handleDelete}
+            />
           ) : (
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center">
