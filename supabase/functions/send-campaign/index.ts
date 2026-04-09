@@ -111,6 +111,12 @@ serve(async (req) => {
       const personalizedSubject = replaceVariables(campaign.subject, r);
       let personalizedBody = replaceVariables(campaign.body_html, r);
 
+      // Convert plain text to HTML if body is not already HTML
+      const isAlreadyHtml = /<[a-z][\s\S]*>/i.test(personalizedBody);
+      if (!isAlreadyHtml) {
+        personalizedBody = personalizedBody.replace(/\n/g, "<br>");
+      }
+
       // Inject tracking pixel + rewrite links
       personalizedBody = injectTracking(personalizedBody, campaign_id, r.id, trackingBaseUrl);
 
@@ -126,6 +132,7 @@ serve(async (req) => {
             subject: personalizedSubject,
             body: personalizedBody,
             from_email: campaign.from_email,
+            skip_signature: true,
           }),
         });
 

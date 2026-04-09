@@ -194,7 +194,7 @@ serve(async (req) => {
   }
 
   try {
-    const { to, subject, body, from_email, from_name, attachments, cc, bcc } = await req.json();
+    const { to, subject, body, from_email, from_name, attachments, cc, bcc, skip_signature } = await req.json();
 
     if (!to || !subject || !body || !from_email) {
       return new Response(
@@ -221,8 +221,8 @@ serve(async (req) => {
       );
     }
 
-    // Get signature for this mailbox
-    const signatureHtml = await getSignatureHtml(supabase, mailbox.id);
+    // Get signature for this mailbox (skip for campaign emails)
+    const signatureHtml = skip_signature ? "" : await getSignatureHtml(supabase, mailbox.id);
 
     let serviceAccountKeyStr = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
     if (!serviceAccountKeyStr) throw new Error("GOOGLE_SERVICE_ACCOUNT_KEY not configured");
