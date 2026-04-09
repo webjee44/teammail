@@ -30,6 +30,15 @@ serve(async (req) => {
         });
       }
 
+      // Skip group messages entirely
+      const remoteJidCheck = messages.key?.remoteJid || "";
+      if (remoteJidCheck.endsWith("@g.us")) {
+        console.log("Skipping group message:", remoteJidCheck);
+        return new Response(JSON.stringify({ ok: true, skipped: "group message" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       const key = messages.key;
       const rawMsg = messages.message || {};
       const messageBody = messages.messageBody || rawMsg.conversation || rawMsg.extendedTextMessage?.text || "";
