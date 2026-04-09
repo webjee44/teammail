@@ -264,6 +264,7 @@ export function MessageList({ messages, comments, conversationSubject, currentUs
             </div>
           </>
         )}
+        <div ref={bottomRef} />
       </div>
     </ScrollArea>
   );
