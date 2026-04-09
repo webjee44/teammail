@@ -76,9 +76,35 @@ function decodeBody(data: string | undefined): string {
   }
 }
 
+/** Decode RFC 2047 encoded-words (=?charset?encoding?text?=) in email headers */
+function decodeRfc2047(value: string): string {
+  if (!value) return value;
+  return value.replace(/=\?([^?]+)\?([BbQq])\?([^?]*)\?=/g, (_match, _charset, encoding, text) => {
+    try {
+      if (encoding.toUpperCase() === "B") {
+        // Base64
+        const binary = atob(text);
+        const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+        return new TextDecoder("utf-8").decode(bytes);
+      } else {
+        // Quoted-Printable
+        const decoded = text
+          .replace(/_/g, " ")
+          .replace(/=([0-9A-Fa-f]{2})/g, (_: string, hex: string) =>
+            String.fromCharCode(parseInt(hex, 16))
+          );
+        const bytes = Uint8Array.from(decoded, (c) => c.charCodeAt(0));
+        return new TextDecoder("utf-8").decode(bytes);
+      }
+    } catch {
+      return text;
+    }
+  });
+}
+
 function getHeader(headers: any[], name: string): string | null {
   const h = headers?.find((h: any) => h.name.toLowerCase() === name.toLowerCase());
-  return h?.value ?? null;
+  return h?.value ? decodeRfc2047(h.value) : null;
 }
 
 function parseBody(payload: any): { html: string | null; text: string | null } {
