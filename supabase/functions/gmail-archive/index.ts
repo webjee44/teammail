@@ -87,12 +87,20 @@ serve(async (req) => {
       .from("conversations")
       .select("id, gmail_thread_id, mailbox_id")
       .eq("id", conversation_id)
-      .single();
+      .maybeSingle();
 
-    if (convErr || !conv) {
+    if (convErr) {
       return new Response(
-        JSON.stringify({ error: "Conversation not found" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: convErr.message }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Already deleted or doesn't exist — treat as success
+    if (!conv) {
+      return new Response(
+        JSON.stringify({ success: true, already_gone: true }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
