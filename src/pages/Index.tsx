@@ -172,13 +172,21 @@ const Index = () => {
           let toEmailMap = new Map<string, string>();
           let toNameMap = new Map<string, string>();
           if (ids.length > 0) {
-            const { data: msgs } = await supabase
-              .from("messages")
-              .select("conversation_id, to_email")
-              .in("conversation_id", ids)
-              .eq("is_outbound", true)
-              .order("sent_at", { ascending: true })
-              .limit(5000);
+            // Fetch in batches of conversation IDs to avoid hitting the 1000-row limit
+            const allMsgs: { conversation_id: string; to_email: string | null }[] = [];
+            const BATCH = 50;
+            for (let i = 0; i < ids.length; i += BATCH) {
+              const batch = ids.slice(i, i + BATCH);
+              const { data: batchMsgs } = await supabase
+                .from("messages")
+                .select("conversation_id, to_email")
+                .in("conversation_id", batch)
+                .eq("is_outbound", true)
+                .order("sent_at", { ascending: true })
+                .limit(500);
+              if (batchMsgs) allMsgs.push(...batchMsgs);
+            }
+            const msgs = allMsgs;
             if (msgs) {
               const rawEmails = new Set<string>();
               for (const m of msgs) {
