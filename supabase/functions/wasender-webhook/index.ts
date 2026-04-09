@@ -33,10 +33,13 @@ serve(async (req) => {
       const key = messages.key;
       const rawMsg = messages.message || {};
       const messageBody = messages.messageBody || rawMsg.conversation || rawMsg.extendedTextMessage?.text || "";
-      const fromPhone = key.cleanedSenderPn || key.remoteJid?.replace("@s.whatsapp.net", "").replace("@lid", "") || "";
+      const fromPhone = key.cleanedSenderPn || key.remoteJid?.replace("@s.whatsapp.net", "").replace("@lid", "").replace("@g.us", "") || "";
       const fromMe = key.fromMe || false;
       const remoteJid = key.remoteJid || "";
       const messageId = key.id || "";
+      const isGroup = remoteJid.endsWith("@g.us");
+      // For conversations, use remoteJid as the chat identifier to avoid duplicates
+      const chatId = remoteJid;
 
       // Detect media
       let mediaType: string | null = null;
@@ -115,11 +118,11 @@ serve(async (req) => {
         });
       }
 
-      // Find or create WhatsApp conversation
+      // Look up conversation by wasender_chat_id (the actual chat/group ID) to avoid duplicates
       const { data: existingConv } = await supabase
         .from("whatsapp_conversations")
         .select("id")
-        .eq("phone_number", fromPhone)
+        .eq("wasender_chat_id", chatId)
         .eq("team_id", team.id)
         .maybeSingle();
 
@@ -149,10 +152,10 @@ serve(async (req) => {
           .from("whatsapp_conversations")
           .insert({
             team_id: team.id,
-            phone_number: fromPhone,
-            contact_name: existingContact?.name || messages.pushName || fromPhone,
+            phone_number: isGroup ? remoteJid : fromPhone,
+            contact_name: isGroup ? (messages.groupSubject || remoteJid) : (existingContact?.name || messages.pushName || fromPhone),
             contact_id: existingContact?.id || null,
-            wasender_chat_id: remoteJid,
+            wasender_chat_id: chatId,
             last_message: messageBody || (mediaType ? `[${mediaType}]` : ""),
             last_message_at: new Date().toISOString(),
             is_read: false,
