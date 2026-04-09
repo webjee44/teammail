@@ -305,7 +305,7 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
                 <TemplatePickerDialog
                   open={templateOpen}
                   onOpenChange={setTemplateOpen}
-                  onInsert={(_subject, body) => setReplyHtml(`<p>${body.replace(/\n/g, "</p><p>")}</p>`)}
+                  onInsert={(_subject, body) => setReplyHtml(body)}
                   recipientEmail={recipientEmail}
                 />
               </div>
