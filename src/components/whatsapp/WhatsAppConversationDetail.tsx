@@ -35,6 +35,7 @@ type WAConversation = {
 
 interface Props {
   conversationId: string;
+  onDelete?: (id: string) => void;
 }
 
 function MediaRenderer({ media_type, media_url, body }: { media_type: string; media_url: string; body?: string | null }) {
@@ -73,7 +74,7 @@ function getInitials(name: string): string {
   return name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
 }
 
-export function WhatsAppConversationDetail({ conversationId }: Props) {
+export function WhatsAppConversationDetail({ conversationId, onDelete }: Props) {
   const [conversation, setConversation] = useState<WAConversation | null>(null);
   const [messages, setMessages] = useState<WAMessage[]>([]);
   const [replyText, setReplyText] = useState("");
@@ -228,9 +229,22 @@ export function WhatsAppConversationDetail({ conversationId }: Props) {
           <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg">
             <Phone className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg">
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={() => onDelete?.(conversationId)}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Supprimer la conversation
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
