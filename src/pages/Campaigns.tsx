@@ -218,11 +218,7 @@ export default function Campaigns() {
                 <div
                   key={campaign.id}
                   className="flex items-center gap-4 p-4 rounded-xl border bg-card hover:shadow-md transition-shadow cursor-pointer group"
-                  onClick={() => {
-                    if (campaign.status === "draft" || campaign.status === "paused") {
-                      navigate(`/campaigns/new?id=${campaign.id}`);
-                    }
-                  }}
+                  onClick={() => navigate(`/campaigns/new?id=${campaign.id}`)}
                 >
                   <div className="w-9 h-9 rounded-lg bg-primary/5 flex items-center justify-center shrink-0">
                     <Icon className="h-4 w-4 text-primary" />
