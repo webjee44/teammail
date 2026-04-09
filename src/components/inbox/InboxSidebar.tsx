@@ -286,9 +286,6 @@ export function InboxSidebar() {
                           {item.count > 0 && (
                             <span className="text-xs tabular-nums text-muted-foreground">{item.count}</span>
                           )}
-                          {"shortcut" in item && item.shortcut && (
-                            <span className="text-[10px] text-muted-foreground/50 font-mono">{item.shortcut}</span>
-                          )}
                         </span>
                       )}
                     </NavLink>
