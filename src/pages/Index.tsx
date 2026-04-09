@@ -827,9 +827,16 @@ const Index = () => {
     }
   };
 
+  // In inbox views, hide already-replied conversations by default (unless showReplied is on)
+  const isInboxView = !filter || filter === "mine" || filter === "unassigned";
   const filteredConversations = conversations
     .filter((c) => !hideNoise || !c.is_noise)
-    .filter((c) => !showUnreadOnly || !c.is_read);
+    .filter((c) => !showUnreadOnly || !c.is_read)
+    .filter((c) => {
+      if (!isInboxView || showReplied) return true;
+      // Keep conversations that need a reply (last message is inbound) or where needs_reply is undefined (not yet computed)
+      return c.needs_reply !== false;
+    });
 
   // Bulk action handlers
   const handleBulkToggle = useCallback((id: string) => {
