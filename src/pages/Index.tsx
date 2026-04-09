@@ -371,7 +371,7 @@ const Index = () => {
         }
 
         setConversations(
-          (data || []).map((c: any) => {
+          filteredData.map((c: any) => {
             const isSent = c.from_email && mailboxEmails.has(c.from_email.toLowerCase());
             return {
               id: c.id,
