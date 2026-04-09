@@ -1,49 +1,31 @@
 
 
-# Plan : Tags de contacts + filtre par tag dans les campagnes
+## Plan : Auto-scroll en bas à l'ouverture d'une conversation
 
-## Résumé
+### Problème
+Quand on ouvre une conversation (email ou WhatsApp), la liste de messages s'affiche depuis le haut — il faut scroller manuellement pour voir les derniers messages.
 
-Réutiliser la table `tags` existante (déjà utilisée pour les conversations) et créer une table de liaison `contact_tags` pour associer des tags aux contacts. Dans `/contacts`, on pourra sélectionner plusieurs contacts et leur attribuer un tag (existant ou nouveau). Dans le wizard campagne (étape Destinataires), on pourra filtrer/sélectionner par tag pour charger un groupe entier.
+### Solution
+Ajouter un `useRef` + `useEffect` dans `MessageList.tsx` pour scroller automatiquement en bas de la liste à chaque changement de conversation.
 
-## Base de données
+### Étapes
 
-**Nouvelle table `contact_tags`** (junction) :
-- `contact_id` uuid (ref contacts.id ON DELETE CASCADE)
-- `tag_id` uuid (ref tags.id ON DELETE CASCADE)
-- PRIMARY KEY (contact_id, tag_id)
-- RLS team-scoped (via join sur contacts)
+1. **`src/components/inbox/conversation/MessageList.tsx`**
+   - Ajouter `useRef` pour un élément sentinelle en bas de la liste
+   - Ajouter un `useEffect` qui déclenche `scrollIntoView` quand les messages changent (nouvel ID de conversation)
+   - Placer un `<div ref={bottomRef} />` juste avant la fermeture du `</ScrollArea>`
 
-Pas besoin de modifier la table `tags` existante — elle a déjà `id`, `name`, `color`, `team_id`.
+### Détail technique
+```tsx
+const bottomRef = useRef<HTMLDivElement>(null);
 
-## Modifications UI
+useEffect(() => {
+  // Petit délai pour laisser le DOM se rendre
+  setTimeout(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "instant" });
+  }, 50);
+}, [messages]);
+```
 
-### 1. Page `/contacts` — Sélection multiple + attribution de tags
-
-- Ajouter un mode sélection avec checkboxes sur chaque contact
-- Barre d'actions en haut quand des contacts sont sélectionnés : "Ajouter un tag" (ouvre un popover avec les tags existants + création rapide)
-- Afficher les tags de chaque contact dans la liste (petits badges colorés)
-- Filtre par tag dans la barre de recherche (dropdown ou badges cliquables)
-- Dans le panneau de détail du contact, section "Tags" avec possibilité d'ajouter/retirer
-
-### 2. Wizard campagne — Étape Destinataires
-
-- Ajouter un filtre par tag au-dessus de la liste des contacts (badges cliquables des tags disponibles)
-- Cliquer sur un tag filtre la liste ET pré-sélectionne tous les contacts de ce tag
-- Bouton "Sélectionner par tag" pour charger un groupe entier d'un coup
-
-## Fichiers impactés
-
-| Fichier | Changement |
-|---------|-----------|
-| Migration SQL | Créer `contact_tags` + RLS |
-| `src/pages/Contacts.tsx` | Mode sélection, attribution de tags, affichage tags, filtre par tag |
-| `src/components/campaigns/CampaignStepRecipients.tsx` | Filtre et sélection par tag |
-
-## Détails techniques
-
-- Les tags sont partagés entre conversations et contacts (même table `tags`)
-- La sélection multiple dans `/contacts` utilise un `Set<string>` d'IDs sélectionnés
-- Le popover d'attribution de tag permet de créer un nouveau tag à la volée
-- Dans le wizard campagne, les tags sont chargés avec un count de contacts associés pour guider l'utilisateur
+Le `behavior: "instant"` évite une animation lente au chargement. Le WhatsApp (`WhatsAppConversationDetail.tsx`) a déjà ce comportement — seule la vue email est concernée.
 
