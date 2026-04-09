@@ -33,10 +33,13 @@ serve(async (req) => {
       const key = messages.key;
       const rawMsg = messages.message || {};
       const messageBody = messages.messageBody || rawMsg.conversation || rawMsg.extendedTextMessage?.text || "";
-      const fromPhone = key.cleanedSenderPn || key.remoteJid?.replace("@s.whatsapp.net", "").replace("@lid", "") || "";
+      const fromPhone = key.cleanedSenderPn || key.remoteJid?.replace("@s.whatsapp.net", "").replace("@lid", "").replace("@g.us", "") || "";
       const fromMe = key.fromMe || false;
       const remoteJid = key.remoteJid || "";
       const messageId = key.id || "";
+      const isGroup = remoteJid.endsWith("@g.us");
+      // For conversations, use remoteJid as the chat identifier to avoid duplicates
+      const chatId = remoteJid;
 
       // Detect media
       let mediaType: string | null = null;
