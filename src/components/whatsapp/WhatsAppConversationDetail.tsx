@@ -3,8 +3,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Send, Phone, MoreHorizontal, Paperclip, X, FileText, Download, Check, CheckCheck } from "lucide-react";
+import { Send, Phone, MoreHorizontal, Paperclip, X, FileText, Download, Check, CheckCheck, Trash2 } from "lucide-react";
 import { format } from "date-fns";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
