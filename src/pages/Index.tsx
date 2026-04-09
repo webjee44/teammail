@@ -125,6 +125,8 @@ const Index = () => {
             snippet: d.body?.slice(0, 100) || null,
             from_email: d.from_email,
             from_name: null,
+            to_email: d.to_email || null,
+            to_name: null,
             status: "open" as const,
             assigned_to: null,
             is_read: true,
@@ -135,6 +137,7 @@ const Index = () => {
             ai_summary: null,
             category: null,
             entities: null,
+            is_sent: true,
           }))
         );
         setLoading(false);
