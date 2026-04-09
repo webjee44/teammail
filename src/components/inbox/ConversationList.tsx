@@ -22,6 +22,7 @@ export type Conversation = {
   from_email: string | null;
   from_name: string | null;
   to_email?: string | null;
+  to_name?: string | null;
   status: "open" | "closed";
   assigned_to: string | null;
   is_read: boolean;
