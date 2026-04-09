@@ -288,7 +288,7 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
                         created_by: u.id,
                         name,
                         subject: replySubject,
-                        body: plainBody,
+                        body: replyHtml,
                       });
                       if (error) throw error;
                       toast.success("Template créé !");
