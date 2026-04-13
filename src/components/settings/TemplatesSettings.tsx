@@ -142,10 +142,11 @@ export function TemplatesSettings() {
         if (error) throw error;
         toast.success("Template mis à jour");
       } else {
+        const bodyToSave = formBodyRef.current || formBody;
         const { error } = await supabase.from("email_templates").insert({
           name: formName.trim(),
           subject: formSubject.trim(),
-          body: formBody,
+          body: bodyToSave,
           category: formCategory.trim() || null,
           is_shared: formShared,
           team_id: profile.team_id,
