@@ -3,12 +3,12 @@ import {
   UserPlus, Tag, Clock, CheckCircle, MessageSquare, Send,
   MoreHorizontal, Sparkles, ChevronDown, ChevronUp, User,
   Building2, DollarSign, CalendarDays, ArrowUp, ArrowRight,
-  ArrowDown, Loader2, Trash2, Pencil, Check, X, Contact,
+  ArrowDown, Loader2, Trash2, Pencil, Check, X, Contact, UserMinus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
@@ -21,11 +21,19 @@ import { toast } from "sonner";
 import { decodeHtml, categoryLabels, type ConversationDetailData } from "./types";
 import { ResponseTimeBadge } from "../ResponseTimeBadge";
 import { calcResponseTimes } from "@/lib/response-time";
+import { useAuth } from "@/hooks/useAuth";
 
 const priorityIcons: Record<string, { icon: typeof ArrowUp; className: string; label: string }> = {
   high: { icon: ArrowUp, className: "text-destructive", label: "Haute" },
   medium: { icon: ArrowRight, className: "text-amber-500", label: "Moyenne" },
   low: { icon: ArrowDown, className: "text-muted-foreground", label: "Basse" },
+};
+
+type TeamMember = {
+  user_id: string;
+  full_name: string | null;
+  email: string | null;
+  avatar_url: string | null;
 };
 
 type Props = {
@@ -34,6 +42,7 @@ type Props = {
   onDelete?: (id: string) => void;
   onReplyClick: () => void;
   onSelectConversation?: (id: string) => void;
+  onAssign?: (conversationId: string, userId: string | null) => void;
 };
 
 export function ConversationHeader({ conversation, onStatusChange, onDelete, onReplyClick, onSelectConversation }: Props) {
