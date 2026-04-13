@@ -185,7 +185,7 @@ export function ConversationHeader({ conversation, onStatusChange, onDelete, onR
         )}
 
         {/* Compact icon actions */}
-        <div className="flex items-center gap-0.5 shrink-0">
+        <div className="flex items-center gap-0.5 shrink-0 mr-8">
           {contactEmail && (
             <Tooltip>
               <TooltipTrigger asChild>
