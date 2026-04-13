@@ -459,6 +459,7 @@ export type Database = {
           last_message_at: string
           mailbox_id: string | null
           priority: string | null
+          seq_number: number
           snippet: string | null
           snoozed_until: string | null
           status: Database["public"]["Enums"]["conversation_status"]
@@ -482,6 +483,7 @@ export type Database = {
           last_message_at?: string
           mailbox_id?: string | null
           priority?: string | null
+          seq_number: number
           snippet?: string | null
           snoozed_until?: string | null
           status?: Database["public"]["Enums"]["conversation_status"]
@@ -505,6 +507,7 @@ export type Database = {
           last_message_at?: string
           mailbox_id?: string | null
           priority?: string | null
+          seq_number?: number
           snippet?: string | null
           snoozed_until?: string | null
           status?: Database["public"]["Enums"]["conversation_status"]
