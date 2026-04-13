@@ -86,11 +86,10 @@ export function InboxSidebar() {
     const fetchData = async () => {
       if (!user) return;
 
-      const [convRes, draftRes, schedRes, sentRes, mbRes, tagRes, waRes] = await Promise.all([
+      const [convRes, draftRes, schedRes, mbRes, tagRes, waRes] = await Promise.all([
         supabase.from("conversations").select("id, status, assigned_to, mailbox_id, is_noise"),
         supabase.from("drafts").select("id, from_email").is("conversation_id", null).eq("created_by", user.id),
         supabase.from("scheduled_emails").select("id, from_email").eq("status", "pending"),
-        supabase.rpc("get_sent_conversation_ids"),
         supabase.from("team_mailboxes").select("id, email, label").order("email"),
         supabase.from("tags").select("id, name, color").order("name"),
         supabase.from("whatsapp_conversations").select("id", { count: "exact", head: true }).eq("is_read", false).eq("status", "open"),
@@ -99,7 +98,6 @@ export function InboxSidebar() {
       if (convRes.data) setConversations(convRes.data);
       if (draftRes.data) setDrafts(draftRes.data);
       if (schedRes.data) setScheduledEmails(schedRes.data);
-      setSentConversationIds((sentRes.data || []).map((row: { conversation_id: string }) => row.conversation_id));
       if (mbRes.data) setMailboxes(mbRes.data);
       if (tagRes.data) setTags(tagRes.data);
       setWaUnread(waRes.count || 0);
