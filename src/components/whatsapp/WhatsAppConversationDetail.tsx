@@ -3,12 +3,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Send, Phone, MoreHorizontal, Paperclip, X, FileText, Download, Check, CheckCheck, Trash2 } from "lucide-react";
+import { Send, Phone, MoreHorizontal, Paperclip, X, FileText, Download, Check, CheckCheck, Trash2, UserPlus, UserMinus } from "lucide-react";
 import { format } from "date-fns";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { fr } from "date-fns/locale";
@@ -30,7 +31,14 @@ type WAConversation = {
   id: string;
   phone_number: string;
   contact_name: string | null;
+  assigned_to: string | null;
   contacts: { name: string | null } | null;
+};
+
+type TeamMember = {
+  user_id: string;
+  full_name: string | null;
+  email: string | null;
 };
 
 interface Props {
