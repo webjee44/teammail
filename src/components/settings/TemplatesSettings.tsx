@@ -296,7 +296,7 @@ export function TemplatesSettings() {
 
             <Button
               onClick={handleSave}
-              disabled={!formName.trim() || !formBody.trim() || saving}
+              disabled={!formName.trim() || !formBody.replace(/<[^>]*>/g, '').trim() || saving}
               className="gap-2"
             >
               {saving && <Loader2 className="h-4 w-4 animate-spin" />}
