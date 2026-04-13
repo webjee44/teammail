@@ -305,7 +305,7 @@ export function InboxSidebar() {
                       <SidebarMenuButton asChild className="h-7">
                         <NavLink
                           to={`/?tag=${tag.id}${activeMailbox ? `&mailbox=${activeMailbox}` : ""}`}
-                          className="sidebar-item"
+                          className="sidebar-item text-base"
                           activeClassName="sidebar-item-active"
                         >
                           <span className="flex items-center gap-2">
@@ -339,7 +339,7 @@ export function InboxSidebar() {
                 <SidebarMenuButton asChild className="h-7">
                   <NavLink
                     to="/whatsapp"
-                    className="sidebar-item"
+                    className="sidebar-item text-base"
                     activeClassName="sidebar-item-active"
                   >
                     <span className="flex items-center gap-2">
@@ -372,7 +372,7 @@ export function InboxSidebar() {
                   <SidebarMenuButton asChild className="h-7">
                     <NavLink
                       to={item.url}
-                      className="sidebar-item"
+                      className="sidebar-item text-base"
                       activeClassName="sidebar-item-active"
                     >
                       <span className="flex items-center gap-2">
