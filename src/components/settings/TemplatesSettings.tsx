@@ -53,6 +53,7 @@ export function TemplatesSettings() {
   const [formName, setFormName] = useState("");
   const [formSubject, setFormSubject] = useState("");
   const [formBody, setFormBody] = useState("");
+  const formBodyRef = useRef("");
   const [formCategory, setFormCategory] = useState("");
   const [formShared, setFormShared] = useState(true);
   const [showPreview, setShowPreview] = useState(false);
