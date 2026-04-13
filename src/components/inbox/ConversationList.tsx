@@ -169,13 +169,26 @@ export function ConversationList({
       ) : (
         <div className="flex-1 overflow-y-auto">
           <div className="divide-y divide-border">
-            {[...conversations].sort((a, b) => {
-              const aUrgent = a.needs_reply && (a.priority === "high" || (responseTimes?.has(a.id) && (responseTimes.get(a.id)! > 60)));
-              const bUrgent = b.needs_reply && (b.priority === "high" || (responseTimes?.has(b.id) && (responseTimes.get(b.id)! > 60)));
-              if (aUrgent && !bUrgent) return -1;
-              if (!aUrgent && bUrgent) return 1;
-              return 0;
-            }).map((conv) => {
+            {(() => {
+              const sorted = [...conversations].sort((a, b) => {
+                const aUrgent = a.needs_reply && (a.priority === "high" || (responseTimes?.has(a.id) && (responseTimes.get(a.id)! > 60)));
+                const bUrgent = b.needs_reply && (b.priority === "high" || (responseTimes?.has(b.id) && (responseTimes.get(b.id)! > 60)));
+                if (aUrgent && !bUrgent) return -1;
+                if (!aUrgent && bUrgent) return 1;
+                return 0;
+              });
+              const urgentCount = sorted.filter(c => c.needs_reply && (c.priority === "high" || (responseTimes?.has(c.id) && (responseTimes.get(c.id)! > 60)))).length;
+              return sorted.map((conv, idx) => {
+                const showSeparator = urgentCount > 0 && idx === urgentCount;
+            return (<>
+              {showSeparator && (
+                <div key="urgent-sep" className="flex items-center gap-2 px-3 py-1 bg-muted/50">
+                  <div className="flex-1 h-px bg-border" />
+                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Autres</span>
+                  <div className="flex-1 h-px bg-border" />
+                </div>
+              )}
+              {(() => {
               // For sent conversations, display recipient instead of sender
               const displayName = conv.is_sent
                 ? (conv.to_name || conv.to_email || "Unknown")
@@ -332,7 +345,10 @@ export function ConversationList({
                   </button>
                 </div>
               );
-            })}
+              })()}
+            </>);
+              });
+            })()}
           </div>
         </div>
       )}
