@@ -1021,17 +1021,10 @@ const Index = () => {
             selectedId={selectedId}
             onSelect={handleSelectConversation}
             loading={loading}
-            hideNoise={hideNoise}
-            onToggleNoise={() => setHideNoise(!hideNoise)}
-            noiseCount={noiseCount}
-            showAllMails={mailboxId ? showAllMails : undefined}
-            onToggleAllMails={mailboxId ? () => setShowAllMails(!showAllMails) : undefined}
-            showUnreadOnly={showUnreadOnly}
-            onToggleUnreadOnly={() => setShowUnreadOnly(!showUnreadOnly)}
-            unreadCount={conversations.filter((c) => c.status === "open" && !c.is_noise && c.needs_reply !== false && !c.is_read).length}
-            showReplied={isInboxView ? showReplied : undefined}
-            onToggleReplied={isInboxView ? () => setShowReplied(!showReplied) : undefined}
-            repliedCount={repliedCount}
+            activeFilter={activeFilter}
+            onFilterChange={setActiveFilter}
+            filterCounts={filterCounts}
+            showFilters={isInboxView}
             bulkSelected={bulkSelected}
             onBulkToggle={handleBulkToggle}
             onBulkSelectAll={handleBulkSelectAll}
