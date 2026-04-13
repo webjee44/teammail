@@ -955,8 +955,13 @@ const Index = () => {
           </button>
           <div className="flex items-center gap-1.5 shrink-0">
             <NotificationBell onSelectConversation={(id) => { setSelectedId(id); }} />
+            {isInboxView && actionableCount > 0 && (
+              <span className="text-xs font-medium text-primary">
+                {actionableCount} à traiter
+              </span>
+            )}
             <span className="text-xs text-muted-foreground">
-              {totalCount} conv.
+              {totalCount} affichée{totalCount !== 1 ? "s" : ""}
             </span>
           </div>
         </div>
