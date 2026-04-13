@@ -458,6 +458,7 @@ const Index = () => {
       setLoading(false);
     };
 
+    refetchRef.current = fetchConversations;
     fetchConversations();
   }, [filter, mailboxId, user?.id]);
 
