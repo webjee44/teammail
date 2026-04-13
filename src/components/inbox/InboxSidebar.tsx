@@ -4,7 +4,6 @@ import {
   Inbox,
   User,
   Users,
-  CheckCircle,
   Settings,
   BarChart3,
   Zap,
@@ -14,7 +13,6 @@ import {
   FileEdit,
   Keyboard,
   Mail,
-  SendHorizonal,
   MessageCircle,
   Megaphone,
   X,
@@ -80,7 +78,6 @@ export function InboxSidebar() {
   const [conversations, setConversations] = useState<ConversationCounter[]>([]);
   const [drafts, setDrafts] = useState<MailboxScopedEmail[]>([]);
   const [scheduledEmails, setScheduledEmails] = useState<MailboxScopedEmail[]>([]);
-  const [sentConversationIds, setSentConversationIds] = useState<string[]>([]);
   const [waUnread, setWaUnread] = useState(0);
   const [tags, setTags] = useState<{ id: string; name: string; color: string }[]>([]);
   const [mailboxes, setMailboxes] = useState<{ id: string; email: string; label: string | null }[]>([]);
@@ -89,11 +86,10 @@ export function InboxSidebar() {
     const fetchData = async () => {
       if (!user) return;
 
-      const [convRes, draftRes, schedRes, sentRes, mbRes, tagRes, waRes] = await Promise.all([
+      const [convRes, draftRes, schedRes, mbRes, tagRes, waRes] = await Promise.all([
         supabase.from("conversations").select("id, status, assigned_to, mailbox_id, is_noise"),
         supabase.from("drafts").select("id, from_email").is("conversation_id", null).eq("created_by", user.id),
         supabase.from("scheduled_emails").select("id, from_email").eq("status", "pending"),
-        supabase.rpc("get_sent_conversation_ids"),
         supabase.from("team_mailboxes").select("id, email, label").order("email"),
         supabase.from("tags").select("id, name, color").order("name"),
         supabase.from("whatsapp_conversations").select("id", { count: "exact", head: true }).eq("is_read", false).eq("status", "open"),
@@ -102,7 +98,6 @@ export function InboxSidebar() {
       if (convRes.data) setConversations(convRes.data);
       if (draftRes.data) setDrafts(draftRes.data);
       if (schedRes.data) setScheduledEmails(schedRes.data);
-      setSentConversationIds((sentRes.data || []).map((row: { conversation_id: string }) => row.conversation_id));
       if (mbRes.data) setMailboxes(mbRes.data);
       if (tagRes.data) setTags(tagRes.data);
       setWaUnread(waRes.count || 0);
@@ -122,7 +117,6 @@ export function InboxSidebar() {
       : conversations;
 
     const mailboxScopedEmail = activeMailboxData?.email ?? null;
-    const mailboxConversationIds = new Set(mailboxScopedConversations.map((conversation) => conversation.id));
 
     return {
       open: mailboxScopedConversations.filter((c) => c.status === "open" && !c.is_noise).length,
@@ -132,18 +126,14 @@ export function InboxSidebar() {
       unassigned: mailboxScopedConversations.filter(
         (c) => c.status === "open" && !c.is_noise && !c.assigned_to,
       ).length,
-      closed: mailboxScopedConversations.filter((c) => c.status === "closed").length,
       drafts: mailboxScopedEmail
         ? drafts.filter((draft) => draft.from_email === mailboxScopedEmail).length
         : drafts.length,
       scheduled: mailboxScopedEmail
         ? scheduledEmails.filter((email) => email.from_email === mailboxScopedEmail).length
         : scheduledEmails.length,
-      sent: activeMailbox
-        ? sentConversationIds.filter((conversationId) => mailboxConversationIds.has(conversationId)).length
-        : sentConversationIds.length,
     };
-  }, [activeMailbox, activeMailboxData, conversations, drafts, scheduledEmails, sentConversationIds, user?.id]);
+  }, [activeMailbox, activeMailboxData, conversations, drafts, scheduledEmails, user?.id]);
 
   const selectMailbox = (mbId: string | null) => {
     const params = new URLSearchParams(searchParams);
@@ -164,8 +154,6 @@ export function InboxSidebar() {
     { title: "Boîte de réception", url: `/${activeMailbox ? `?mailbox=${activeMailbox}` : ""}`, icon: Inbox, count: counts.open },
     { title: "Assigné à moi", url: `/?filter=mine${mbSuffix}`, icon: User, count: counts.mine },
     { title: "Non assigné", url: `/?filter=unassigned${mbSuffix}`, icon: Users, count: counts.unassigned },
-    { title: "Fermé", url: `/?filter=closed${mbSuffix}`, icon: CheckCircle, count: counts.closed },
-    { title: "Envoyés", url: `/?filter=sent${mbSuffix}`, icon: SendHorizonal, count: counts.sent },
     { title: "Brouillons", url: `/?filter=drafts${mbSuffix}`, icon: FileEdit, count: counts.drafts },
     { title: "Programmés", url: "/scheduled", icon: Mail, count: counts.scheduled },
   ];
