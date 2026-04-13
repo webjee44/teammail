@@ -140,7 +140,7 @@ export function ConversationList({
                   key={key}
                   onClick={() => onFilterChange(key)}
                   className={cn(
-                    "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium transition-colors",
+                    "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-sm font-medium transition-colors",
                     isActive
                       ? "bg-primary text-primary-foreground"
                       : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
