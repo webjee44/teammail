@@ -836,16 +836,38 @@ const Index = () => {
     }
   };
 
-  // In inbox views, hide already-replied conversations by default (unless showReplied is on)
-  const isInboxView = !filter || filter === "mine" || filter === "unassigned";
-  const filteredConversations = conversations
-    .filter((c) => !hideNoise || !c.is_noise)
-    .filter((c) => !showUnreadOnly || !c.is_read)
-    .filter((c) => {
-      if (!isInboxView || showReplied) return true;
-      // Keep conversations that need a reply (last message is inbound) or where needs_reply is undefined (not yet computed)
-      return c.needs_reply !== false;
-    });
+  // Compute counts from all conversations (before filtering)
+  const inboxCounts = computeInboxCounts(conversations.map(c => ({
+    id: c.id,
+    status: c.status,
+    is_noise: c.is_noise ?? false,
+    is_read: c.is_read,
+    needs_reply: c.needs_reply,
+    assigned_to: c.assigned_to,
+  })));
+
+  const filterCounts = {
+    actionable: inboxCounts.actionable,
+    unread: inboxCounts.unread,
+    replied: inboxCounts.replied,
+    noise: inboxCounts.noise,
+  };
+
+  // Apply active filter
+  const filteredConversations = conversations.filter((c) => {
+    switch (activeFilter) {
+      case "actionable":
+        return c.status === "open" && !c.is_noise && c.needs_reply !== false;
+      case "unread":
+        return c.status === "open" && !c.is_noise && c.needs_reply !== false && !c.is_read;
+      case "replied":
+        return c.status === "open" && !c.is_noise && c.needs_reply === false;
+      case "noise":
+        return c.is_noise;
+      default:
+        return true;
+    }
+  });
 
   // Bulk action handlers
   const handleBulkToggle = useCallback((id: string) => {
