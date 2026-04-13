@@ -185,7 +185,24 @@ export function ConversationHeader({ conversation, onStatusChange, onDelete, onR
         )}
 
         {/* Compact icon actions */}
-        <div className="flex items-center gap-0.5 shrink-0 mr-8">
+        <div className="flex items-center gap-1 shrink-0 mr-8">
+          {/* Quick "Traité" button */}
+          {conversation.status === "open" && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1.5 text-xs font-medium border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-950"
+                  onClick={() => onStatusChange?.(conversation.id, "closed")}
+                >
+                  <CheckCircle className="h-3.5 w-3.5" />
+                  Traité
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Marquer comme traité et retirer du backlog</TooltipContent>
+            </Tooltip>
+          )}
           {contactEmail && (
             <Tooltip>
               <TooltipTrigger asChild>
