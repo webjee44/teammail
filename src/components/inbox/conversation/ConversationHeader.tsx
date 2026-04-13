@@ -186,6 +186,45 @@ export function ConversationHeader({ conversation, onStatusChange, onDelete, onR
               <Contact className="h-4 w-4" /> Contact
             </Button>
           )}
+          {/* Assignment dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-9 px-4 font-semibold gap-1.5" disabled={assigning}>
+                {assigning ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+                {conversation.assignee_name || "Assigner"}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              {/* Assign to me shortcut */}
+              {user && (
+                <DropdownMenuItem onClick={() => handleAssign(user.id)}>
+                  <User className="h-4 w-4 mr-2 text-primary" /> M'assigner
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              {teamMembers.map((member) => (
+                <DropdownMenuItem
+                  key={member.user_id}
+                  onClick={() => handleAssign(member.user_id)}
+                  className={cn(conversation.assigned_to === member.user_id && "bg-accent")}
+                >
+                  <User className="h-4 w-4 mr-2" />
+                  {member.full_name || member.email || "Sans nom"}
+                  {conversation.assigned_to === member.user_id && (
+                    <Check className="h-3.5 w-3.5 ml-auto text-primary" />
+                  )}
+                </DropdownMenuItem>
+              ))}
+              {conversation.assigned_to && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => handleAssign(null)} className="text-destructive">
+                    <UserMinus className="h-4 w-4 mr-2" /> Retirer l'assignation
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button variant="outline" size="sm" className="h-9 px-4 font-semibold gap-1.5" onClick={() => onDelete?.(conversation.id)}>
             <Trash2 className="h-4 w-4" /> Archiver
           </Button>
