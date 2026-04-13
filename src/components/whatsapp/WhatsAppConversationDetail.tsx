@@ -89,16 +89,38 @@ export function WhatsAppConversationDetail({ conversationId, onDelete }: Props) 
   const [sending, setSending] = useState(false);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [attachedPreview, setAttachedPreview] = useState<string | null>(null);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [assigning, setAssigning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const fetchData = async () => {
-    const [{ data: conv }, { data: msgs }] = await Promise.all([
-      supabase.from("whatsapp_conversations").select("id, phone_number, contact_name, contacts(name)").eq("id", conversationId).single(),
+    const [{ data: conv }, { data: msgs }, { data: members }] = await Promise.all([
+      supabase.from("whatsapp_conversations").select("id, phone_number, contact_name, assigned_to, contacts(name)").eq("id", conversationId).single(),
       supabase.from("whatsapp_messages").select("id, body, media_type, media_url, is_outbound, from_name, from_phone, sent_at").eq("conversation_id", conversationId).order("sent_at", { ascending: true }),
+      supabase.from("profiles").select("user_id, full_name, email"),
     ]);
     if (conv) setConversation(conv as unknown as WAConversation);
     if (msgs) setMessages(msgs);
+    if (members) setTeamMembers(members);
+  };
+
+  const handleAssign = async (userId: string | null) => {
+    setAssigning(true);
+    try {
+      const { error } = await supabase
+        .from("whatsapp_conversations")
+        .update({ assigned_to: userId })
+        .eq("id", conversationId);
+      if (error) throw error;
+      setConversation((prev) => prev ? { ...prev, assigned_to: userId } : prev);
+      const member = teamMembers.find((m) => m.user_id === userId);
+      toast.success(userId ? `Assigné à ${member?.full_name || member?.email}` : "Assignation retirée");
+    } catch (err: any) {
+      toast.error("Erreur : " + (err.message || String(err)));
+    } finally {
+      setAssigning(false);
+    }
   };
 
   useEffect(() => {
