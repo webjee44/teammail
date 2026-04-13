@@ -46,11 +46,8 @@ const Index = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
-  const [hideNoise, setHideNoise] = useState(true);
+  const [activeFilter, setActiveFilter] = useState<"actionable" | "unread" | "replied" | "noise">("actionable");
   const [commandOpen, setCommandOpen] = useState(false);
-  const [showAllMails, setShowAllMails] = useState(false);
-  const [showUnreadOnly, setShowUnreadOnly] = useState(true);
-  const [showReplied, setShowReplied] = useState(false);
   const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
   const [freshlyUpdated, setFreshlyUpdated] = useState<Set<string>>(new Set());
