@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { ConversationList, Conversation } from "@/components/inbox/ConversationList";
+import { ConversationList, Conversation, InboxFilter } from "@/components/inbox/ConversationList";
+import { computeInboxCounts } from "@/lib/inbox-metrics";
 import { ConversationDetail } from "@/components/inbox/ConversationDetail";
 import { CommandMenu } from "@/components/inbox/CommandMenu";
 import { Sheet, SheetContent } from "@/components/ui/sheet";

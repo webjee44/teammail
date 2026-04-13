@@ -78,22 +78,22 @@ const categoryLabels: Record<string, string> = {
   other: "Autre",
 };
 
+const filterConfig: { key: InboxFilter; label: string }[] = [
+  { key: "actionable", label: "À traiter" },
+  { key: "unread", label: "Non lus" },
+  { key: "replied", label: "Déjà répondus" },
+  { key: "noise", label: "Ignorés" },
+];
+
 export function ConversationList({
   conversations,
   selectedId,
   onSelect,
   loading,
-  hideNoise,
-  onToggleNoise,
-  noiseCount,
-  showAllMails,
-  onToggleAllMails,
-  showUnreadOnly,
-  onToggleUnreadOnly,
-  unreadCount,
-  showReplied,
-  onToggleReplied,
-  repliedCount,
+  activeFilter,
+  onFilterChange,
+  filterCounts,
+  showFilters = true,
   bulkSelected,
   onBulkToggle,
   onBulkSelectAll,
@@ -111,12 +111,11 @@ export function ConversationList({
     );
   }
 
-  const hasToggles = (noiseCount ?? 0) > 0 || showAllMails !== undefined || onToggleUnreadOnly || onToggleReplied;
   const allSelected = conversations.length > 0 && bulkSelected.size === conversations.length;
 
   return (
     <div className="flex flex-col h-full">
-      {/* Bulk select header */}
+      {/* Bulk select + filter chips */}
       <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border bg-muted/30">
         <Checkbox
           checked={allSelected}
@@ -131,61 +130,34 @@ export function ConversationList({
           {bulkMode ? `${bulkSelected.size} sélectionné(s)` : "Sélectionner"}
         </span>
 
-        {/* Filter toggles */}
-        {hasToggles && (
-          <div className="flex items-center gap-3 ml-auto">
-            {(noiseCount ?? 0) > 0 && (
-              <label htmlFor="hide-noise" className="flex items-center gap-1.5 cursor-pointer">
-                <Switch
-                  id="hide-noise"
-                  checked={hideNoise}
-                  onCheckedChange={onToggleNoise}
-                  className="scale-75"
-                />
-                <span className="text-xs text-muted-foreground whitespace-nowrap">
-                  Bruit ({noiseCount})
-                </span>
-              </label>
-            )}
-            {showAllMails !== undefined && (
-              <label htmlFor="show-all" className="flex items-center gap-1.5 cursor-pointer">
-                <Switch
-                  id="show-all"
-                  checked={showAllMails}
-                  onCheckedChange={onToggleAllMails}
-                  className="scale-75"
-                />
-                <span className="text-xs text-muted-foreground whitespace-nowrap">
-                  Tous les mails
-                </span>
-              </label>
-            )}
-            {onToggleUnreadOnly && (
-              <label htmlFor="unread-only" className="flex items-center gap-1.5 cursor-pointer">
-                <Switch
-                  id="unread-only"
-                  checked={showUnreadOnly}
-                  onCheckedChange={onToggleUnreadOnly}
-                  className="scale-75"
-                />
-                <span className="text-xs text-muted-foreground whitespace-nowrap">
-                  Non lus{unreadCount != null ? ` (${unreadCount})` : ''}
-                </span>
-              </label>
-            )}
-            {onToggleReplied && (
-              <label htmlFor="show-replied" className="flex items-center gap-1.5 cursor-pointer">
-                <Switch
-                  id="show-replied"
-                  checked={showReplied}
-                  onCheckedChange={onToggleReplied}
-                  className="scale-75"
-                />
-                <span className="text-xs text-muted-foreground whitespace-nowrap">
-                  Répondus{repliedCount != null ? ` (${repliedCount})` : ''}
-                </span>
-              </label>
-            )}
+        {showFilters && (
+          <div className="flex items-center gap-1 ml-auto">
+            {filterConfig.map(({ key, label }) => {
+              const count = filterCounts[key];
+              const isActive = activeFilter === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => onFilterChange(key)}
+                  className={cn(
+                    "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium transition-colors",
+                    isActive
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  )}
+                >
+                  {label}
+                  {count > 0 && (
+                    <span className={cn(
+                      "text-[10px]",
+                      isActive ? "text-primary-foreground/80" : "text-muted-foreground/70"
+                    )}>
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
