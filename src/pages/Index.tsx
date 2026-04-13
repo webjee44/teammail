@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { ConversationList, Conversation } from "@/components/inbox/ConversationList";
+import { ConversationList, Conversation, InboxFilter } from "@/components/inbox/ConversationList";
+import { computeInboxCounts } from "@/lib/inbox-metrics";
 import { ConversationDetail } from "@/components/inbox/ConversationDetail";
 import { CommandMenu } from "@/components/inbox/CommandMenu";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -46,11 +47,8 @@ const Index = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
-  const [hideNoise, setHideNoise] = useState(true);
+  const [activeFilter, setActiveFilter] = useState<"actionable" | "unread" | "replied" | "noise">("actionable");
   const [commandOpen, setCommandOpen] = useState(false);
-  const [showAllMails, setShowAllMails] = useState(false);
-  const [showUnreadOnly, setShowUnreadOnly] = useState(true);
-  const [showReplied, setShowReplied] = useState(false);
   const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
   const [freshlyUpdated, setFreshlyUpdated] = useState<Set<string>>(new Set());
@@ -281,10 +279,8 @@ const Index = () => {
         .select("*")
         .order("last_message_at", { ascending: false });
 
-      // Apply filter — skip status filter when showing all mails for a mailbox
-      if (mailboxId && showAllMails) {
-        // No status filter — show all
-      } else if (filter === "closed") {
+      // Apply filter
+      if (filter === "closed") {
         query = query.eq("status", "closed");
       } else if (filter === "mine") {
         query = query.eq("status", "open").eq("assigned_to", user?.id ?? "");
@@ -459,7 +455,7 @@ const Index = () => {
     };
 
     fetchConversations();
-  }, [filter, mailboxId, user?.id, showAllMails]);
+  }, [filter, mailboxId, user?.id]);
 
   // Fetch messages & comments when conversation is selected
   const fetchDetail = useCallback(async (convId: string) => {
@@ -838,16 +834,38 @@ const Index = () => {
     }
   };
 
-  // In inbox views, hide already-replied conversations by default (unless showReplied is on)
-  const isInboxView = !filter || filter === "mine" || filter === "unassigned";
-  const filteredConversations = conversations
-    .filter((c) => !hideNoise || !c.is_noise)
-    .filter((c) => !showUnreadOnly || !c.is_read)
-    .filter((c) => {
-      if (!isInboxView || showReplied) return true;
-      // Keep conversations that need a reply (last message is inbound) or where needs_reply is undefined (not yet computed)
-      return c.needs_reply !== false;
-    });
+  // Compute counts from all conversations (before filtering)
+  const inboxCounts = computeInboxCounts(conversations.map(c => ({
+    id: c.id,
+    status: c.status,
+    is_noise: c.is_noise ?? false,
+    is_read: c.is_read,
+    needs_reply: c.needs_reply,
+    assigned_to: c.assigned_to,
+  })));
+
+  const filterCounts = {
+    actionable: inboxCounts.actionable,
+    unread: inboxCounts.unread,
+    replied: inboxCounts.replied,
+    noise: inboxCounts.noise,
+  };
+
+  // Apply active filter
+  const filteredConversations = conversations.filter((c) => {
+    switch (activeFilter) {
+      case "actionable":
+        return c.status === "open" && !c.is_noise && c.needs_reply !== false;
+      case "unread":
+        return c.status === "open" && !c.is_noise && c.needs_reply !== false && !c.is_read;
+      case "replied":
+        return c.status === "open" && !c.is_noise && c.needs_reply === false;
+      case "noise":
+        return c.is_noise;
+      default:
+        return true;
+    }
+  });
 
   // Bulk action handlers
   const handleBulkToggle = useCallback((id: string) => {
@@ -935,9 +953,7 @@ const Index = () => {
   };
 
   const totalCount = filteredConversations.length;
-  const noiseCount = conversations.filter((c) => c.is_noise).length;
-  const repliedCount = isInboxView ? conversations.filter((c) => c.status === "open" && !c.is_noise && c.needs_reply === false).length : 0;
-  const actionableCount = conversations.filter((c) => c.status === "open" && !c.is_noise && c.needs_reply !== false).length;
+  const isInboxView = !filter || filter === "mine" || filter === "unassigned";
 
   const filterLabels: Record<string, string> = {
     mine: "Assigné à moi",
@@ -966,9 +982,9 @@ const Index = () => {
           </button>
           <div className="flex items-center gap-1.5 shrink-0">
             <NotificationBell onSelectConversation={(id) => { setSelectedId(id); }} />
-            {isInboxView && actionableCount > 0 && (
+            {isInboxView && filterCounts.actionable > 0 && (
               <span className="text-xs font-medium text-primary">
-                {actionableCount} à traiter
+                {filterCounts.actionable} à traiter
               </span>
             )}
             <span className="text-xs text-muted-foreground">
@@ -1003,17 +1019,10 @@ const Index = () => {
             selectedId={selectedId}
             onSelect={handleSelectConversation}
             loading={loading}
-            hideNoise={hideNoise}
-            onToggleNoise={() => setHideNoise(!hideNoise)}
-            noiseCount={noiseCount}
-            showAllMails={mailboxId ? showAllMails : undefined}
-            onToggleAllMails={mailboxId ? () => setShowAllMails(!showAllMails) : undefined}
-            showUnreadOnly={showUnreadOnly}
-            onToggleUnreadOnly={() => setShowUnreadOnly(!showUnreadOnly)}
-            unreadCount={conversations.filter((c) => c.status === "open" && !c.is_noise && c.needs_reply !== false && !c.is_read).length}
-            showReplied={isInboxView ? showReplied : undefined}
-            onToggleReplied={isInboxView ? () => setShowReplied(!showReplied) : undefined}
-            repliedCount={repliedCount}
+            activeFilter={activeFilter}
+            onFilterChange={setActiveFilter}
+            filterCounts={filterCounts}
+            showFilters={isInboxView}
             bulkSelected={bulkSelected}
             onBulkToggle={handleBulkToggle}
             onBulkSelectAll={handleBulkSelectAll}
