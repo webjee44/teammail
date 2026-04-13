@@ -54,10 +54,19 @@ const Index = () => {
   const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
   const [freshlyUpdated, setFreshlyUpdated] = useState<Set<string>>(new Set());
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const filter = searchParams.get("filter");
   const mailboxId = searchParams.get("mailbox");
   const { user } = useAuth();
+
+  // Default to Commercial mailbox if no mailbox is selected
+  useEffect(() => {
+    if (!searchParams.has("mailbox") && !filter) {
+      const params = new URLSearchParams(searchParams);
+      params.set("mailbox", "674f3650-de84-4bd2-9551-9ed5f97da83f");
+      setSearchParams(params, { replace: true });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSelectConversation = useCallback(async (id: string) => {
     // If it's a draft, load it and open in compose window
