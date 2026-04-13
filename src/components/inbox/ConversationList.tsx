@@ -242,7 +242,7 @@ export function ConversationList({
                                 !conv.is_read ? "font-semibold text-foreground" : "text-foreground"
                               )}
                             >
-                              {isUrgent && <Flame className="h-3.5 w-3.5 text-orange-500 shrink-0" />}
+                              
                               {conv.is_sent && <span className="text-muted-foreground">→</span>}
                               {displayName}
                             </span>
@@ -252,7 +252,8 @@ export function ConversationList({
                               </span>
                             )}
                           </div>
-                          <span className="text-xs text-muted-foreground shrink-0 flex items-center gap-1.5">
+                          <span className="text-xs text-muted-foreground shrink-0 flex items-center gap-1">
+                            {isUrgent && <Flame className="h-3 w-3 text-orange-500 shrink-0" />}
                             {responseTimes?.has(conv.id) && (
                               <ResponseTimeBadge minutes={responseTimes.get(conv.id)!} variant="compact" />
                             )}
