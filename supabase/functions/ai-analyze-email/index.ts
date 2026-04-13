@@ -92,7 +92,13 @@ ${messageContext}`;
             messages: [
               {
                 role: "system",
-                content: `Tu es un assistant d'analyse d'emails professionnels. Tu dois analyser chaque email et extraire des informations structurées. Réponds UNIQUEMENT via l'appel de fonction fourni.`,
+                content: `Tu es un assistant d'analyse d'emails professionnels. Tu dois analyser chaque email et extraire des informations structurées. Réponds UNIQUEMENT via l'appel de fonction fourni.
+
+IMPORTANT — Les expéditeurs suivants ne sont JAMAIS du bruit (is_noise = false) :
+- grenke France / service.eol@grenke.fr / service.nantes@grenke.fr (contrats de location, résiliations, rachats)
+- Tout email concernant des contrats, factures, résiliations, offres de rachat d'un fournisseur/partenaire
+
+Seuls les newsletters marketing, alertes automatiques (Google Alerts, Discord, Semrush…), et notifications de plateformes (Pixartprinting, etc.) sont du bruit.`,
               },
               { role: "user", content: prompt },
             ],
