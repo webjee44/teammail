@@ -293,11 +293,6 @@ export function ConversationList({
                           <p className="text-xs text-muted-foreground truncate">{stripHtml(conv.snippet)}</p>
                         ) : null}
                         <div className="flex items-center gap-1.5 mt-1">
-                          {conv.needs_reply && (
-                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-destructive/15 text-destructive">
-                              ⏳ En attente
-                            </span>
-                          )}
                           {PrioIcon && (
                             <span className={cn("flex items-center", prio?.className)}>
                               <PrioIcon className="h-3 w-3" />
