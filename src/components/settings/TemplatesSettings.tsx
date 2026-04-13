@@ -99,6 +99,7 @@ export function TemplatesSettings() {
     setFormName(t.name);
     setFormSubject(t.subject);
     setFormBody(t.body);
+    formBodyRef.current = t.body;
     setFormCategory(t.category || "");
     setFormShared(t.is_shared);
     setShowPreview(false);
