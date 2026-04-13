@@ -82,6 +82,7 @@ export function TemplatesSettings() {
     setFormName("");
     setFormSubject("");
     setFormBody("");
+    formBodyRef.current = "";
     setFormCategory("");
     setFormShared(true);
     setShowPreview(false);
