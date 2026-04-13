@@ -72,9 +72,11 @@ export function RichTextEditor({ value, onChange, placeholder, className, onTemp
   // Sync external value changes (e.g. template insertion, suggestion click)
   useEffect(() => {
     if (!editor) return;
+    if (editor.isDestroyed) return;
     const currentHtml = editor.getHTML();
-    if (value !== currentHtml && value !== "<p></p>") {
-      editor.commands.setContent(value, { emitUpdate: false });
+    // Only sync if the change came from outside (not from editor's own onUpdate)
+    if (value !== currentHtml && value !== "<p></p>" && value !== "") {
+      editor.commands.setContent(value, false);
     }
   }, [value, editor]);
 
