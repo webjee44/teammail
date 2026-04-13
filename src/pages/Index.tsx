@@ -955,9 +955,7 @@ const Index = () => {
   };
 
   const totalCount = filteredConversations.length;
-  const noiseCount = conversations.filter((c) => c.is_noise).length;
-  const repliedCount = isInboxView ? conversations.filter((c) => c.status === "open" && !c.is_noise && c.needs_reply === false).length : 0;
-  const actionableCount = conversations.filter((c) => c.status === "open" && !c.is_noise && c.needs_reply !== false).length;
+  const isInboxView = !filter || filter === "mine" || filter === "unassigned";
 
   const filterLabels: Record<string, string> = {
     mine: "Assigné à moi",
@@ -986,9 +984,9 @@ const Index = () => {
           </button>
           <div className="flex items-center gap-1.5 shrink-0">
             <NotificationBell onSelectConversation={(id) => { setSelectedId(id); }} />
-            {isInboxView && actionableCount > 0 && (
+            {isInboxView && filterCounts.actionable > 0 && (
               <span className="text-xs font-medium text-primary">
-                {actionableCount} à traiter
+                {filterCounts.actionable} à traiter
               </span>
             )}
             <span className="text-xs text-muted-foreground">
