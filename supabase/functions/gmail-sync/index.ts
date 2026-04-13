@@ -381,14 +381,6 @@ serve(async (req) => {
 
           // Sync messages + attachments
           for (const gMsg of gmailMessages) {
-            const { data: existingMsg } = await supabase
-              .from("messages")
-              .select("id")
-              .eq("gmail_message_id", gMsg.id)
-              .maybeSingle();
-
-            if (existingMsg) continue;
-
             const msgFromHeader = getHeader(gMsg.payload?.headers, "From") || "";
             const msgToHeader = getHeader(gMsg.payload?.headers, "To") || "";
             const msgFromMatch = msgFromHeader.match(/^(.+?)\s*<(.+?)>$/);
@@ -398,7 +390,7 @@ serve(async (req) => {
             const sentAt = new Date(parseInt(gMsg.internalDate)).toISOString();
             const isOutbound = msgFromEmail.toLowerCase() === mailbox.email.toLowerCase();
 
-            const { data: newMsg, error: msgErr } = await supabase.from("messages").insert({
+            const { data: newMsg, error: msgErr } = await supabase.from("messages").upsert({
               conversation_id: conversationId,
               gmail_message_id: gMsg.id,
               from_email: msgFromEmail,
@@ -408,6 +400,9 @@ serve(async (req) => {
               body_text: body.text,
               sent_at: sentAt,
               is_outbound: isOutbound,
+            }, {
+              onConflict: "gmail_message_id",
+              ignoreDuplicates: true,
             }).select("id").single();
 
             if (msgErr || !newMsg) continue;
