@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -53,6 +53,7 @@ export function TemplatesSettings() {
   const [formName, setFormName] = useState("");
   const [formSubject, setFormSubject] = useState("");
   const [formBody, setFormBody] = useState("");
+  const formBodyRef = useRef("");
   const [formCategory, setFormCategory] = useState("");
   const [formShared, setFormShared] = useState(true);
   const [showPreview, setShowPreview] = useState(false);
@@ -81,6 +82,7 @@ export function TemplatesSettings() {
     setFormName("");
     setFormSubject("");
     setFormBody("");
+    formBodyRef.current = "";
     setFormCategory("");
     setFormShared(true);
     setShowPreview(false);
@@ -97,28 +99,25 @@ export function TemplatesSettings() {
     setFormName(t.name);
     setFormSubject(t.subject);
     setFormBody(t.body);
+    formBodyRef.current = t.body;
     setFormCategory(t.category || "");
     setFormShared(t.is_shared);
     setShowPreview(false);
     setShowEditor(true);
   };
 
-  const insertVar = (key: string) => {
-    setFormBody((prev) => {
-      // Insert before closing </p> if HTML, else just append
-      if (prev.includes("</p>")) {
-        const lastClose = prev.lastIndexOf("</p>");
-        return prev.slice(0, lastClose) + `{{${key}}}` + prev.slice(lastClose);
-      }
-      return prev + `{{${key}}}`;
-    });
+  const handleBodyChange = (html: string) => {
+    formBodyRef.current = html;
+    setFormBody(html);
   };
 
   const resolvePreview = (text: string) =>
     text.replace(/\{\{(\w+)\}\}/g, (_, key) => EXAMPLE_VALUES[key] || `[${key}]`);
 
   const handleSave = async () => {
-    if (!formName.trim() || !formBody.trim()) return;
+    const bodyToCheck = formBodyRef.current || formBody;
+    const bodyTextOnly = bodyToCheck.replace(/<[^>]*>/g, '').trim();
+    if (!formName.trim() || !bodyTextOnly) return;
     setSaving(true);
     try {
       const { data: profile } = await supabase
@@ -132,12 +131,13 @@ export function TemplatesSettings() {
       }
 
       if (editing) {
+        const bodyToSave = formBodyRef.current || formBody;
         const { error } = await supabase
           .from("email_templates")
           .update({
             name: formName.trim(),
             subject: formSubject.trim(),
-            body: formBody,
+            body: bodyToSave,
             category: formCategory.trim() || null,
             is_shared: formShared,
           })
@@ -145,10 +145,11 @@ export function TemplatesSettings() {
         if (error) throw error;
         toast.success("Template mis à jour");
       } else {
+        const bodyToSave = formBodyRef.current || formBody;
         const { error } = await supabase.from("email_templates").insert({
           name: formName.trim(),
           subject: formSubject.trim(),
-          body: formBody,
+          body: bodyToSave,
           category: formCategory.trim() || null,
           is_shared: formShared,
           team_id: profile.team_id,
@@ -257,7 +258,7 @@ export function TemplatesSettings() {
               ) : (
                 <RichTextEditor
                   value={formBody}
-                  onChange={setFormBody}
+                  onChange={handleBodyChange}
                   placeholder="Bonjour {{nom}}, Suite à notre échange..."
                 />
               )}
@@ -269,7 +270,13 @@ export function TemplatesSettings() {
                 {AVAILABLE_VARS.map((v) => (
                   <button
                     key={v.key}
-                    onClick={() => insertVar(v.key)}
+                    onClick={() => {
+                      const varText = `{{${v.key}}}`;
+                      const updated = formBodyRef.current
+                        ? formBodyRef.current.replace(/<\/p>(?!.*<\/p>)/, `${varText}</p>`)
+                        : varText;
+                      handleBodyChange(updated);
+                    }}
                     className="text-xs px-2 py-1 rounded-md border border-border bg-background hover:bg-accent transition-colors"
                     title={v.label}
                     type="button"
@@ -289,7 +296,7 @@ export function TemplatesSettings() {
 
             <Button
               onClick={handleSave}
-              disabled={!formName.trim() || !formBody.trim() || saving}
+              disabled={!formName.trim() || !formBody.replace(/<[^>]*>/g, '').trim() || saving}
               className="gap-2"
             >
               {saving && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -353,7 +360,9 @@ export function TemplatesSettings() {
                     <span className="font-medium">Objet :</span> {t.subject}
                   </p>
                 )}
-                <p className="text-xs text-muted-foreground line-clamp-2">{t.body}</p>
+                <p className="text-xs text-muted-foreground line-clamp-2">
+                  {t.body.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()}
+                </p>
               </div>
             ))}
           </div>
