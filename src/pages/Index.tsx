@@ -280,7 +280,7 @@ const Index = () => {
         .order("last_message_at", { ascending: false });
 
       // Apply filter — skip status filter when showing all mails for a mailbox
-      if (mailboxId && showAllMails) {
+      if (mailboxId) {
         // No status filter — show all
       } else if (filter === "closed") {
         query = query.eq("status", "closed");
@@ -457,7 +457,7 @@ const Index = () => {
     };
 
     fetchConversations();
-  }, [filter, mailboxId, user?.id, showAllMails]);
+  }, [filter, mailboxId, user?.id]);
 
   // Fetch messages & comments when conversation is selected
   const fetchDetail = useCallback(async (convId: string) => {
