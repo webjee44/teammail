@@ -255,7 +255,7 @@ export function TemplatesSettings() {
               ) : (
                 <RichTextEditor
                   value={formBody}
-                  onChange={setFormBody}
+                  onChange={handleBodyChange}
                   placeholder="Bonjour {{nom}}, Suite à notre échange..."
                 />
               )}
