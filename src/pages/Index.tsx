@@ -761,7 +761,7 @@ const Index = () => {
 
       await supabase
         .from("conversations")
-        .update({ last_message_at: new Date().toISOString() })
+        .update({ last_message_at: new Date().toISOString(), status: "closed" as const, is_read: true })
         .eq("id", id);
 
       toast.success("Réponse envoyée");
