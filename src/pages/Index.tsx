@@ -999,7 +999,7 @@ const Index = () => {
             onToggleAllMails={mailboxId ? () => setShowAllMails(!showAllMails) : undefined}
             showUnreadOnly={showUnreadOnly}
             onToggleUnreadOnly={() => setShowUnreadOnly(!showUnreadOnly)}
-            unreadCount={conversations.filter((c) => !c.is_read).length}
+            unreadCount={conversations.filter((c) => c.status === "open" && !c.is_noise && c.needs_reply !== false && !c.is_read).length}
             showReplied={isInboxView ? showReplied : undefined}
             onToggleReplied={isInboxView ? () => setShowReplied(!showReplied) : undefined}
             repliedCount={repliedCount}
