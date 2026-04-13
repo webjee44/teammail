@@ -251,6 +251,7 @@ const Index = () => {
           setConversations(
             (data || []).map((c: any) => ({
               id: c.id,
+              seq_number: c.seq_number,
               subject: c.subject,
               snippet: c.snippet,
               from_email: c.from_email,
@@ -385,6 +386,7 @@ const Index = () => {
             const isSent = c.from_email && mailboxEmails.has(c.from_email.toLowerCase());
             return {
               id: c.id,
+              seq_number: c.seq_number,
               subject: c.subject,
               snippet: c.snippet,
               from_email: c.from_email,
@@ -541,7 +543,7 @@ const Index = () => {
           setConversations((prev) => {
             if (prev.some((x) => x.id === c.id)) return prev;
             return [{
-              id: c.id, subject: c.subject, snippet: c.snippet,
+              id: c.id, seq_number: c.seq_number, subject: c.subject, snippet: c.snippet,
               from_email: c.from_email, from_name: c.from_name,
               status: c.status, assigned_to: c.assigned_to,
               is_read: c.is_read, last_message_at: c.last_message_at,

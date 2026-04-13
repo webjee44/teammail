@@ -176,6 +176,9 @@ export function ConversationHeader({ conversation, onStatusChange, onDelete, onR
             onClick={handleStartEditSubject}
             title="Cliquer pour modifier l'objet"
           >
+            {conversation.seq_number && (
+              <span className="text-xs font-mono text-muted-foreground font-normal">#{conversation.seq_number}</span>
+            )}
             {decodeHtml(conversation.subject)}
             <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity shrink-0" />
           </h2>
