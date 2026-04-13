@@ -256,6 +256,43 @@ export function WhatsAppConversationDetail({ conversationId, onDelete }: Props) 
           </div>
         </div>
         <div className="flex items-center gap-1">
+          {/* Assign dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 gap-1.5 rounded-lg text-[12px]" disabled={assigning}>
+                <UserPlus className="h-3.5 w-3.5" />
+                {conversation.assigned_to
+                  ? (teamMembers.find((m) => m.user_id === conversation.assigned_to)?.full_name?.split(" ")[0] ||
+                     teamMembers.find((m) => m.user_id === conversation.assigned_to)?.email?.split("@")[0] ||
+                     "Assigné")
+                  : "Assigner"}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              {teamMembers.map((member) => (
+                <DropdownMenuItem
+                  key={member.user_id}
+                  onClick={() => handleAssign(member.user_id)}
+                  className={cn(conversation.assigned_to === member.user_id && "bg-accent")}
+                >
+                  <span className="truncate">{member.full_name || member.email}</span>
+                  {conversation.assigned_to === member.user_id && (
+                    <Check className="h-3.5 w-3.5 ml-auto shrink-0" />
+                  )}
+                </DropdownMenuItem>
+              ))}
+              {conversation.assigned_to && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => handleAssign(null)} className="text-muted-foreground">
+                    <UserMinus className="h-3.5 w-3.5 mr-2" />
+                    Retirer l'assignation
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg">
             <Phone className="h-4 w-4" />
           </Button>
@@ -273,6 +310,8 @@ export function WhatsAppConversationDetail({ conversationId, onDelete }: Props) 
                 <Trash2 className="h-4 w-4 mr-2" />
                 Supprimer la conversation
               </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
