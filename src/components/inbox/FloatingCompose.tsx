@@ -18,6 +18,7 @@ import { AttachmentUpload, FileToUpload } from "@/components/inbox/Attachments";
 import { TemplatePickerDialog } from "@/components/inbox/TemplatePickerDialog";
 import { useDraft } from "@/hooks/useDraft";
 import { useComposeWindow } from "@/hooks/useComposeWindow";
+import { UndoSendDialog } from "@/components/inbox/UndoSendDialog";
 
 
 export function FloatingCompose() {
@@ -548,6 +549,7 @@ export function FloatingCompose() {
           </Button>
         </div>
       </div>
+      <UndoSendDialog open={undoSendOpen} onCancel={handleUndoCancel} onExpire={handleUndoExpire} />
     </div>
   );
 }
