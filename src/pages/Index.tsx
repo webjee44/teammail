@@ -701,26 +701,42 @@ const Index = () => {
     }));
 
     replyCancelledRef.current = false;
+    setUndoSendOpen(true);
 
-    const toastId = toast("Réponse dans 15 secondes…", {
-      duration: 15500,
-      action: {
-        label: "Annuler",
-        onClick: () => {
-          replyCancelledRef.current = true;
-          if (replyTimerRef.current) {
-            clearTimeout(replyTimerRef.current);
-            replyTimerRef.current = null;
-          }
-          toast.dismiss(toastId);
-          toast.info("Envoi annulé");
-        },
-      },
-    });
+    const pendingSend = {
+      to: conv.from_email,
+      subject: `Re: ${conv.subject}`,
+      body,
+      fromEmail,
+      senderName,
+      gmailAttachments,
+      id,
+      attachedFiles,
+    };
+    pendingSendRef.current = pendingSend;
 
-    replyTimerRef.current = setTimeout(async () => {
-      if (replyCancelledRef.current) return;
-      toast.dismiss(toastId);
+    // The actual send is now triggered by the UndoSendDialog onExpire callback
+  };
+
+  const pendingSendRef = useRef<any>(null);
+  const [undoSendOpen, setUndoSendOpen] = useState(false);
+
+  const handleUndoCancel = useCallback(() => {
+    replyCancelledRef.current = true;
+    if (replyTimerRef.current) {
+      clearTimeout(replyTimerRef.current);
+      replyTimerRef.current = null;
+    }
+    pendingSendRef.current = null;
+    setUndoSendOpen(false);
+    toast.info("Envoi annulé");
+  }, []);
+
+  const handleUndoExpire = useCallback(async () => {
+    setUndoSendOpen(false);
+    const p = pendingSendRef.current;
+    if (!p || replyCancelledRef.current) return;
+    pendingSendRef.current = null;
 
       const { data, error } = await supabase.functions.invoke("gmail-send", {
         body: {
