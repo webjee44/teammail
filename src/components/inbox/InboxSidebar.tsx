@@ -76,6 +76,7 @@ export function InboxSidebar() {
   const { openCompose } = useComposeWindow();
 
   const [conversations, setConversations] = useState<ConversationCounter[]>([]);
+  const [actionableCount, setActionableCount] = useState(0);
   const [drafts, setDrafts] = useState<MailboxScopedEmail[]>([]);
   const [scheduledEmails, setScheduledEmails] = useState<MailboxScopedEmail[]>([]);
   const [waUnread, setWaUnread] = useState(0);
@@ -86,8 +87,9 @@ export function InboxSidebar() {
     const fetchData = async () => {
       if (!user) return;
 
-      const [convRes, draftRes, schedRes, mbRes, tagRes, waRes] = await Promise.all([
+      const [convRes, actionableRes, draftRes, schedRes, mbRes, tagRes, waRes] = await Promise.all([
         supabase.from("conversations").select("id, status, assigned_to, mailbox_id, is_noise"),
+        supabase.rpc("get_actionable_count", { _mailbox_id: activeMailbox || undefined }),
         supabase.from("drafts").select("id, from_email").is("conversation_id", null).eq("created_by", user.id),
         supabase.from("scheduled_emails").select("id, from_email").eq("status", "pending"),
         supabase.from("team_mailboxes").select("id, email, label").order("email"),
@@ -96,6 +98,7 @@ export function InboxSidebar() {
       ]);
 
       if (convRes.data) setConversations(convRes.data);
+      setActionableCount(typeof actionableRes.data === "number" ? actionableRes.data : 0);
       if (draftRes.data) setDrafts(draftRes.data);
       if (schedRes.data) setScheduledEmails(schedRes.data);
       if (mbRes.data) setMailboxes(mbRes.data);
@@ -104,7 +107,7 @@ export function InboxSidebar() {
     };
 
     fetchData();
-  }, [user]);
+  }, [user, activeMailbox]);
 
   const activeMailboxData = useMemo(
     () => mailboxes.find((mailbox) => mailbox.id === activeMailbox) || null,
@@ -119,7 +122,7 @@ export function InboxSidebar() {
     const mailboxScopedEmail = activeMailboxData?.email ?? null;
 
     return {
-      open: mailboxScopedConversations.filter((c) => c.status === "open" && !c.is_noise).length,
+      open: actionableCount,
       mine: mailboxScopedConversations.filter(
         (c) => c.status === "open" && !c.is_noise && c.assigned_to === user?.id,
       ).length,
@@ -133,7 +136,7 @@ export function InboxSidebar() {
         ? scheduledEmails.filter((email) => email.from_email === mailboxScopedEmail).length
         : scheduledEmails.length,
     };
-  }, [activeMailbox, activeMailboxData, conversations, drafts, scheduledEmails, user?.id]);
+  }, [activeMailbox, activeMailboxData, actionableCount, conversations, drafts, scheduledEmails, user?.id]);
 
   const selectMailbox = (mbId: string | null) => {
     const params = new URLSearchParams(searchParams);
