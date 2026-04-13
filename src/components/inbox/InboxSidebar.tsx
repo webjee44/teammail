@@ -117,7 +117,6 @@ export function InboxSidebar() {
       : conversations;
 
     const mailboxScopedEmail = activeMailboxData?.email ?? null;
-    const mailboxConversationIds = new Set(mailboxScopedConversations.map((conversation) => conversation.id));
 
     return {
       open: mailboxScopedConversations.filter((c) => c.status === "open" && !c.is_noise).length,
@@ -127,18 +126,14 @@ export function InboxSidebar() {
       unassigned: mailboxScopedConversations.filter(
         (c) => c.status === "open" && !c.is_noise && !c.assigned_to,
       ).length,
-      closed: mailboxScopedConversations.filter((c) => c.status === "closed").length,
       drafts: mailboxScopedEmail
         ? drafts.filter((draft) => draft.from_email === mailboxScopedEmail).length
         : drafts.length,
       scheduled: mailboxScopedEmail
         ? scheduledEmails.filter((email) => email.from_email === mailboxScopedEmail).length
         : scheduledEmails.length,
-      sent: activeMailbox
-        ? sentConversationIds.filter((conversationId) => mailboxConversationIds.has(conversationId)).length
-        : sentConversationIds.length,
     };
-  }, [activeMailbox, activeMailboxData, conversations, drafts, scheduledEmails, sentConversationIds, user?.id]);
+  }, [activeMailbox, activeMailboxData, conversations, drafts, scheduledEmails, user?.id]);
 
   const selectMailbox = (mbId: string | null) => {
     const params = new URLSearchParams(searchParams);
