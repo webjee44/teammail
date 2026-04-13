@@ -149,6 +149,14 @@ serve(async (req) => {
 
     if (!threadRes.ok) {
       const errText = await threadRes.text();
+      // Thread not found in Gmail — mark as read in DB and move on
+      if (threadRes.status === 404) {
+        await supabase.from("conversations").update({ is_read: true }).eq("id", conversation_id);
+        return new Response(
+          JSON.stringify({ success: true, marked: 0, note: "Gmail thread not found, marked read in DB" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
       return new Response(
         JSON.stringify({ error: `Gmail API error: ${errText}` }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
