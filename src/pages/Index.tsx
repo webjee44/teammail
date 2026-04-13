@@ -385,6 +385,7 @@ const Index = () => {
             const isSent = c.from_email && mailboxEmails.has(c.from_email.toLowerCase());
             return {
               id: c.id,
+              seq_number: c.seq_number,
               subject: c.subject,
               snippet: c.snippet,
               from_email: c.from_email,

@@ -37,6 +37,7 @@ export type Comment = {
 
 export type ConversationDetailData = {
   id: string;
+  seq_number?: number;
   subject: string;
   from_email: string | null;
   from_name: string | null;

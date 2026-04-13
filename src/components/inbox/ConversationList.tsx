@@ -17,6 +17,7 @@ const stripHtml = (s = "") => {
 
 export type Conversation = {
   id: string;
+  seq_number?: number;
   subject: string;
   snippet: string | null;
   from_email: string | null;
@@ -285,10 +286,13 @@ export function ConversationList({
                         </div>
                         <p
                           className={cn(
-                            "text-sm truncate",
+                            "text-sm truncate flex items-center gap-1.5",
                             !conv.is_read ? "font-medium text-foreground" : "text-muted-foreground"
                           )}
                         >
+                          {conv.seq_number && (
+                            <span className="text-[10px] font-mono text-muted-foreground shrink-0">#{conv.seq_number}</span>
+                          )}
                           {stripHtml(conv.subject)}
                         </p>
                         {conv.ai_summary ? (
