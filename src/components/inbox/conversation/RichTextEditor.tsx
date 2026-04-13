@@ -76,7 +76,7 @@ export function RichTextEditor({ value, onChange, placeholder, className, onTemp
     const currentHtml = editor.getHTML();
     // Only sync if the change came from outside (not from editor's own onUpdate)
     if (value !== currentHtml && value !== "<p></p>" && value !== "") {
-      editor.commands.setContent(value, false);
+      editor.commands.setContent(value, { emitUpdate: false });
     }
   }, [value, editor]);
 
