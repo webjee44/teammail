@@ -925,7 +925,8 @@ const Index = () => {
 
   const totalCount = filteredConversations.length;
   const noiseCount = conversations.filter((c) => c.is_noise).length;
-  const repliedCount = isInboxView ? conversations.filter((c) => c.needs_reply === false && (!hideNoise || !c.is_noise) && (!showUnreadOnly || !c.is_read)).length : 0;
+  const repliedCount = isInboxView ? conversations.filter((c) => c.status === "open" && !c.is_noise && c.needs_reply === false).length : 0;
+  const actionableCount = conversations.filter((c) => c.status === "open" && !c.is_noise && c.needs_reply !== false).length;
 
   const filterLabels: Record<string, string> = {
     mine: "Assigné à moi",
@@ -954,8 +955,13 @@ const Index = () => {
           </button>
           <div className="flex items-center gap-1.5 shrink-0">
             <NotificationBell onSelectConversation={(id) => { setSelectedId(id); }} />
+            {isInboxView && actionableCount > 0 && (
+              <span className="text-xs font-medium text-primary">
+                {actionableCount} à traiter
+              </span>
+            )}
             <span className="text-xs text-muted-foreground">
-              {totalCount} conv.
+              {totalCount} affichée{totalCount !== 1 ? "s" : ""}
             </span>
           </div>
         </div>
@@ -993,7 +999,7 @@ const Index = () => {
             onToggleAllMails={mailboxId ? () => setShowAllMails(!showAllMails) : undefined}
             showUnreadOnly={showUnreadOnly}
             onToggleUnreadOnly={() => setShowUnreadOnly(!showUnreadOnly)}
-            unreadCount={conversations.filter((c) => !c.is_read).length}
+            unreadCount={conversations.filter((c) => c.status === "open" && !c.is_noise && c.needs_reply !== false && !c.is_read).length}
             showReplied={isInboxView ? showReplied : undefined}
             onToggleReplied={isInboxView ? () => setShowReplied(!showReplied) : undefined}
             repliedCount={repliedCount}

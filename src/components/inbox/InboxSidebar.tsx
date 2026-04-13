@@ -61,6 +61,7 @@ type ConversationCounter = {
   status: string;
   assigned_to: string | null;
   mailbox_id: string | null;
+  is_noise: boolean;
 };
 
 type MailboxScopedEmail = {
@@ -89,7 +90,7 @@ export function InboxSidebar() {
       if (!user) return;
 
       const [convRes, draftRes, schedRes, sentRes, mbRes, tagRes, waRes] = await Promise.all([
-        supabase.from("conversations").select("id, status, assigned_to, mailbox_id"),
+        supabase.from("conversations").select("id, status, assigned_to, mailbox_id, is_noise"),
         supabase.from("drafts").select("id, from_email").is("conversation_id", null).eq("created_by", user.id),
         supabase.from("scheduled_emails").select("id, from_email").eq("status", "pending"),
         supabase.rpc("get_sent_conversation_ids"),
@@ -124,14 +125,14 @@ export function InboxSidebar() {
     const mailboxConversationIds = new Set(mailboxScopedConversations.map((conversation) => conversation.id));
 
     return {
-      open: mailboxScopedConversations.filter((conversation) => conversation.status === "open").length,
+      open: mailboxScopedConversations.filter((c) => c.status === "open" && !c.is_noise).length,
       mine: mailboxScopedConversations.filter(
-        (conversation) => conversation.status === "open" && conversation.assigned_to === user?.id,
+        (c) => c.status === "open" && !c.is_noise && c.assigned_to === user?.id,
       ).length,
       unassigned: mailboxScopedConversations.filter(
-        (conversation) => conversation.status === "open" && !conversation.assigned_to,
+        (c) => c.status === "open" && !c.is_noise && !c.assigned_to,
       ).length,
-      closed: mailboxScopedConversations.filter((conversation) => conversation.status === "closed").length,
+      closed: mailboxScopedConversations.filter((c) => c.status === "closed").length,
       drafts: mailboxScopedEmail
         ? drafts.filter((draft) => draft.from_email === mailboxScopedEmail).length
         : drafts.length,
