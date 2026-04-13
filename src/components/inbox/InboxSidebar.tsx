@@ -4,7 +4,6 @@ import {
   Inbox,
   User,
   Users,
-  CheckCircle,
   Settings,
   BarChart3,
   Zap,
@@ -14,7 +13,6 @@ import {
   FileEdit,
   Keyboard,
   Mail,
-  SendHorizonal,
   MessageCircle,
   Megaphone,
   X,
@@ -80,7 +78,6 @@ export function InboxSidebar() {
   const [conversations, setConversations] = useState<ConversationCounter[]>([]);
   const [drafts, setDrafts] = useState<MailboxScopedEmail[]>([]);
   const [scheduledEmails, setScheduledEmails] = useState<MailboxScopedEmail[]>([]);
-  const [sentConversationIds, setSentConversationIds] = useState<string[]>([]);
   const [waUnread, setWaUnread] = useState(0);
   const [tags, setTags] = useState<{ id: string; name: string; color: string }[]>([]);
   const [mailboxes, setMailboxes] = useState<{ id: string; email: string; label: string | null }[]>([]);
