@@ -4,15 +4,22 @@ import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
   Send, MessageSquare, Sparkles, Clock, Loader2, FileText, CalendarIcon, Wand2, Mail,
+  ChevronDown, Save,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Popover, PopoverContent, PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Tooltip, TooltipContent, TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -51,14 +58,12 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
   const [cc, setCc] = useState<string[]>([]);
   const [bcc, setBcc] = useState<string[]>([]);
 
-  // Restore draft on load
   useEffect(() => {
     if (draftLoading || draftInitialized) return;
     if (draft.body) setReplyHtml(draft.body);
     setDraftInitialized(true);
   }, [draftLoading, draft, draftInitialized]);
 
-  // Auto-save reply as draft
   useEffect(() => {
     if (!draftInitialized) return;
     updateDraft({ body: replyHtml });
@@ -81,6 +86,16 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
   const replySubject = conversation.subject?.startsWith("Re:") ? conversation.subject : `Re: ${conversation.subject}`;
 
   const isReplyEmpty = !replyHtml.trim() || replyHtml === "<p></p>";
+
+  const resetState = async () => {
+    await deleteDraft();
+    setReplyHtml("");
+    setDraftInitialized(false);
+    setSuggestions([]);
+    setAttachedFiles([]);
+    setCc([]);
+    setBcc([]);
+  };
 
   const handleSuggestReplies = async () => {
     setLoadingSuggestions(true);
@@ -121,55 +136,86 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
     }
   };
 
+  const handleSaveAsTemplate = async () => {
+    const name = window.prompt("Nom du template :", replySubject || "");
+    if (!name) return;
+    try {
+      const { data: { user: u } } = await supabase.auth.getUser();
+      if (!u) throw new Error("Non authentifié");
+      const { data: profile } = await supabase.from("profiles").select("team_id").eq("user_id", u.id).maybeSingle();
+      if (!profile?.team_id) throw new Error("Aucune équipe");
+      const { error } = await supabase.from("email_templates").insert({
+        team_id: profile.team_id,
+        created_by: u.id,
+        name,
+        subject: replySubject,
+        body: replyHtml,
+      });
+      if (error) throw error;
+      toast.success("Template créé !");
+    } catch (err: any) {
+      toast.error("Erreur : " + (err.message || String(err)));
+    }
+  };
+
   const handleScheduleReply = async () => {
-    if (isReplyEmpty) {
-      toast.error("Rédigez votre réponse avant de programmer l'envoi");
-      return;
-    }
-    if (!scheduleDate) {
-      toast.error("Sélectionnez une date d'envoi");
-      return;
-    }
-    if (!senderEmail || !recipientEmail) {
-      toast.error("Adresse expéditeur ou destinataire manquante");
-      return;
-    }
+    if (isReplyEmpty) { toast.error("Rédigez votre réponse avant de programmer l'envoi"); return; }
+    if (!scheduleDate) { toast.error("Sélectionnez une date d'envoi"); return; }
+    if (!senderEmail || !recipientEmail) { toast.error("Adresse expéditeur ou destinataire manquante"); return; }
     const [hours, minutes] = scheduleTime.split(":").map(Number);
     const scheduledAt = new Date(scheduleDate);
     scheduledAt.setHours(hours, minutes, 0, 0);
-    if (scheduledAt <= new Date()) {
-      toast.error("La date doit être dans le futur");
-      return;
-    }
+    if (scheduledAt <= new Date()) { toast.error("La date doit être dans le futur"); return; }
     setScheduling(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Non authentifié");
       const { data: profile } = await supabase
-        .from("profiles")
-        .select("team_id")
-        .eq("user_id", user.id)
-        .maybeSingle();
+        .from("profiles").select("team_id").eq("user_id", user.id).maybeSingle();
       if (!profile?.team_id) throw new Error("Aucune équipe trouvée");
-
       const { error } = await supabase.from("scheduled_emails").insert({
-        team_id: profile.team_id,
-        created_by: user.id,
-        to_email: recipientEmail,
-        subject: replySubject,
-        body: replyHtml,
-        from_email: senderEmail,
+        team_id: profile.team_id, created_by: user.id,
+        to_email: recipientEmail, subject: replySubject,
+        body: replyHtml, from_email: senderEmail,
         scheduled_at: scheduledAt.toISOString(),
       });
       if (error) throw error;
-      await deleteDraft();
+      await resetState();
       toast.success(`Réponse programmée pour le ${format(scheduledAt, "d MMMM à HH:mm", { locale: fr })}`);
-      setReplyHtml("");
-      setDraftInitialized(false);
-      setSuggestions([]);
-      setAttachedFiles([]);
-      setCc([]);
-      setBcc([]);
+    } catch (err: any) {
+      toast.error("Erreur : " + (err.message || String(err)));
+    } finally {
+      setScheduling(false);
+      setScheduleOpen(false);
+    }
+  };
+
+  const handleQuickSchedule = async () => {
+    if (isReplyEmpty) { toast.error("Rédigez votre réponse"); return; }
+    if (!senderEmail || !recipientEmail) { toast.error("Adresse manquante"); return; }
+    const next = new Date();
+    next.setDate(next.getDate() + 1);
+    const day = next.getDay();
+    if (day === 0) next.setDate(next.getDate() + 1);
+    if (day === 6) next.setDate(next.getDate() + 2);
+    next.setHours(8, 45, 0, 0);
+    const dayName = format(next, "EEEE", { locale: fr });
+    setScheduling(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Non authentifié");
+      const { data: profile } = await supabase
+        .from("profiles").select("team_id").eq("user_id", user.id).maybeSingle();
+      if (!profile?.team_id) throw new Error("Aucune équipe trouvée");
+      const { error } = await supabase.from("scheduled_emails").insert({
+        team_id: profile.team_id, created_by: user.id,
+        to_email: recipientEmail, subject: replySubject,
+        body: replyHtml, from_email: senderEmail,
+        scheduled_at: next.toISOString(),
+      });
+      if (error) throw error;
+      await resetState();
+      toast.success(`Réponse programmée pour ${dayName} à 8h45`);
     } catch (err: any) {
       toast.error("Erreur : " + (err.message || String(err)));
     } finally {
@@ -191,16 +237,8 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
         </TabsList>
         <TabsContent value="reply" className="mt-0">
           <div className="space-y-2">
-            {/* Recipient fields */}
-            <RecipientFields
-              to={recipientEmail}
-              cc={cc}
-              bcc={bcc}
-              onCcChange={setCc}
-              onBccChange={setBcc}
-            />
+            <RecipientFields to={recipientEmail} cc={cc} bcc={bcc} onCcChange={setCc} onBccChange={setBcc} />
 
-            {/* AI Suggestions */}
             {suggestions.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
                 {suggestions.map((s, i) =>
@@ -211,7 +249,7 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
                         const subject = conversation.subject?.replace(/^(Fwd?|Tr)\s*:\s*/i, "") || "";
                         navigate(`/compose?to=${encodeURIComponent(s.action_email!)}&subject=${encodeURIComponent(subject)}`);
                       }}
-                      className="text-xs px-2.5 py-1.5 rounded-full border border-accent/30 bg-accent/5 text-accent-foreground hover:bg-accent/10 transition-colors"
+                      className="text-xs px-2.5 py-1 rounded-full border border-accent/30 bg-accent/5 text-accent-foreground hover:bg-accent/10 transition-colors"
                     >
                       <Mail className="h-3 w-3 inline mr-1" />
                       Écrire à {s.action_email}
@@ -220,14 +258,11 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
                     <button
                       key={i}
                       onClick={() => {
-                        const html = s.body
-                          .split(/\n\n+/)
-                          .map((p) => `<p>${p.replace(/\n/g, "<br>")}</p>`)
-                          .join("");
+                        const html = s.body.split(/\n\n+/).map((p) => `<p>${p.replace(/\n/g, "<br>")}</p>`).join("");
                         setReplyHtml(html);
                         setSuggestions([]);
                       }}
-                      className="text-xs px-2.5 py-1.5 rounded-full border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors"
+                      className="text-xs px-2.5 py-1 rounded-full border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors"
                     >
                       <Sparkles className="h-3 w-3 inline mr-1" />
                       {s.label}
@@ -237,7 +272,6 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
               </div>
             )}
 
-            {/* Rich Text Editor */}
             <RichTextEditor
               value={replyHtml}
               onChange={setReplyHtml}
@@ -245,62 +279,54 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
               onTemplateClick={() => setTemplateOpen(true)}
             />
 
-            {/* Signature */}
             {signatureHtml && (
-              <div
-                className="p-2 rounded-md border border-border bg-muted/30 text-xs"
-                dangerouslySetInnerHTML={{ __html: signatureHtml }}
-              />
+              <div className="p-2 rounded-md border border-border bg-muted/30 text-xs" dangerouslySetInnerHTML={{ __html: signatureHtml }} />
             )}
 
-            {/* Attachments */}
             <AttachmentUpload files={attachedFiles} onFilesChange={setAttachedFiles} />
 
-            {/* Actions */}
-            <div className="flex justify-between items-center flex-wrap gap-2">
-              <div className="flex gap-1.5">
-                <Button size="sm" variant="outline" onClick={handleSuggestReplies} disabled={loadingSuggestions} className="gap-1">
-                  {loadingSuggestions ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                  Suggérer
-                </Button>
-                <Button size="sm" variant="outline" onClick={handlePolish} disabled={polishing || isReplyEmpty} className="gap-1">
-                  {polishing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
-                  Peaufiner
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => setTemplateOpen(true)} className="gap-1">
-                  <FileText className="h-3 w-3" />
-                  Template
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={isReplyEmpty}
-                  onClick={async () => {
-                    const name = window.prompt("Nom du template :", replySubject || "");
-                    if (!name) return;
-                    try {
-                      const { data: { user: u } } = await supabase.auth.getUser();
-                      if (!u) throw new Error("Non authentifié");
-                      const { data: profile } = await supabase.from("profiles").select("team_id").eq("user_id", u.id).maybeSingle();
-                      if (!profile?.team_id) throw new Error("Aucune équipe");
-                      const { error } = await supabase.from("email_templates").insert({
-                        team_id: profile.team_id,
-                        created_by: u.id,
-                        name,
-                        subject: replySubject,
-                        body: replyHtml,
-                      });
-                      if (error) throw error;
-                      toast.success("Template créé !");
-                    } catch (err: any) {
-                      toast.error("Erreur : " + (err.message || String(err)));
-                    }
-                  }}
-                  className="gap-1"
-                >
-                  <FileText className="h-3 w-3" />
-                  Sauver template
-                </Button>
+            {/* Action bar — clean single row */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button size="sm" variant="ghost" onClick={handleSuggestReplies} disabled={loadingSuggestions} className="h-8 w-8 p-0">
+                      {loadingSuggestions ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Suggérer une réponse</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button size="sm" variant="ghost" onClick={handlePolish} disabled={polishing || isReplyEmpty} className="h-8 w-8 p-0">
+                      {polishing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Peaufiner</TooltipContent>
+                </Tooltip>
+
+                {/* Template dropdown: insert or save */}
+                <DropdownMenu>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <DropdownMenuTrigger asChild>
+                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                          <FileText className="h-3.5 w-3.5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>Templates</TooltipContent>
+                  </Tooltip>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem onClick={() => setTemplateOpen(true)}>
+                      <FileText className="h-4 w-4 mr-2" /> Insérer un template
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleSaveAsTemplate} disabled={isReplyEmpty}>
+                      <Save className="h-4 w-4 mr-2" /> Sauver comme template
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
                 <TemplatePickerDialog
                   open={templateOpen}
                   onOpenChange={setTemplateOpen}
@@ -308,104 +334,44 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
                   recipientEmail={recipientEmail}
                 />
               </div>
-              <div className="flex gap-1.5">
+
+              <div className="flex items-center gap-1.5">
+                {/* Schedule send */}
                 <Popover open={scheduleOpen} onOpenChange={setScheduleOpen}>
-                  <PopoverTrigger asChild>
-                    <Button size="sm" variant="outline" disabled={isReplyEmpty || scheduling} className="gap-1">
-                      {scheduling ? <Loader2 className="h-3 w-3 animate-spin" /> : <Clock className="h-3 w-3" />}
-                      Plus tard
-                    </Button>
-                  </PopoverTrigger>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <PopoverTrigger asChild>
+                        <Button size="sm" variant="outline" disabled={isReplyEmpty || scheduling} className="h-8 w-8 p-0">
+                          {scheduling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Clock className="h-3.5 w-3.5" />}
+                        </Button>
+                      </PopoverTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>Programmer l'envoi</TooltipContent>
+                  </Tooltip>
                   <PopoverContent className="w-auto p-4" align="end">
-                    <div className="space-y-4">
-                      {(() => {
-                        const now = new Date();
-                        const next = new Date(now);
-                        next.setDate(next.getDate() + 1);
-                        const day = next.getDay();
-                        if (day === 0) next.setDate(next.getDate() + 1);
-                        if (day === 6) next.setDate(next.getDate() + 2);
-                        const dayName = format(next, "EEEE", { locale: fr });
-                        return (
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            className="w-full gap-1 capitalize"
-                            disabled={isReplyEmpty || scheduling}
-                            onClick={async () => {
-                              next.setHours(8, 45, 0, 0);
-                              setScheduleDate(next);
-                              setScheduleTime("08:45");
-                              // Programme directement
-                              if (isReplyEmpty) {
-                                toast.error("Rédigez votre réponse avant de programmer l'envoi");
-                                return;
-                              }
-                              if (!senderEmail || !recipientEmail) {
-                                toast.error("Adresse expéditeur ou destinataire manquante");
-                                return;
-                              }
-                              setScheduling(true);
-                              try {
-                                const { data: { user } } = await supabase.auth.getUser();
-                                if (!user) throw new Error("Non authentifié");
-                                const { data: profile } = await supabase
-                                  .from("profiles")
-                                  .select("team_id")
-                                  .eq("user_id", user.id)
-                                  .maybeSingle();
-                                if (!profile?.team_id) throw new Error("Aucune équipe trouvée");
-                                const { error } = await supabase.from("scheduled_emails").insert({
-                                  team_id: profile.team_id,
-                                  created_by: user.id,
-                                  to_email: recipientEmail,
-                                  subject: replySubject,
-                                  body: replyHtml,
-                                  from_email: senderEmail,
-                                  scheduled_at: next.toISOString(),
-                                });
-                                if (error) throw error;
-                                await deleteDraft();
-                                toast.success(`Réponse programmée pour ${dayName} à 8h45`);
-                                setReplyHtml("");
-                                setDraftInitialized(false);
-                                setSuggestions([]);
-                                setAttachedFiles([]);
-                                setCc([]);
-                                setBcc([]);
-                              } catch (err: any) {
-                                toast.error("Erreur : " + (err.message || String(err)));
-                              } finally {
-                                setScheduling(false);
-                                setScheduleOpen(false);
-                              }
-                            }}
-                          >
-                            {scheduling ? <Loader2 className="h-3 w-3 animate-spin" /> : <Clock className="h-3 w-3" />}
-                            {dayName} 8h45
-                          </Button>
-                        );
-                      })()}
+                    <div className="space-y-3">
+                      <Button
+                        size="sm" variant="secondary" className="w-full gap-1 capitalize"
+                        disabled={isReplyEmpty || scheduling}
+                        onClick={handleQuickSchedule}
+                      >
+                        {scheduling ? <Loader2 className="h-3 w-3 animate-spin" /> : <Clock className="h-3 w-3" />}
+                        {(() => { const n = new Date(); n.setDate(n.getDate()+1); const d = n.getDay(); if(d===0) n.setDate(n.getDate()+1); if(d===6) n.setDate(n.getDate()+2); return format(n, "EEEE", { locale: fr }); })()} 8h45
+                      </Button>
                       <div className="space-y-2">
                         <Label className="text-sm font-medium">Date</Label>
                         <Popover>
                           <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              className={cn("w-full justify-start text-left font-normal", !scheduleDate && "text-muted-foreground")}
-                            >
+                            <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !scheduleDate && "text-muted-foreground")}>
                               <CalendarIcon className="mr-2 h-4 w-4" />
                               {scheduleDate ? format(scheduleDate, "d MMMM yyyy", { locale: fr }) : "Choisir une date"}
                             </Button>
                           </PopoverTrigger>
                           <PopoverContent className="w-auto p-0" align="start">
                             <Calendar
-                              mode="single"
-                              selected={scheduleDate}
-                              onSelect={setScheduleDate}
+                              mode="single" selected={scheduleDate} onSelect={setScheduleDate}
                               disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                              initialFocus
-                              className={cn("p-3 pointer-events-auto")}
+                              initialFocus className={cn("p-3 pointer-events-auto")}
                             />
                           </PopoverContent>
                         </Popover>
@@ -421,21 +387,18 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
                     </div>
                   </PopoverContent>
                 </Popover>
+
+                {/* Send */}
                 <Button
                   size="sm"
                   onClick={async () => {
                     onReply?.(conversation.id, replyHtml, attachedFiles);
-                    await deleteDraft();
-                    setReplyHtml("");
-                    setDraftInitialized(false);
-                    setSuggestions([]);
-                    setAttachedFiles([]);
-                    setCc([]);
-                    setBcc([]);
+                    await resetState();
                   }}
                   disabled={isReplyEmpty}
+                  className="gap-1.5 px-4"
                 >
-                  <Send className="h-3 w-3 mr-1" /> Envoyer
+                  <Send className="h-3.5 w-3.5" /> Envoyer
                 </Button>
               </div>
             </div>
@@ -451,12 +414,8 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
             />
             <div className="flex justify-end">
               <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  onComment?.(conversation.id, commentText);
-                  setCommentText("");
-                }}
+                size="sm" variant="outline"
+                onClick={() => { onComment?.(conversation.id, commentText); setCommentText(""); }}
                 disabled={!commentText.trim()}
               >
                 <MessageSquare className="h-3 w-3 mr-1" /> Ajouter note

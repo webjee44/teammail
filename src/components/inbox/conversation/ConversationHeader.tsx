@@ -4,6 +4,7 @@ import {
   MoreHorizontal, Sparkles, ChevronDown, ChevronUp, User,
   Building2, DollarSign, CalendarDays, ArrowUp, ArrowRight,
   ArrowDown, Loader2, Trash2, Pencil, Check, X, Contact, UserMinus,
+  Archive,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +14,9 @@ import {
 import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  Tooltip, TooltipContent, TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { ContactPanel } from "@/components/inbox/ContactPanel";
@@ -63,7 +67,6 @@ export function ConversationHeader({ conversation, onStatusChange, onDelete, onR
     }
   }, [editingSubject]);
 
-  // Load team members for assignment dropdown
   useEffect(() => {
     const loadTeamMembers = async () => {
       const { data } = await supabase
@@ -130,22 +133,22 @@ export function ConversationHeader({ conversation, onStatusChange, onDelete, onR
     entities.people?.length || entities.companies?.length || entities.amounts?.length || entities.dates?.length;
   const hasAiInfo = conversation.ai_summary || conversation.category || hasEntities;
 
-  // Determine the recipient email from the first outbound message
   const firstOutbound = (conversation.messages || []).find((m) => m.is_outbound && m.to_email);
   const recipientEmail = firstOutbound?.to_email || null;
-  // Use recipient for Contact button when from_email is our own mailbox
   const contactEmail = recipientEmail && conversation.from_email === firstOutbound?.from_email
     ? recipientEmail
     : conversation.from_email;
 
-  // Calculate avg response time for this conversation
   const responseTimes = calcResponseTimes(conversation.messages || []);
   const avgResponseMin = responseTimes.length > 0
     ? responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length
     : null;
 
+  const assigneeName = (conversation as any).assignee_name;
+
   return (
-    <div className="px-4 py-3 border-b border-border space-y-2">
+    <div className="px-4 py-3 border-b border-border space-y-1.5">
+      {/* Row 1: Subject + icon actions */}
       <div className="flex items-center justify-between gap-2">
         {editingSubject ? (
           <div className="flex items-center gap-1 flex-1 min-w-0">
@@ -157,7 +160,7 @@ export function ConversationHeader({ conversation, onStatusChange, onDelete, onR
                 if (e.key === "Enter") handleSaveSubject();
                 if (e.key === "Escape") setEditingSubject(false);
               }}
-              className="flex-1 min-w-0 text-lg font-semibold bg-transparent border-b-2 border-primary outline-none text-foreground"
+              className="flex-1 min-w-0 text-base font-semibold bg-transparent border-b-2 border-primary outline-none text-foreground"
               disabled={savingSubject}
             />
             <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={handleSaveSubject} disabled={savingSubject || !subjectDraft.trim()}>
@@ -169,33 +172,41 @@ export function ConversationHeader({ conversation, onStatusChange, onDelete, onR
           </div>
         ) : (
           <h2
-            className="text-lg font-semibold text-foreground truncate cursor-pointer group flex items-center gap-1.5 hover:text-primary transition-colors"
+            className="text-base font-semibold text-foreground truncate cursor-pointer group flex items-center gap-1.5 hover:text-primary transition-colors"
             onClick={handleStartEditSubject}
             title="Cliquer pour modifier l'objet"
           >
             {decodeHtml(conversation.subject)}
-            <Pencil className="h-3.5 w-3.5 opacity-0 group-hover:opacity-50 transition-opacity shrink-0" />
+            <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity shrink-0" />
           </h2>
         )}
-        <div className="flex items-center gap-2 shrink-0">
-          <Button size="sm" className="h-9 px-4 font-semibold gap-1.5" onClick={onReplyClick}>
-            <Send className="h-4 w-4" /> Répondre
-          </Button>
+
+        {/* Compact icon actions */}
+        <div className="flex items-center gap-0.5 shrink-0">
           {contactEmail && (
-            <Button variant="outline" size="sm" className="h-9 px-4 font-semibold gap-1.5" onClick={() => setContactOpen(true)}>
-              <Contact className="h-4 w-4" /> Contact
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setContactOpen(true)}>
+                  <Contact className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Contact</TooltipContent>
+            </Tooltip>
           )}
-          {/* Assignment dropdown */}
+
+          {/* Assignment */}
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9 px-4 font-semibold gap-1.5" disabled={assigning}>
-                {assigning ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
-                {conversation.assignee_name || "Assigner"}
-              </Button>
-            </DropdownMenuTrigger>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className={cn("h-8 w-8", assigneeName && "text-primary")} disabled={assigning}>
+                    {assigning ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent>{assigneeName || "Assigner"}</TooltipContent>
+            </Tooltip>
             <DropdownMenuContent align="end" className="w-56">
-              {/* Assign to me shortcut */}
               {user && (
                 <DropdownMenuItem onClick={() => handleAssign(user.id)}>
                   <User className="h-4 w-4 mr-2 text-primary" /> M'assigner
@@ -225,63 +236,61 @@ export function ConversationHeader({ conversation, onStatusChange, onDelete, onR
               )}
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button variant="outline" size="sm" className="h-9 px-4 font-semibold gap-1.5" onClick={() => onDelete?.(conversation.id)}>
-            <Trash2 className="h-4 w-4" /> Archiver
-          </Button>
+
+          {/* Overflow: Archive, Status */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9">
+              <Button variant="ghost" size="icon" className="h-8 w-8">
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => onStatusChange?.(conversation.id, "open")}>
-                <MessageSquare className="h-4 w-4 mr-2 text-green-600" /> Ouvrir
+                <MessageSquare className="h-4 w-4 mr-2 text-green-600" /> Marquer ouvert
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onStatusChange?.(conversation.id, "closed")}>
-                <CheckCircle className="h-4 w-4 mr-2" /> Fermer
+                <CheckCircle className="h-4 w-4 mr-2" /> Marquer fermé
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => onDelete?.(conversation.id)} className="text-destructive">
+                <Archive className="h-4 w-4 mr-2" /> Archiver
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
 
-      <div className="flex items-center gap-2 flex-wrap">
-        {recipientEmail && (
-          <Badge variant="outline" className="gap-1 text-primary border-primary/30">
-            <Send className="h-3 w-3" />
-            → {recipientEmail}
-          </Badge>
-        )}
-        <Badge variant="outline" className={cn("gap-1", status.className)}>
-          <status.icon className="h-3 w-3" />
+      {/* Row 2: Metadata badges — compact */}
+      <div className="flex items-center gap-1.5 flex-wrap text-xs">
+        <Badge variant="outline" className={cn("gap-1 text-[11px] h-5 px-1.5", status.className)}>
+          <status.icon className="h-2.5 w-2.5" />
           {status.label}
         </Badge>
         {prio && (
-          <Badge variant="outline" className={cn("gap-1", prio.className)}>
-            <prio.icon className="h-3 w-3" />
+          <Badge variant="outline" className={cn("gap-1 text-[11px] h-5 px-1.5", prio.className)}>
+            <prio.icon className="h-2.5 w-2.5" />
             {prio.label}
           </Badge>
         )}
         {conversation.category && (
-          <Badge variant="secondary" className="gap-1">
+          <Badge variant="secondary" className="text-[11px] h-5 px-1.5">
             {categoryLabels[conversation.category] || conversation.category}
           </Badge>
         )}
         {conversation.is_noise && (
-          <Badge variant="secondary" className="gap-1 text-muted-foreground">
+          <Badge variant="secondary" className="text-[11px] h-5 px-1.5 text-muted-foreground">
             🔇 Bruit
           </Badge>
         )}
-        {conversation.assignee_name && (
-          <Badge variant="secondary" className="gap-1">
-            <UserPlus className="h-3 w-3" />
-            {conversation.assignee_name}
+        {assigneeName && (
+          <Badge variant="secondary" className="gap-1 text-[11px] h-5 px-1.5">
+            <UserPlus className="h-2.5 w-2.5" />
+            {assigneeName}
           </Badge>
         )}
         {conversation.tags?.map((tag) => (
-          <Badge key={tag.id} variant="outline" className="gap-1" style={{ borderColor: tag.color, color: tag.color }}>
-            <Tag className="h-3 w-3" />
+          <Badge key={tag.id} variant="outline" className="gap-1 text-[11px] h-5 px-1.5" style={{ borderColor: tag.color, color: tag.color }}>
+            <Tag className="h-2.5 w-2.5" />
             {tag.name}
           </Badge>
         ))}
@@ -290,24 +299,25 @@ export function ConversationHeader({ conversation, onStatusChange, onDelete, onR
         )}
       </div>
 
+      {/* AI Info — collapsible */}
       {hasAiInfo && (
         <Collapsible open={infoOpen} onOpenChange={setInfoOpen}>
           <CollapsibleTrigger asChild>
-            <Button variant="ghost" size="sm" className="w-full justify-between h-7 text-xs text-muted-foreground hover:text-foreground">
+            <Button variant="ghost" size="sm" className="w-full justify-between h-6 text-[11px] text-muted-foreground hover:text-foreground px-1">
               <span className="flex items-center gap-1">
                 <Sparkles className="h-3 w-3" /> Informations IA
               </span>
               {infoOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
             </Button>
           </CollapsibleTrigger>
-          <CollapsibleContent className="pt-2 space-y-2">
+          <CollapsibleContent className="pt-1.5 space-y-1.5">
             {conversation.ai_summary && (
               <p className="text-xs text-muted-foreground bg-muted/50 rounded p-2">
                 💡 {conversation.ai_summary}
               </p>
             )}
             {hasEntities && (
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-1">
                 {entities.people?.map((p: string, i: number) => (
                   <Badge key={`p-${i}`} variant="outline" className="text-[10px] gap-1">
                     <User className="h-2.5 w-2.5" /> {p}
