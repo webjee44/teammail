@@ -115,6 +115,7 @@ const Index = () => {
   }, [openCompose]);
 
   // Fetch conversations based on filter
+  const refetchRef = useRef<() => void>(() => {});
   useEffect(() => {
     const fetchConversations = async () => {
       setLoading(true);
@@ -457,6 +458,7 @@ const Index = () => {
       setLoading(false);
     };
 
+    refetchRef.current = fetchConversations;
     fetchConversations();
   }, [filter, mailboxId, user?.id]);
 
@@ -792,6 +794,8 @@ const Index = () => {
 
     toast.success("Réponse envoyée");
     fetchDetail(p.id);
+    // Refetch conversation list so "Envoyés" view updates instantly
+    refetchRef.current();
   }, [fetchDetail]);
 
   const handleComment = async (id: string, body: string) => {
