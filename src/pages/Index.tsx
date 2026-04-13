@@ -794,6 +794,8 @@ const Index = () => {
 
     toast.success("Réponse envoyée");
     fetchDetail(p.id);
+    // Refetch conversation list so "Envoyés" view updates instantly
+    refetchRef.current();
   }, [fetchDetail]);
 
   const handleComment = async (id: string, body: string) => {
