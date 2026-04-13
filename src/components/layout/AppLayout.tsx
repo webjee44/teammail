@@ -18,7 +18,9 @@ export function AppLayout({ children, hideHeader }: Props) {
               <SidebarTrigger className="ml-1" />
             </header>
           )}
-          <main className="flex-1 flex min-h-0">{children}</main>
+          <main className="flex-1 flex min-h-0 justify-center">
+            <div className="w-full max-w-screen-2xl">{children}</div>
+          </main>
         </div>
       </div>
     </SidebarProvider>
