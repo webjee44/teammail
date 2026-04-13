@@ -172,7 +172,7 @@ export function ConversationHeader({ conversation, onStatusChange, onDelete, onR
           </div>
         ) : (
           <h2
-            className="text-base font-semibold text-foreground truncate cursor-pointer group flex items-center gap-1.5 hover:text-primary transition-colors"
+            className="font-semibold text-foreground truncate cursor-pointer group flex items-center gap-1.5 hover:text-primary transition-colors text-lg"
             onClick={handleStartEditSubject}
             title="Cliquer pour modifier l'objet"
           >
