@@ -96,9 +96,11 @@ ${messageContext}`;
 
 IMPORTANT — Les expéditeurs suivants ne sont JAMAIS du bruit (is_noise = false) :
 - grenke France / service.eol@grenke.fr / service.nantes@grenke.fr (contrats de location, résiliations, rachats)
-- Tout email concernant des contrats, factures, résiliations, offres de rachat d'un fournisseur/partenaire
+- support@pixartprinting.com — échanges de support, commandes, design service (JAMAIS du bruit)
+- Tout email concernant des contrats, factures, résiliations, commandes, offres de rachat d'un fournisseur/partenaire
 
-Seuls les newsletters marketing, alertes automatiques (Google Alerts, Discord, Semrush…), et notifications de plateformes (Pixartprinting, etc.) sont du bruit.`,
+Seuls les newsletters marketing, alertes automatiques (Google Alerts, Discord, Semrush…), et notifications génériques de plateformes sont du bruit.
+Exception : les enquêtes de satisfaction type "Votre avis compte" PEUVENT être du bruit, mais les échanges de support/commande ne le sont JAMAIS.`,
               },
               { role: "user", content: prompt },
             ],
