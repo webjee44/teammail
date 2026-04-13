@@ -38,22 +38,24 @@ export type Conversation = {
   is_sent?: boolean;
 };
 
+export type InboxFilter = "actionable" | "unread" | "replied" | "noise";
+
+type FilterCounts = {
+  actionable: number;
+  unread: number;
+  replied: number;
+  noise: number;
+};
+
 type Props = {
   conversations: Conversation[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   loading?: boolean;
-  hideNoise?: boolean;
-  onToggleNoise?: () => void;
-  noiseCount?: number;
-  showAllMails?: boolean;
-  onToggleAllMails?: () => void;
-  showUnreadOnly?: boolean;
-  onToggleUnreadOnly?: () => void;
-  unreadCount?: number;
-  showReplied?: boolean;
-  onToggleReplied?: () => void;
-  repliedCount?: number;
+  activeFilter: InboxFilter;
+  onFilterChange: (filter: InboxFilter) => void;
+  filterCounts: FilterCounts;
+  showFilters?: boolean;
   bulkSelected: Set<string>;
   onBulkToggle: (id: string) => void;
   onBulkSelectAll: () => void;
