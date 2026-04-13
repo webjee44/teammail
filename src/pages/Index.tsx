@@ -279,10 +279,8 @@ const Index = () => {
         .select("*")
         .order("last_message_at", { ascending: false });
 
-      // Apply filter — skip status filter when showing all mails for a mailbox
-      if (mailboxId) {
-        // No status filter — show all
-      } else if (filter === "closed") {
+      // Apply filter
+      if (filter === "closed") {
         query = query.eq("status", "closed");
       } else if (filter === "mine") {
         query = query.eq("status", "open").eq("assigned_to", user?.id ?? "");
