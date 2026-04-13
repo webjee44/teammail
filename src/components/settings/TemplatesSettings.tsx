@@ -267,7 +267,13 @@ export function TemplatesSettings() {
                 {AVAILABLE_VARS.map((v) => (
                   <button
                     key={v.key}
-                    onClick={() => insertVar(v.key)}
+                    onClick={() => {
+                      const varText = `{{${v.key}}}`;
+                      const updated = formBodyRef.current
+                        ? formBodyRef.current.replace(/<\/p>(?!.*<\/p>)/, `${varText}</p>`)
+                        : varText;
+                      handleBodyChange(updated);
+                    }}
                     className="text-xs px-2 py-1 rounded-md border border-border bg-background hover:bg-accent transition-colors"
                     title={v.label}
                     type="button"
