@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 
 type Props = {
   open: boolean;
@@ -41,53 +40,46 @@ export function UndoSendDialog({ open, delaySeconds = 15, onCancel, onExpire }: 
     return () => clearInterval(interval);
   }, [open, delaySeconds, onExpire]);
 
+  if (!open) return null;
+
+  const progress = remaining / delaySeconds;
+
   return (
-    <Dialog open={open} onOpenChange={() => {}}>
-      <DialogContent
-        className="sm:max-w-sm gap-4"
-        onPointerDownOutside={(e) => e.preventDefault()}
-        onEscapeKeyDown={(e) => e.preventDefault()}
-      >
-        <DialogTitle className="sr-only">Annuler l'envoi</DialogTitle>
-        <div className="flex flex-col items-center gap-4 py-2">
-          <div className="relative h-14 w-14 flex items-center justify-center">
-            <svg className="absolute inset-0 h-14 w-14 -rotate-90" viewBox="0 0 56 56">
-              <circle cx="28" cy="28" r="24" fill="none" stroke="hsl(var(--muted))" strokeWidth="4" />
-              <circle
-                cx="28"
-                cy="28"
-                r="24"
-                fill="none"
-                stroke="hsl(var(--primary))"
-                strokeWidth="4"
-                strokeLinecap="round"
-                strokeDasharray={2 * Math.PI * 24}
-                strokeDashoffset={2 * Math.PI * 24 * (1 - remaining / delaySeconds)}
-                className="transition-[stroke-dashoffset] duration-1000 ease-linear"
-              />
-            </svg>
-            <span className="text-lg font-semibold tabular-nums">{remaining}</span>
-          </div>
-          <p className="text-sm text-muted-foreground text-center">
-            L'email sera envoyé dans {remaining}s
-          </p>
-          <Button
-            variant="destructive"
-            className="w-full"
-            onClick={onCancel}
-            disabled={remaining === 0}
-          >
-            {remaining === 0 ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                Envoi en cours…
-              </>
-            ) : (
-              "Annuler l'envoi"
-            )}
-          </Button>
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300">
+      <div className="flex items-center gap-3 bg-foreground text-background rounded-lg px-4 py-2.5 shadow-lg min-w-[280px]">
+        {/* Progress bar background */}
+        <div className="absolute inset-0 rounded-lg overflow-hidden pointer-events-none">
+          <div
+            className="absolute inset-y-0 left-0 bg-background/10 transition-[width] duration-1000 ease-linear"
+            style={{ width: `${progress * 100}%` }}
+          />
         </div>
-      </DialogContent>
-    </Dialog>
+
+        <span className="text-sm font-medium relative z-10">
+          {remaining === 0 ? "Envoi en cours…" : "Message envoyé."}
+        </span>
+
+        <div className="flex items-center gap-2 ml-auto relative z-10">
+          {remaining > 0 ? (
+            <Button
+              variant="link"
+              size="sm"
+              className="text-background hover:text-background/80 font-semibold px-1 h-auto"
+              onClick={onCancel}
+            >
+              Annuler
+            </Button>
+          ) : (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          )}
+        </div>
+
+        {remaining > 0 && (
+          <span className="text-xs tabular-nums text-background/60 relative z-10">
+            {remaining}s
+          </span>
+        )}
+      </div>
+    </div>
   );
 }
