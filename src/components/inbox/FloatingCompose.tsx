@@ -18,6 +18,7 @@ import { AttachmentUpload, FileToUpload } from "@/components/inbox/Attachments";
 import { TemplatePickerDialog } from "@/components/inbox/TemplatePickerDialog";
 import { useDraft } from "@/hooks/useDraft";
 import { useComposeWindow } from "@/hooks/useComposeWindow";
+import { UndoSendDialog } from "@/components/inbox/UndoSendDialog";
 
 
 export function FloatingCompose() {
@@ -151,21 +152,14 @@ export function FloatingCompose() {
     updateDraft({ to_email: to, from_email: fromEmail, subject, body });
   }, [to, fromEmail, subject, body, draftInitialized, updateDraft, state.isOpen]);
 
-  const sendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cancelledRef = useRef(false);
-
-  // Cleanup timer on unmount
-  useEffect(() => {
-    return () => {
-      if (sendTimerRef.current) clearTimeout(sendTimerRef.current);
-    };
-  }, []);
+  const pendingSendRef = useRef<any>(null);
+  const [undoSendOpen, setUndoSendOpen] = useState(false);
 
   const handleSend = async () => {
     if (!to || !subject || !body || !fromEmail) return;
     setSending(true);
 
-    // Capture values for deferred send
     const sendPayload = {
       to, subject, body, fromEmail,
       attachments: attachedFiles.map((f) => ({
@@ -175,52 +169,46 @@ export function FloatingCompose() {
       })),
     };
 
-    // Delete draft immediately so it disappears from brouillons
     await deleteDraft();
 
     cancelledRef.current = false;
+    pendingSendRef.current = sendPayload;
     closeCompose();
-
-    const toastId = toast("Envoi dans 15 secondes…", {
-      duration: 15500,
-      action: {
-        label: "Annuler",
-        onClick: () => {
-          cancelledRef.current = true;
-          if (sendTimerRef.current) {
-            clearTimeout(sendTimerRef.current);
-            sendTimerRef.current = null;
-          }
-          toast.dismiss(toastId);
-          toast.info("Envoi annulé");
-          setSending(false);
-        },
-      },
-    });
-
-    sendTimerRef.current = setTimeout(async () => {
-      if (cancelledRef.current) return;
-      toast.dismiss(toastId);
-      try {
-        const { data, error } = await supabase.functions.invoke("gmail-send", {
-          body: {
-            to: sendPayload.to,
-            subject: sendPayload.subject,
-            body: sendPayload.body,
-            from_email: sendPayload.fromEmail,
-            attachments: sendPayload.attachments.length > 0 ? sendPayload.attachments : undefined,
-          },
-        });
-        if (error) throw error;
-        if (data?.error) throw new Error(data.error);
-        toast.success("Email envoyé !");
-      } catch (err: any) {
-        toast.error("Erreur : " + (err.message || String(err)));
-      } finally {
-        setSending(false);
-      }
-    }, 15000);
+    setUndoSendOpen(true);
   };
+
+  const handleUndoCancel = useCallback(() => {
+    cancelledRef.current = true;
+    pendingSendRef.current = null;
+    setUndoSendOpen(false);
+    setSending(false);
+    toast.info("Envoi annulé");
+  }, []);
+
+  const handleUndoExpire = useCallback(async () => {
+    setUndoSendOpen(false);
+    const p = pendingSendRef.current;
+    if (!p || cancelledRef.current) { setSending(false); return; }
+    pendingSendRef.current = null;
+    try {
+      const { data, error } = await supabase.functions.invoke("gmail-send", {
+        body: {
+          to: p.to,
+          subject: p.subject,
+          body: p.body,
+          from_email: p.fromEmail,
+          attachments: p.attachments.length > 0 ? p.attachments : undefined,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success("Email envoyé !");
+    } catch (err: any) {
+      toast.error("Erreur : " + (err.message || String(err)));
+    } finally {
+      setSending(false);
+    }
+  }, []);
 
   const handleSchedule = async () => {
     if (!to || !subject || !body || !fromEmail || !scheduleDate) return;
@@ -561,6 +549,7 @@ export function FloatingCompose() {
           </Button>
         </div>
       </div>
+      <UndoSendDialog open={undoSendOpen} onCancel={handleUndoCancel} onExpire={handleUndoExpire} />
     </div>
   );
 }

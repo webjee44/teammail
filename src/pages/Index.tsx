@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/inbox/NotificationBell";
 
 import type { FileToUpload } from "@/components/inbox/Attachments";
+import { UndoSendDialog } from "@/components/inbox/UndoSendDialog";
 
 type Message = {
   id: string;
@@ -701,80 +702,95 @@ const Index = () => {
     }));
 
     replyCancelledRef.current = false;
+    setUndoSendOpen(true);
 
-    const toastId = toast("Réponse dans 15 secondes…", {
-      duration: 15500,
-      action: {
-        label: "Annuler",
-        onClick: () => {
-          replyCancelledRef.current = true;
-          if (replyTimerRef.current) {
-            clearTimeout(replyTimerRef.current);
-            replyTimerRef.current = null;
-          }
-          toast.dismiss(toastId);
-          toast.info("Envoi annulé");
-        },
+    const pendingSend = {
+      to: conv.from_email,
+      subject: `Re: ${conv.subject}`,
+      body,
+      fromEmail,
+      senderName,
+      gmailAttachments,
+      id,
+      attachedFiles,
+    };
+    pendingSendRef.current = pendingSend;
+
+    // The actual send is now triggered by the UndoSendDialog onExpire callback
+  };
+
+  const pendingSendRef = useRef<any>(null);
+  const [undoSendOpen, setUndoSendOpen] = useState(false);
+
+  const handleUndoCancel = useCallback(() => {
+    replyCancelledRef.current = true;
+    if (replyTimerRef.current) {
+      clearTimeout(replyTimerRef.current);
+      replyTimerRef.current = null;
+    }
+    pendingSendRef.current = null;
+    setUndoSendOpen(false);
+    toast.info("Envoi annulé");
+  }, []);
+
+  const handleUndoExpire = useCallback(async () => {
+    setUndoSendOpen(false);
+    const p = pendingSendRef.current;
+    if (!p || replyCancelledRef.current) return;
+    pendingSendRef.current = null;
+
+    const { data, error } = await supabase.functions.invoke("gmail-send", {
+      body: {
+        to: p.to,
+        subject: p.subject,
+        body: p.body,
+        from_email: p.fromEmail,
+        from_name: p.senderName,
+        attachments: p.gmailAttachments,
       },
     });
 
-    replyTimerRef.current = setTimeout(async () => {
-      if (replyCancelledRef.current) return;
-      toast.dismiss(toastId);
+    if (error || data?.error) {
+      toast.error("Erreur d'envoi : " + (data?.error || error?.message));
+      return;
+    }
 
-      const { data, error } = await supabase.functions.invoke("gmail-send", {
-        body: {
-          to: conv.from_email,
-          subject: `Re: ${conv.subject}`,
-          body,
-          from_email: fromEmail,
-          from_name: senderName,
-          attachments: gmailAttachments,
-        },
-      });
+    const { data: newMsg } = await supabase.from("messages").insert({
+      conversation_id: p.id,
+      from_email: p.fromEmail,
+      from_name: p.senderName || p.fromEmail,
+      to_email: p.to,
+      body_text: p.body,
+      body_html: p.body.replace(/\n/g, "<br>"),
+      is_outbound: true,
+      gmail_message_id: data?.messageId || null,
+    }).select("id").single();
 
-      if (error || data?.error) {
-        toast.error("Erreur d'envoi : " + (data?.error || error?.message));
-        return;
+    if (newMsg && p.attachedFiles && p.attachedFiles.length > 0) {
+      for (const f of p.attachedFiles) {
+        const storagePath = `${p.id}/${newMsg.id}/${f.name}`;
+        await supabase.storage.from("attachments").upload(storagePath, f.file, {
+          contentType: f.file.type,
+          upsert: true,
+        });
+        await supabase.from("attachments").insert({
+          message_id: newMsg.id,
+          filename: f.name,
+          mime_type: f.file.type || "application/octet-stream",
+          size_bytes: f.file.size,
+          storage_path: storagePath,
+        });
       }
+    }
 
-      const { data: newMsg } = await supabase.from("messages").insert({
-        conversation_id: id,
-        from_email: fromEmail,
-        from_name: user?.user_metadata?.full_name || fromEmail,
-        to_email: conv.from_email,
-        body_text: body,
-        body_html: body.replace(/\n/g, "<br>"),
-        is_outbound: true,
-        gmail_message_id: data?.messageId || null,
-      }).select("id").single();
+    await supabase
+      .from("conversations")
+      .update({ last_message_at: new Date().toISOString(), status: "closed" as const, is_read: true })
+      .eq("id", p.id);
 
-      if (newMsg && attachedFiles && attachedFiles.length > 0) {
-        for (const f of attachedFiles) {
-          const storagePath = `${id}/${newMsg.id}/${f.name}`;
-          await supabase.storage.from("attachments").upload(storagePath, f.file, {
-            contentType: f.file.type,
-            upsert: true,
-          });
-          await supabase.from("attachments").insert({
-            message_id: newMsg.id,
-            filename: f.name,
-            mime_type: f.file.type || "application/octet-stream",
-            size_bytes: f.file.size,
-            storage_path: storagePath,
-          });
-        }
-      }
-
-      await supabase
-        .from("conversations")
-        .update({ last_message_at: new Date().toISOString(), status: "closed" as const, is_read: true })
-        .eq("id", id);
-
-      toast.success("Réponse envoyée");
-      fetchDetail(id);
-    }, 15000);
-  };
+    toast.success("Réponse envoyée");
+    fetchDetail(p.id);
+  }, [fetchDetail]);
 
   const handleComment = async (id: string, body: string) => {
     if (!user) return;
@@ -1053,6 +1069,7 @@ const Index = () => {
         onOpenChange={setCommandOpen}
         onSelect={setSelectedId}
       />
+      <UndoSendDialog open={undoSendOpen} onCancel={handleUndoCancel} onExpire={handleUndoExpire} />
     </AppLayout>
   );
 };
