@@ -3,12 +3,12 @@ import {
   UserPlus, Tag, Clock, CheckCircle, MessageSquare, Send,
   MoreHorizontal, Sparkles, ChevronDown, ChevronUp, User,
   Building2, DollarSign, CalendarDays, ArrowUp, ArrowRight,
-  ArrowDown, Loader2, Trash2, Pencil, Check, X, Contact,
+  ArrowDown, Loader2, Trash2, Pencil, Check, X, Contact, UserMinus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
@@ -21,11 +21,19 @@ import { toast } from "sonner";
 import { decodeHtml, categoryLabels, type ConversationDetailData } from "./types";
 import { ResponseTimeBadge } from "../ResponseTimeBadge";
 import { calcResponseTimes } from "@/lib/response-time";
+import { useAuth } from "@/hooks/useAuth";
 
 const priorityIcons: Record<string, { icon: typeof ArrowUp; className: string; label: string }> = {
   high: { icon: ArrowUp, className: "text-destructive", label: "Haute" },
   medium: { icon: ArrowRight, className: "text-amber-500", label: "Moyenne" },
   low: { icon: ArrowDown, className: "text-muted-foreground", label: "Basse" },
+};
+
+type TeamMember = {
+  user_id: string;
+  full_name: string | null;
+  email: string | null;
+  avatar_url: string | null;
 };
 
 type Props = {
@@ -34,14 +42,18 @@ type Props = {
   onDelete?: (id: string) => void;
   onReplyClick: () => void;
   onSelectConversation?: (id: string) => void;
+  onAssign?: (conversationId: string, userId: string | null) => void;
 };
 
-export function ConversationHeader({ conversation, onStatusChange, onDelete, onReplyClick, onSelectConversation }: Props) {
+export function ConversationHeader({ conversation, onStatusChange, onDelete, onReplyClick, onSelectConversation, onAssign }: Props) {
+  const { user } = useAuth();
   const [infoOpen, setInfoOpen] = useState(false);
   const [editingSubject, setEditingSubject] = useState(false);
   const [subjectDraft, setSubjectDraft] = useState("");
   const [savingSubject, setSavingSubject] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [assigning, setAssigning] = useState(false);
   const subjectInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -50,6 +62,37 @@ export function ConversationHeader({ conversation, onStatusChange, onDelete, onR
       subjectInputRef.current.select();
     }
   }, [editingSubject]);
+
+  // Load team members for assignment dropdown
+  useEffect(() => {
+    const loadTeamMembers = async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, email, avatar_url");
+      if (data) setTeamMembers(data);
+    };
+    loadTeamMembers();
+  }, []);
+
+  const handleAssign = async (userId: string | null) => {
+    setAssigning(true);
+    try {
+      const { error } = await supabase
+        .from("conversations")
+        .update({ assigned_to: userId })
+        .eq("id", conversation.id);
+      if (error) throw error;
+      conversation.assigned_to = userId;
+      const member = teamMembers.find(m => m.user_id === userId);
+      (conversation as any).assignee_name = member?.full_name || member?.email || null;
+      onAssign?.(conversation.id, userId);
+      toast.success(userId ? `Assigné à ${member?.full_name || member?.email}` : "Assignation retirée");
+    } catch (err: any) {
+      toast.error("Erreur : " + (err.message || String(err)));
+    } finally {
+      setAssigning(false);
+    }
+  };
 
   const handleStartEditSubject = () => {
     setSubjectDraft(decodeHtml(conversation.subject));
@@ -143,6 +186,45 @@ export function ConversationHeader({ conversation, onStatusChange, onDelete, onR
               <Contact className="h-4 w-4" /> Contact
             </Button>
           )}
+          {/* Assignment dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-9 px-4 font-semibold gap-1.5" disabled={assigning}>
+                {assigning ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+                {conversation.assignee_name || "Assigner"}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              {/* Assign to me shortcut */}
+              {user && (
+                <DropdownMenuItem onClick={() => handleAssign(user.id)}>
+                  <User className="h-4 w-4 mr-2 text-primary" /> M'assigner
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              {teamMembers.map((member) => (
+                <DropdownMenuItem
+                  key={member.user_id}
+                  onClick={() => handleAssign(member.user_id)}
+                  className={cn(conversation.assigned_to === member.user_id && "bg-accent")}
+                >
+                  <User className="h-4 w-4 mr-2" />
+                  {member.full_name || member.email || "Sans nom"}
+                  {conversation.assigned_to === member.user_id && (
+                    <Check className="h-3.5 w-3.5 ml-auto text-primary" />
+                  )}
+                </DropdownMenuItem>
+              ))}
+              {conversation.assigned_to && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => handleAssign(null)} className="text-destructive">
+                    <UserMinus className="h-4 w-4 mr-2" /> Retirer l'assignation
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button variant="outline" size="sm" className="h-9 px-4 font-semibold gap-1.5" onClick={() => onDelete?.(conversation.id)}>
             <Trash2 className="h-4 w-4" /> Archiver
           </Button>
