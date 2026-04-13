@@ -1320,6 +1320,7 @@ export type Database = {
       }
     }
     Functions: {
+      cleanup_whatsapp_groups: { Args: never; Returns: undefined }
       get_actionable_count: { Args: { _mailbox_id?: string }; Returns: number }
       get_sent_conversation_ids: {
         Args: never
