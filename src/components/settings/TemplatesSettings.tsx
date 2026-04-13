@@ -358,7 +358,9 @@ export function TemplatesSettings() {
                     <span className="font-medium">Objet :</span> {t.subject}
                   </p>
                 )}
-                <p className="text-xs text-muted-foreground line-clamp-2">{t.body}</p>
+                <p className="text-xs text-muted-foreground line-clamp-2">
+                  {t.body.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()}
+                </p>
               </div>
             ))}
           </div>
