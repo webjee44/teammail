@@ -102,6 +102,8 @@ const Index = () => {
       const tag = (e.target as HTMLElement)?.tagName;
       const isEditable = tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable;
       if (isEditable) return;
+      // Skip when modifier keys are held (allow Ctrl+C, Ctrl+V, Ctrl+A, etc.)
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
       // C → compose
       if (e.key === "c" || e.key === "C") {
         e.preventDefault();
