@@ -115,6 +115,7 @@ const Index = () => {
   }, [openCompose]);
 
   // Fetch conversations based on filter
+  const refetchRef = useRef<() => void>(() => {});
   useEffect(() => {
     const fetchConversations = async () => {
       setLoading(true);
