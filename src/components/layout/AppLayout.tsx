@@ -10,7 +10,7 @@ type Props = {
 export function AppLayout({ children, hideHeader }: Props) {
   return (
     <SidebarProvider>
-        <div className="flex w-full bg-background">
+        <div className="min-h-screen flex w-full">
           <InboxSidebar />
           <div className="flex-1 flex flex-col min-w-0">
             {!hideHeader && (
@@ -23,7 +23,6 @@ export function AppLayout({ children, hideHeader }: Props) {
             </main>
           </div>
         </div>
-      </div>
     </SidebarProvider>
   );
 }
