@@ -63,6 +63,37 @@ export function ConversationHeader({ conversation, onStatusChange, onDelete, onR
     }
   }, [editingSubject]);
 
+  // Load team members for assignment dropdown
+  useEffect(() => {
+    const loadTeamMembers = async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, email, avatar_url");
+      if (data) setTeamMembers(data);
+    };
+    loadTeamMembers();
+  }, []);
+
+  const handleAssign = async (userId: string | null) => {
+    setAssigning(true);
+    try {
+      const { error } = await supabase
+        .from("conversations")
+        .update({ assigned_to: userId })
+        .eq("id", conversation.id);
+      if (error) throw error;
+      conversation.assigned_to = userId;
+      const member = teamMembers.find(m => m.user_id === userId);
+      (conversation as any).assignee_name = member?.full_name || member?.email || null;
+      onAssign?.(conversation.id, userId);
+      toast.success(userId ? `Assigné à ${member?.full_name || member?.email}` : "Assignation retirée");
+    } catch (err: any) {
+      toast.error("Erreur : " + (err.message || String(err)));
+    } finally {
+      setAssigning(false);
+    }
+  };
+
   const handleStartEditSubject = () => {
     setSubjectDraft(decodeHtml(conversation.subject));
     setEditingSubject(true);
