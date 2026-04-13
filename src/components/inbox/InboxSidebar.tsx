@@ -192,7 +192,7 @@ export function InboxSidebar() {
               <PenSquare className="h-3.5 w-3.5" />
             </Button>
           ) : (
-            <Button variant="outline" size="sm" className="w-full gap-2 h-8 border-dashed text-[13px] font-medium" onClick={() => openCompose()}>
+            <Button variant="outline" size="sm" className="w-full gap-2 h-8 border-dashed text-base font-medium" onClick={() => openCompose()}>
               <PenSquare className="h-3.5 w-3.5" />
               Rédiger
               <span className="ml-auto text-[10px] text-muted-foreground font-normal">C</span>
@@ -266,7 +266,7 @@ export function InboxSidebar() {
                     <NavLink
                       to={item.url}
                       end
-                      className="sidebar-item"
+                      className="sidebar-item text-base"
                       activeClassName="sidebar-item-active"
                     >
                       <span className="flex items-center gap-2">
@@ -305,7 +305,7 @@ export function InboxSidebar() {
                       <SidebarMenuButton asChild className="h-7">
                         <NavLink
                           to={`/?tag=${tag.id}${activeMailbox ? `&mailbox=${activeMailbox}` : ""}`}
-                          className="sidebar-item"
+                          className="sidebar-item text-base"
                           activeClassName="sidebar-item-active"
                         >
                           <span className="flex items-center gap-2">
@@ -339,7 +339,7 @@ export function InboxSidebar() {
                 <SidebarMenuButton asChild className="h-7">
                   <NavLink
                     to="/whatsapp"
-                    className="sidebar-item"
+                    className="sidebar-item text-base"
                     activeClassName="sidebar-item-active"
                   >
                     <span className="flex items-center gap-2">
@@ -372,7 +372,7 @@ export function InboxSidebar() {
                   <SidebarMenuButton asChild className="h-7">
                     <NavLink
                       to={item.url}
-                      className="sidebar-item"
+                      className="sidebar-item text-base"
                       activeClassName="sidebar-item-active"
                     >
                       <span className="flex items-center gap-2">
