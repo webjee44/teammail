@@ -3,12 +3,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Send, Phone, MoreHorizontal, Paperclip, X, FileText, Download, Check, CheckCheck, Trash2 } from "lucide-react";
+import { Send, Phone, MoreHorizontal, Paperclip, X, FileText, Download, Check, CheckCheck, Trash2, UserPlus, UserMinus } from "lucide-react";
 import { format } from "date-fns";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { fr } from "date-fns/locale";
@@ -30,7 +31,14 @@ type WAConversation = {
   id: string;
   phone_number: string;
   contact_name: string | null;
+  assigned_to: string | null;
   contacts: { name: string | null } | null;
+};
+
+type TeamMember = {
+  user_id: string;
+  full_name: string | null;
+  email: string | null;
 };
 
 interface Props {
@@ -81,16 +89,38 @@ export function WhatsAppConversationDetail({ conversationId, onDelete }: Props) 
   const [sending, setSending] = useState(false);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [attachedPreview, setAttachedPreview] = useState<string | null>(null);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [assigning, setAssigning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const fetchData = async () => {
-    const [{ data: conv }, { data: msgs }] = await Promise.all([
-      supabase.from("whatsapp_conversations").select("id, phone_number, contact_name, contacts(name)").eq("id", conversationId).single(),
+    const [{ data: conv }, { data: msgs }, { data: members }] = await Promise.all([
+      supabase.from("whatsapp_conversations").select("id, phone_number, contact_name, assigned_to, contacts(name)").eq("id", conversationId).single(),
       supabase.from("whatsapp_messages").select("id, body, media_type, media_url, is_outbound, from_name, from_phone, sent_at").eq("conversation_id", conversationId).order("sent_at", { ascending: true }),
+      supabase.from("profiles").select("user_id, full_name, email"),
     ]);
     if (conv) setConversation(conv as unknown as WAConversation);
     if (msgs) setMessages(msgs);
+    if (members) setTeamMembers(members);
+  };
+
+  const handleAssign = async (userId: string | null) => {
+    setAssigning(true);
+    try {
+      const { error } = await supabase
+        .from("whatsapp_conversations")
+        .update({ assigned_to: userId })
+        .eq("id", conversationId);
+      if (error) throw error;
+      setConversation((prev) => prev ? { ...prev, assigned_to: userId } : prev);
+      const member = teamMembers.find((m) => m.user_id === userId);
+      toast.success(userId ? `Assigné à ${member?.full_name || member?.email}` : "Assignation retirée");
+    } catch (err: any) {
+      toast.error("Erreur : " + (err.message || String(err)));
+    } finally {
+      setAssigning(false);
+    }
   };
 
   useEffect(() => {
@@ -226,6 +256,43 @@ export function WhatsAppConversationDetail({ conversationId, onDelete }: Props) 
           </div>
         </div>
         <div className="flex items-center gap-1">
+          {/* Assign dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 gap-1.5 rounded-lg text-[12px]" disabled={assigning}>
+                <UserPlus className="h-3.5 w-3.5" />
+                {conversation.assigned_to
+                  ? (teamMembers.find((m) => m.user_id === conversation.assigned_to)?.full_name?.split(" ")[0] ||
+                     teamMembers.find((m) => m.user_id === conversation.assigned_to)?.email?.split("@")[0] ||
+                     "Assigné")
+                  : "Assigner"}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              {teamMembers.map((member) => (
+                <DropdownMenuItem
+                  key={member.user_id}
+                  onClick={() => handleAssign(member.user_id)}
+                  className={cn(conversation.assigned_to === member.user_id && "bg-accent")}
+                >
+                  <span className="truncate">{member.full_name || member.email}</span>
+                  {conversation.assigned_to === member.user_id && (
+                    <Check className="h-3.5 w-3.5 ml-auto shrink-0" />
+                  )}
+                </DropdownMenuItem>
+              ))}
+              {conversation.assigned_to && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => handleAssign(null)} className="text-muted-foreground">
+                    <UserMinus className="h-3.5 w-3.5 mr-2" />
+                    Retirer l'assignation
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg">
             <Phone className="h-4 w-4" />
           </Button>
