@@ -115,7 +115,9 @@ export function TemplatesSettings() {
     text.replace(/\{\{(\w+)\}\}/g, (_, key) => EXAMPLE_VALUES[key] || `[${key}]`);
 
   const handleSave = async () => {
-    if (!formName.trim() || !formBody.trim()) return;
+    const bodyToCheck = formBodyRef.current || formBody;
+    const bodyTextOnly = bodyToCheck.replace(/<[^>]*>/g, '').trim();
+    if (!formName.trim() || !bodyTextOnly) return;
     setSaving(true);
     try {
       const { data: profile } = await supabase
