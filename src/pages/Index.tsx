@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/inbox/NotificationBell";
 
 import type { FileToUpload } from "@/components/inbox/Attachments";
+import { UndoSendDialog } from "@/components/inbox/UndoSendDialog";
 
 type Message = {
   id: string;
@@ -1068,6 +1069,7 @@ const Index = () => {
         onOpenChange={setCommandOpen}
         onSelect={setSelectedId}
       />
+      <UndoSendDialog open={undoSendOpen} onCancel={handleUndoCancel} onExpire={handleUndoExpire} />
     </AppLayout>
   );
 };
