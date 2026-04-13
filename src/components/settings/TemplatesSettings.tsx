@@ -128,12 +128,13 @@ export function TemplatesSettings() {
       }
 
       if (editing) {
+        const bodyToSave = formBodyRef.current || formBody;
         const { error } = await supabase
           .from("email_templates")
           .update({
             name: formName.trim(),
             subject: formSubject.trim(),
-            body: formBody,
+            body: bodyToSave,
             category: formCategory.trim() || null,
             is_shared: formShared,
           })
