@@ -312,8 +312,6 @@ export function WhatsAppConversationDetail({ conversationId, onDelete }: Props) 
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
       </div>
 
