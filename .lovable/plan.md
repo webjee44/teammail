@@ -1,51 +1,44 @@
 
 
-# Plan : Threading Gmail — miroir des conversations
+# Plan : Correction de l'encodage des accents dans les emails
 
-## Problème
-Quand TeamMail envoie une réponse, Gmail crée une **nouvelle conversation** au lieu de l'ajouter au thread existant. Raison : le `gmail-send` ne passe ni le `threadId` Gmail, ni les headers `In-Reply-To` / `References` qui sont indispensables au threading Gmail.
+## Problème identifié
+
+Le fichier `supabase/functions/gmail-send/index.ts` a un **double encodage** qui corrompt les caractères accentués. Voici les points précis :
+
+1. **Encodage final du message MIME (ligne 264)** : `btoa(unescape(encodeURIComponent(rawEmail)))` — le message MIME contient déjà des parties body encodées en base64 via `btoa(unescape(encodeURIComponent(...)))` dans `buildRawEmail`. Quand le message complet est ré-encodé en base64 pour l'API Gmail, le `unescape(encodeURIComponent(...))` traite les caractères UTF-8 des headers comme des séquences d'octets Latin-1, ce qui peut causer des corruptions.
+
+2. **Header `From` (ligne 260)** : `"${from_name}" <${from_email}>` — si le nom contient des accents (ex: "François"), il n'est PAS encodé en RFC 2047 (`=?UTF-8?B?...?=`) comme l'est le sujet. C'est invalide en RFC 2822.
+
+3. **Noms de fichiers attachés (lignes 125-126)** : les noms de fichiers avec accents (ex: "Capture d'écran") ne sont pas encodés — c'est d'ailleurs la cause des erreurs `InvalidKey` visibles dans les logs de `gmail-sync`.
 
 ## Solution
 
-### 1. Modifier `gmail-send` (Edge Function) pour accepter le threading
+### 1. Créer une fonction utilitaire d'encodage RFC 2047
 
-**Fichier** : `supabase/functions/gmail-send/index.ts`
+```text
+function encodeRFC2047(text: string): string
+  → Si ASCII pur, retourner tel quel
+  → Sinon, encoder en =?UTF-8?B?base64?=
+```
 
-- Accepter de nouveaux paramètres optionnels : `thread_id`, `in_reply_to`, `references`
-- Dans `buildRawEmail`, ajouter les headers `In-Reply-To` et `References` quand fournis
-- Passer `threadId` dans le body de l'appel Gmail API :
-  ```json
-  { "raw": "...", "threadId": "19d8ae537f09ec84" }
-  ```
+### 2. Appliquer l'encodage aux headers dans `buildRawEmail`
 
-### 2. Passer les infos de threading depuis le frontend (reply inline)
+- **From** : encoder la partie display-name
+- **To, Cc, Bcc** : encoder les éventuels display-names
+- **Noms de fichiers** : encoder avec RFC 2047 dans `Content-Type` et `Content-Disposition`
 
-**Fichier** : `src/pages/Index.tsx`
+### 3. Corriger l'encodage final (ligne 264)
 
-- Dans `handleReply`, récupérer le `gmail_thread_id` de la conversation et le `gmail_message_id` du dernier message
-- Les passer dans le payload envoyé à `gmail-send` :
-  ```typescript
-  thread_id: conv.gmail_thread_id,
-  in_reply_to: lastMessage.gmail_message_id,
-  references: lastMessage.gmail_message_id,
-  ```
+Remplacer `btoa(unescape(encodeURIComponent(rawEmail)))` par un encodage qui utilise `TextEncoder` pour convertir proprement la chaîne en bytes UTF-8, puis en base64url. Cela évite le passage par le hack `unescape(encodeURIComponent(...))`.
 
-### 3. Passer les infos de threading depuis FloatingCompose (reply via compose)
+### 4. Redéployer la fonction
 
-**Fichier** : `src/hooks/useComposeWindow.tsx` + `src/components/inbox/FloatingCompose.tsx`
+Déployer `gmail-send` après les modifications.
 
-- Ajouter `threadId`, `inReplyTo` optionnels au state du compose window
-- Les transmettre à `gmail-send` lors de l'envoi
+## Fichier modifié
+- `supabase/functions/gmail-send/index.ts`
 
-### 4. Stocker le Message-ID Gmail sur les messages synchronisés
-
-Les `gmail_message_id` stockés en base sont les IDs internes Gmail (ex: `19d8ae...`), pas les RFC Message-ID headers. Pour le threading, il faut que `In-Reply-To` contienne le header `Message-ID` RFC du dernier message.
-
-**Option pragmatique** : Utiliser le format `<gmail_message_id@mail.gmail.com>` comme référence — Gmail accepte aussi le threading via `threadId` seul, ce qui est suffisant. On passera principalement le `threadId`.
-
-## Fichiers modifiés
-1. `supabase/functions/gmail-send/index.ts` — headers threading + threadId dans l'appel API
-2. `src/pages/Index.tsx` — passer thread_id et in_reply_to dans handleReply
-3. `src/hooks/useComposeWindow.tsx` — ajouter threadId/inReplyTo au state
-4. `src/components/inbox/FloatingCompose.tsx` — transmettre les infos de threading
+## Impact
+- Toutes les réponses, nouveaux mails, campagnes et mails programmés passent par `gmail-send` → ce fix corrige tout d'un coup.
 
