@@ -79,6 +79,8 @@ function buildRawEmail(
   attachments?: Attachment[],
   cc?: string,
   bcc?: string,
+  inReplyTo?: string,
+  references?: string,
 ): string {
   const boundary = `boundary_${crypto.randomUUID()}`;
   const hasAttachments = attachments && attachments.length > 0;
@@ -89,6 +91,7 @@ function buildRawEmail(
     ...(cc ? [`Cc: ${cc}`] : []),
     ...(bcc ? [`Bcc: ${bcc}`] : []),
     `Subject: =?UTF-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`,
+    ...(inReplyTo ? [`In-Reply-To: ${inReplyTo}`, `References: ${references || inReplyTo}`] : []),
     `MIME-Version: 1.0`,
   ];
 
