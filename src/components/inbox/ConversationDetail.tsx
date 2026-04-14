@@ -115,13 +115,10 @@ export function ConversationDetail({ conversation, currentUserId, onStatusChange
     openCompose({
       to: primaryTo,
       subject: replySubject,
+      cc: ccList.length > 0 ? ccList : undefined,
       threadId: convRow?.gmail_thread_id || undefined,
       inReplyTo: (lastMsg as any)?.gmail_message_id || undefined,
     });
-
-    // Set CC after compose opens — we need to pass it through the compose state
-    // For now, we'll extend the compose window to accept initial CC
-    // Actually, let's add initialCc to the compose state
   };
 
   return (
