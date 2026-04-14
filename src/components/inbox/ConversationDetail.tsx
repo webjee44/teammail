@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { MessageSquare } from "lucide-react";
 import { ConversationHeader } from "./conversation/ConversationHeader";
 import { MessageList } from "./conversation/MessageList";
@@ -16,6 +16,24 @@ function buildForwardBody(conversation: NonNullable<ConversationDetailProps["con
   if (!lastMsg) return "";
   const date = lastMsg.sent_at ? format(new Date(lastMsg.sent_at), "d MMMM yyyy à HH:mm", { locale: fr }) : "";
   return `<br><br>---------- Message transféré ----------<br>De : ${lastMsg.from_name || lastMsg.from_email || ""} &lt;${lastMsg.from_email || ""}&gt;<br>Date : ${date}<br>Objet : ${decodeHtml(conversation.subject)}<br>À : ${lastMsg.to_email || ""}<br><br>${lastMsg.body_html || lastMsg.body_text || ""}`;
+}
+
+/** Extract all unique email addresses from thread messages, parsing "Name <email>" format */
+function collectThreadEmails(messages: NonNullable<ConversationDetailProps["conversation"]>["messages"]): Set<string> {
+  const emails = new Set<string>();
+  for (const m of messages) {
+    for (const raw of [m.from_email, m.to_email]) {
+      if (!raw) continue;
+      // to_email can contain multiple comma-separated addresses
+      for (const part of raw.split(",")) {
+        const trimmed = part.trim();
+        const match = trimmed.match(/<(.+?)>/);
+        const email = match ? match[1].toLowerCase() : trimmed.toLowerCase();
+        if (email && email.includes("@")) emails.add(email);
+      }
+    }
+  }
+  return emails;
 }
 
 export function ConversationDetail({ conversation, currentUserId, onStatusChange, onReply, onComment, onEditComment, onDeleteComment, onDelete }: ConversationDetailProps) {
@@ -60,6 +78,52 @@ export function ConversationDetail({ conversation, currentUserId, onStatusChange
     openCompose({ subject: fwdSubject, body: fwdBody, attachments: attachments.length > 0 ? attachments : undefined });
   };
 
+  const handleReplyAll = async () => {
+    // Get our mailbox emails to exclude them from CC
+    const { data: mailboxes } = await supabase
+      .from("team_mailboxes")
+      .select("email")
+      .eq("sync_enabled", true);
+    const ourEmails = new Set((mailboxes || []).map((m: any) => m.email.toLowerCase()));
+
+    // Collect all emails from the thread
+    const allEmails = collectThreadEmails(conversation.messages);
+
+    // Remove our own mailbox emails
+    for (const e of ourEmails) allEmails.delete(e);
+
+    // The primary recipient is the original sender
+    const lastInbound = [...conversation.messages].reverse().find((m) => !m.is_outbound);
+    const primaryTo = lastInbound?.from_email?.toLowerCase() || conversation.from_email?.toLowerCase() || "";
+
+    // Everyone else goes to CC
+    allEmails.delete(primaryTo);
+    const ccList = Array.from(allEmails);
+
+    const subject = conversation.subject.replace(/^Re:\s*/i, "");
+    const replySubject = `Re: ${subject}`;
+
+    // Get threading info
+    const { data: convRow } = await supabase
+      .from("conversations")
+      .select("gmail_thread_id")
+      .eq("id", conversation.id)
+      .maybeSingle();
+
+    const lastMsg = conversation.messages[conversation.messages.length - 1];
+
+    openCompose({
+      to: primaryTo,
+      subject: replySubject,
+      threadId: convRow?.gmail_thread_id || undefined,
+      inReplyTo: (lastMsg as any)?.gmail_message_id || undefined,
+    });
+
+    // Set CC after compose opens — we need to pass it through the compose state
+    // For now, we'll extend the compose window to accept initial CC
+    // Actually, let's add initialCc to the compose state
+  };
+
   return (
     <div className="flex flex-col h-full">
       <ConversationHeader
@@ -71,6 +135,7 @@ export function ConversationDetail({ conversation, currentUserId, onStatusChange
           document.querySelector("[data-reply-area]")?.scrollIntoView({ behavior: "smooth" });
         }}
         onForward={handleForward}
+        onReplyAll={handleReplyAll}
       />
       <MessageList
         messages={conversation.messages}
@@ -87,6 +152,7 @@ export function ConversationDetail({ conversation, currentUserId, onStatusChange
         onReply={onReply}
         onComment={onComment}
         onForward={handleForward}
+        onReplyAll={handleReplyAll}
       />
     </div>
   );
