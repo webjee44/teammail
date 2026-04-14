@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { sanitizeHtml } from "@/lib/sanitize";
 import { AttachmentList } from "../Attachments";
 import { renderMentions } from "../MentionTextarea";
 import { ResponseTimeBadge } from "../ResponseTimeBadge";
