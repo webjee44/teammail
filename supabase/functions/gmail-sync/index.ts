@@ -436,7 +436,7 @@ serve(async (req) => {
                 const bytes = new Uint8Array(binary.length);
                 for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
 
-                const storagePath = `${conversationId}/${newMsg.id}/${att.filename}`;
+                const storagePath = `${conversationId}/${messageId}/${att.filename}`;
                 const { error: uploadErr } = await supabase.storage
                   .from("attachments")
                   .upload(storagePath, bytes, {
@@ -450,7 +450,7 @@ serve(async (req) => {
                 }
 
                 await supabase.from("attachments").insert({
-                  message_id: newMsg.id,
+                  message_id: messageId,
                   filename: att.filename,
                   mime_type: att.mimeType,
                   size_bytes: att.size,
