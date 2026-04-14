@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { sanitizeHtml } from "@/lib/sanitize";
 import { supabase } from "@/integrations/supabase/client";
 import { AttachmentUpload, FileToUpload } from "@/components/inbox/Attachments";
 import { TemplatePickerDialog } from "@/components/inbox/TemplatePickerDialog";
@@ -389,7 +390,7 @@ export function FloatingCompose() {
         {signatureHtml && (
           <div
             className="p-2 rounded-md border border-border bg-muted/30 text-xs"
-            dangerouslySetInnerHTML={{ __html: signatureHtml }}
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(signatureHtml) }}
           />
         )}
 

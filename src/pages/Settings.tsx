@@ -15,6 +15,7 @@ import { Plus, Trash2, Mail, Users, Tag, RefreshCw, Loader2, PenTool, Eye, Star,
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { sanitizeHtml } from "@/lib/sanitize";
 import type { Tables } from "@/integrations/supabase/types";
 import { TemplatesSettings } from "@/components/settings/TemplatesSettings";
 
@@ -726,7 +727,7 @@ const Settings = () => {
                       {showPreview ? (
                         <div
                           className="min-h-[120px] p-3 rounded-md border border-input bg-background text-sm"
-                          dangerouslySetInnerHTML={{ __html: sigHtml }}
+                          dangerouslySetInnerHTML={{ __html: sanitizeHtml(sigHtml) }}
                         />
                       ) : (
                         <Textarea
@@ -808,7 +809,7 @@ const Settings = () => {
                         </div>
                         <div
                           className="text-xs text-muted-foreground border-t border-border pt-2"
-                          dangerouslySetInnerHTML={{ __html: sig.body_html }}
+                          dangerouslySetInnerHTML={{ __html: sanitizeHtml(sig.body_html) }}
                         />
                       </div>
                     ))}

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { sanitizeHtml } from "@/lib/sanitize";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -142,7 +143,7 @@ export function CampaignStepPreview({ data, onSend, sending }: Props) {
         <CardContent className="p-4">
           <div
             className="prose prose-sm max-w-none text-sm [&>p+p]:mt-4 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:my-0.5 [&_li>p]:inline"
-            dangerouslySetInnerHTML={{ __html: previewBody }}
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(previewBody) }}
           />
         </CardContent>
       </Card>

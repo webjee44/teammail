@@ -221,12 +221,37 @@ async function getSignatureHtml(supabase: any, mailboxId: string): Promise<strin
   return "";
 }
 
+// Validate caller: accept user JWT or service-role key (internal calls)
+async function validateCaller(req: Request, supabaseUrl: string, anonKey: string, serviceKey: string): Promise<boolean> {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) return false;
+  const token = authHeader.replace("Bearer ", "");
+  // Allow service-role calls (from send-campaign, process-scheduled-emails, etc.)
+  if (token === serviceKey) return true;
+  // Validate user JWT
+  const sb = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
+  const { data, error } = await sb.auth.getUser(token);
+  return !error && !!data?.user;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
+
+    const isAuthorized = await validateCaller(req, supabaseUrl, anonKey, supabaseServiceKey);
+    if (!isAuthorized) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { to, subject, body, from_email, from_name, attachments, cc, bcc, skip_signature, thread_id, in_reply_to, references: refHeader } = await req.json();
 
     if (!to || !subject || !body || !from_email) {
@@ -236,8 +261,6 @@ serve(async (req) => {
       );
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { data: mailbox } = await supabase
