@@ -240,6 +240,18 @@ serve(async (req) => {
   }
 
   try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
+
+    const isAuthorized = await validateCaller(req, supabaseUrl, anonKey, supabaseServiceKey);
+    if (!isAuthorized) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { to, subject, body, from_email, from_name, attachments, cc, bcc, skip_signature, thread_id, in_reply_to, references: refHeader } = await req.json();
 
     if (!to || !subject || !body || !from_email) {
@@ -249,8 +261,6 @@ serve(async (req) => {
       );
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { data: mailbox } = await supabase
