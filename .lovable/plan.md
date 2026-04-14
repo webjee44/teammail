@@ -1,49 +1,63 @@
 
 
-## Diagnostic
+# Plan : Ajout de la fonctionnalité "Transférer un mail"
 
-La conversation **CLOUD VAPOR // CMD69DDEC5C114FE** (id `622efd20...`) existe en base mais a **0 messages**. Le thread Gmail `19d8ae537f09ec84` a été créé, la conversation a été insérée, mais les messages n'ont jamais été persistés.
+## Résumé
+Ajouter un bouton "Transférer" dans la zone de réponse des conversations, comme dans Gmail. Cliquer dessus ouvre la fenêtre de composition flottante pré-remplie avec l'objet `Fwd: ...` et le corps du message original (historique cité). L'utilisateur saisit le destinataire et peut modifier le texte avant d'envoyer.
 
-**Cause racine** : dans `gmail-sync`, l'upsert des messages utilise `ignoreDuplicates: true` combiné avec `.select("id").single()`. Quand un message existe déjà (dedup), PostgreSQL ne retourne aucune ligne → `.single()` retourne une erreur → `msgErr` est truthy → le message est sauté silencieusement. Cela signifie aussi que les pièces jointes associées ne sont jamais créées.
+## Modifications
 
-C'est un bug introduit par le fix de déduplication précédent : `ignoreDuplicates` supprime le retour des lignes existantes.
+### 1. Ajouter un bouton "Transférer" dans le header de conversation
+**Fichier** : `src/components/inbox/conversation/ConversationHeader.tsx`
+- Ajouter une icône "Forward" (lucide `Forward`) à côté des actions existantes (Traité, Contact, Assign...)
+- Au clic, appeler un nouveau callback `onForward`
 
-## Plan de correction
+### 2. Ajouter le callback `onForward` dans les types et le wiring
+**Fichier** : `src/components/inbox/conversation/types.ts`
+- Pas de changement de type nécessaire, on passera par `useComposeWindow`
 
-### 1. Corriger l'upsert des messages dans `gmail-sync/index.ts`
+**Fichier** : `src/components/inbox/ConversationDetail.tsx`
+- Ajouter un bouton "Transférer" dans les tabs ou passer le callback au header
 
-Remplacer l'upsert avec `ignoreDuplicates` + `.single()` par une logique en deux temps :
-- D'abord, vérifier si le message existe déjà via `gmail_message_id`
-- Si oui, récupérer son `id` existant (pour les pièces jointes)
-- Si non, faire un `insert` normal
+### 3. Construire le corps du forward dans ConversationDetail / Index
+**Fichier** : `src/components/inbox/ConversationDetail.tsx`
+- Importer `useComposeWindow`
+- Créer une fonction `handleForward` qui :
+  - Construit le sujet : `Fwd: ${conversation.subject}` (sans doubler le préfixe)
+  - Construit le corps HTML avec le message original cité (dernier message ou message sélectionné), incluant :
+    - Ligne "---------- Forwarded message ----------"
+    - De: / Date: / Objet: / À:
+    - Le body_html du message
+  - Inclut les pièces jointes du message original (les télécharge depuis le storage et les passe en base64)
+  - Appelle `openCompose({ subject, body })` — le champ "to" reste vide pour que l'utilisateur le remplisse
 
-```typescript
-// Pseudo-code du fix
-const { data: existingMsg } = await supabase
-  .from("messages")
-  .select("id")
-  .eq("gmail_message_id", gMsg.id)
-  .maybeSingle();
+### 4. Ajouter le bouton dans la ReplyArea
+**Fichier** : `src/components/inbox/conversation/ReplyArea.tsx`
+- Ajouter un troisième tab ou un bouton icône "Transférer" (Forward) dans la barre d'actions, à côté de "Répondre" et "Note interne"
+- Au clic, déclencher le forward via `useComposeWindow`
 
-let messageId: string;
-if (existingMsg) {
-  messageId = existingMsg.id;
-} else {
-  const { data: newMsg, error: msgErr } = await supabase
-    .from("messages")
-    .insert({ ... })
-    .select("id")
-    .single();
-  if (msgErr || !newMsg) continue;
-  messageId = newMsg.id;
-}
-// Continue with attachments using messageId
-```
+### 5. Gérer les pièces jointes du message forwardé
+**Fichier** : `src/components/inbox/ConversationDetail.tsx`
+- Lors du forward, récupérer les pièces jointes du dernier message depuis le bucket `attachments`
+- Les convertir en base64 et les passer à la fenêtre de composition
+- Cela nécessite d'étendre `useComposeWindow` pour accepter des pièces jointes initiales
 
-### 2. Re-synchro de la conversation bloquée
+**Fichier** : `src/hooks/useComposeWindow.tsx`
+- Ajouter `initialAttachments?: { name: string; file: File; base64: string }[]` au state et à `openCompose`
 
-Après le déploiement, relancer la synchro pour la boîte `commercial@cloudvapor.com` (mailbox `674f3650-de84-4bd2-9551-9ed5f97da83f`). Les messages du thread seront correctement insérés cette fois.
+**Fichier** : `src/components/inbox/FloatingCompose.tsx`
+- Initialiser les pièces jointes attachées à partir de `state.initialAttachments`
 
-### Fichiers modifiés
-- `supabase/functions/gmail-sync/index.ts` — fix de la logique upsert (lignes ~393-408)
+## Détails techniques
+- Le forward utilise la fenêtre de composition flottante existante (`FloatingCompose`), pas la zone de réponse inline
+- Le sujet est préfixé `Fwd:` (ou `Tr:` en français — on utilisera `Fwd:` comme Gmail)
+- L'envoi passe par le même flux `gmail-send` existant, pas de changement backend nécessaire
+- Les pièces jointes sont optionnelles — si le message original en a, elles sont incluses
+
+## Fichiers modifiés
+1. `src/hooks/useComposeWindow.tsx` — support des pièces jointes initiales
+2. `src/components/inbox/FloatingCompose.tsx` — initialiser les PJ
+3. `src/components/inbox/ConversationDetail.tsx` — logique forward + bouton
+4. `src/components/inbox/conversation/ConversationHeader.tsx` — bouton Forward dans le header
+5. `src/components/inbox/conversation/ReplyArea.tsx` — bouton Forward dans la barre d'actions
 
