@@ -14,6 +14,7 @@ import { Search, FileText, TrendingUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { sanitizeHtml } from "@/lib/sanitize";
 
 interface Template {
   id: string;
@@ -260,7 +261,7 @@ export function TemplatePickerDialog({
                 )}
                 <div
                   className="text-sm prose prose-sm max-w-none dark:prose-invert"
-                  dangerouslySetInnerHTML={{ __html: resolveText(selected.body) }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(resolveText(selected.body)) }}
                 />
               </div>
             </div>
@@ -301,7 +302,7 @@ function TemplateRow({
       )}
       <div
         className="text-xs text-muted-foreground mt-0.5 line-clamp-2"
-        dangerouslySetInnerHTML={{ __html: template.body.slice(0, 200) }}
+        dangerouslySetInnerHTML={{ __html: sanitizeHtml(template.body.slice(0, 200)) }}
       />
     </button>
   );

@@ -21,6 +21,7 @@ import {
   Tooltip, TooltipContent, TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { sanitizeHtml } from "@/lib/sanitize";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { AttachmentUpload, FileToUpload } from "../Attachments";
@@ -296,7 +297,7 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
             />
 
             {signatureHtml && (
-              <div className="p-2 rounded-md border border-border bg-muted/30 text-xs" dangerouslySetInnerHTML={{ __html: signatureHtml }} />
+              <div className="p-2 rounded-md border border-border bg-muted/30 text-xs" dangerouslySetInnerHTML={{ __html: sanitizeHtml(signatureHtml) }} />
             )}
 
             <AttachmentUpload files={attachedFiles} onFilesChange={setAttachedFiles} />
