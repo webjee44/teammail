@@ -25,9 +25,6 @@ serve(async (req) => {
     }
 
     const { text, format: inputFormat } = await req.json();
-
-  try {
-    const { text, format: inputFormat } = await req.json();
     if (!text || typeof text !== "string" || !text.trim()) {
       return new Response(JSON.stringify({ error: "Texte vide" }), {
         status: 400,
