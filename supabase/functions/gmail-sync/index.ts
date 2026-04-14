@@ -390,22 +390,32 @@ serve(async (req) => {
             const sentAt = new Date(parseInt(gMsg.internalDate)).toISOString();
             const isOutbound = msgFromEmail.toLowerCase() === mailbox.email.toLowerCase();
 
-            const { data: newMsg, error: msgErr } = await supabase.from("messages").upsert({
-              conversation_id: conversationId,
-              gmail_message_id: gMsg.id,
-              from_email: msgFromEmail,
-              from_name: msgFromName,
-              to_email: msgToHeader,
-              body_html: body.html,
-              body_text: body.text,
-              sent_at: sentAt,
-              is_outbound: isOutbound,
-            }, {
-              onConflict: "gmail_message_id",
-              ignoreDuplicates: true,
-            }).select("id").single();
+            // Check if message already exists to avoid silent skip from ignoreDuplicates
+            const { data: existingMsg } = await supabase
+              .from("messages")
+              .select("id")
+              .eq("gmail_message_id", gMsg.id)
+              .maybeSingle();
 
-            if (msgErr || !newMsg) continue;
+            let messageId: string;
+            if (existingMsg) {
+              messageId = existingMsg.id;
+            } else {
+              const { data: newMsg, error: msgErr } = await supabase.from("messages").insert({
+                conversation_id: conversationId,
+                gmail_message_id: gMsg.id,
+                from_email: msgFromEmail,
+                from_name: msgFromName,
+                to_email: msgToHeader,
+                body_html: body.html,
+                body_text: body.text,
+                sent_at: sentAt,
+                is_outbound: isOutbound,
+              }).select("id").single();
+
+              if (msgErr || !newMsg) continue;
+              messageId = newMsg.id;
+            }
 
             // Download and store attachments
             const attachmentInfos = extractAttachments(gMsg.payload);
@@ -426,7 +436,7 @@ serve(async (req) => {
                 const bytes = new Uint8Array(binary.length);
                 for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
 
-                const storagePath = `${conversationId}/${newMsg.id}/${att.filename}`;
+                const storagePath = `${conversationId}/${messageId}/${att.filename}`;
                 const { error: uploadErr } = await supabase.storage
                   .from("attachments")
                   .upload(storagePath, bytes, {
@@ -440,7 +450,7 @@ serve(async (req) => {
                 }
 
                 await supabase.from("attachments").insert({
-                  message_id: newMsg.id,
+                  message_id: messageId,
                   filename: att.filename,
                   mime_type: att.mimeType,
                   size_bytes: att.size,
