@@ -4,7 +4,7 @@ import {
   MoreHorizontal, Sparkles, ChevronDown, ChevronUp, User,
   Building2, DollarSign, CalendarDays, ArrowUp, ArrowRight,
   ArrowDown, Loader2, Trash2, Pencil, Check, X, Contact, UserMinus,
-  Archive,
+  Archive, Forward,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -47,9 +47,10 @@ type Props = {
   onReplyClick: () => void;
   onSelectConversation?: (id: string) => void;
   onAssign?: (conversationId: string, userId: string | null) => void;
+  onForward?: () => void;
 };
 
-export function ConversationHeader({ conversation, onStatusChange, onDelete, onReplyClick, onSelectConversation, onAssign }: Props) {
+export function ConversationHeader({ conversation, onStatusChange, onDelete, onReplyClick, onSelectConversation, onAssign, onForward }: Props) {
   const { user } = useAuth();
   const [infoOpen, setInfoOpen] = useState(false);
   const [editingSubject, setEditingSubject] = useState(false);
@@ -186,6 +187,15 @@ export function ConversationHeader({ conversation, onStatusChange, onDelete, onR
 
         {/* Compact icon actions */}
         <div className="flex items-center gap-1 shrink-0 mr-8">
+          {/* Forward button */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onForward}>
+                <Forward className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Transférer</TooltipContent>
+          </Tooltip>
           {/* Quick "Traité" button */}
           {conversation.status === "open" && (
             <Tooltip>
