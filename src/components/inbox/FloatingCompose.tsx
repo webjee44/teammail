@@ -53,12 +53,12 @@ export function FloatingCompose() {
     setBody(state.initialBody || "");
     setDraftInitialized(false);
     setAttachedFiles(state.initialAttachments?.map((a) => ({ name: a.name, file: a.file, base64: a.base64 })) || []);
-    setCc([]);
+    setCc(state.initialCc || []);
     setBcc([]);
     setSending(false);
     setScheduling(false);
     resetDraft(state.draftId || null);
-  }, [state.isOpen, state.initialTo, state.initialSubject, state.initialBody, state.draftId, state.initialAttachments, resetDraft]);
+  }, [state.isOpen, state.initialTo, state.initialSubject, state.initialBody, state.draftId, state.initialAttachments, state.initialCc, resetDraft]);
 
   const handlePolish = async () => {
     if (!body.trim() && body !== "<p></p>") return;
