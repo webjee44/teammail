@@ -197,6 +197,9 @@ export function FloatingCompose() {
           body: p.body,
           from_email: p.fromEmail,
           attachments: p.attachments.length > 0 ? p.attachments : undefined,
+          thread_id: state.threadId || undefined,
+          in_reply_to: state.inReplyTo || undefined,
+          references: state.inReplyTo || undefined,
         },
       });
       if (error) throw error;

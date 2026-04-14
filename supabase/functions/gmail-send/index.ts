@@ -197,7 +197,7 @@ serve(async (req) => {
   }
 
   try {
-    const { to, subject, body, from_email, from_name, attachments, cc, bcc, skip_signature } = await req.json();
+    const { to, subject, body, from_email, from_name, attachments, cc, bcc, skip_signature, thread_id, in_reply_to, references: refHeader } = await req.json();
 
     if (!to || !subject || !body || !from_email) {
       return new Response(
@@ -258,7 +258,9 @@ serve(async (req) => {
       : htmlBody;
 
     const fromHeader = from_name ? `"${from_name}" <${from_email}>` : from_email;
-    const rawEmail = buildRawEmail(fromHeader, to, subject, bodyHtmlContent, bodyText, attachments, cc, bcc);
+    const inReplyToHeader = in_reply_to ? `<${in_reply_to}@mail.gmail.com>` : undefined;
+    const referencesHeader = refHeader ? `<${refHeader}@mail.gmail.com>` : inReplyToHeader;
+    const rawEmail = buildRawEmail(fromHeader, to, subject, bodyHtmlContent, bodyText, attachments, cc, bcc, inReplyToHeader, referencesHeader);
     const encodedMessage = btoa(unescape(encodeURIComponent(rawEmail)))
       .replace(/\+/g, "-")
       .replace(/\//g, "_")
@@ -272,7 +274,7 @@ serve(async (req) => {
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ raw: encodedMessage }),
+        body: JSON.stringify({ raw: encodedMessage, ...(thread_id ? { threadId: thread_id } : {}) }),
       }
     );
 

@@ -698,6 +698,15 @@ const Index = () => {
       return;
     }
 
+    // Get threading info
+    const { data: convRow } = await supabase
+      .from("conversations")
+      .select("gmail_thread_id")
+      .eq("id", id)
+      .maybeSingle();
+
+    const lastMsg = messages.length > 0 ? messages[messages.length - 1] : null;
+
     const senderName = user?.user_metadata?.full_name || "";
     const gmailAttachments = attachedFiles?.map((f) => ({
       filename: f.name,
@@ -717,10 +726,10 @@ const Index = () => {
       gmailAttachments,
       id,
       attachedFiles,
+      thread_id: convRow?.gmail_thread_id || null,
+      in_reply_to: (lastMsg as any)?.gmail_message_id || null,
     };
     pendingSendRef.current = pendingSend;
-
-    // The actual send is now triggered by the UndoSendDialog onExpire callback
   };
 
   const pendingSendRef = useRef<any>(null);
@@ -751,6 +760,9 @@ const Index = () => {
         from_email: p.fromEmail,
         from_name: p.senderName,
         attachments: p.gmailAttachments,
+        thread_id: p.thread_id || undefined,
+        in_reply_to: p.in_reply_to || undefined,
+        references: p.in_reply_to || undefined,
       },
     });
 
