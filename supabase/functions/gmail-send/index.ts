@@ -221,6 +221,19 @@ async function getSignatureHtml(supabase: any, mailboxId: string): Promise<strin
   return "";
 }
 
+// Validate caller: accept user JWT or service-role key (internal calls)
+async function validateCaller(req: Request, supabaseUrl: string, anonKey: string, serviceKey: string): Promise<boolean> {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) return false;
+  const token = authHeader.replace("Bearer ", "");
+  // Allow service-role calls (from send-campaign, process-scheduled-emails, etc.)
+  if (token === serviceKey) return true;
+  // Validate user JWT
+  const sb = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
+  const { data, error } = await sb.auth.getUser(token);
+  return !error && !!data?.user;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
