@@ -52,14 +52,13 @@ export function FloatingCompose() {
     setSubject(state.initialSubject || "");
     setBody(state.initialBody || "");
     setDraftInitialized(false);
-    setAttachedFiles([]);
+    setAttachedFiles(state.initialAttachments?.map((a) => ({ name: a.name, file: a.file, base64: a.base64 })) || []);
     setCc([]);
     setBcc([]);
     setSending(false);
     setScheduling(false);
-    // Reset draft hook so it doesn't carry over from previous compose
     resetDraft(state.draftId || null);
-  }, [state.isOpen, state.initialTo, state.initialSubject, state.initialBody, state.draftId, resetDraft]);
+  }, [state.isOpen, state.initialTo, state.initialSubject, state.initialBody, state.draftId, state.initialAttachments, resetDraft]);
 
   const handlePolish = async () => {
     if (!body.trim() && body !== "<p></p>") return;
