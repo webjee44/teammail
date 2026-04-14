@@ -6,6 +6,34 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// RFC 2047 encode a header value if it contains non-ASCII chars
+function encodeRFC2047(text: string): string {
+  if (/^[\x00-\x7F]*$/.test(text)) return text;
+  const b64 = btoa(unescape(encodeURIComponent(text)));
+  return `=?UTF-8?B?${b64}?=`;
+}
+
+// Encode a "Display Name <email>" header, only encoding the display name part
+function encodeAddressHeader(header: string): string {
+  // Match patterns like "Name <email>" or just "email"
+  return header.replace(/"([^"]+)"\s*<([^>]+)>/g, (_m, name, email) => {
+    return `${encodeRFC2047(name)} <${email}>`;
+  });
+}
+
+// Convert raw email string to base64url for Gmail API (proper UTF-8 handling)
+function toBase64Url(str: string): string {
+  const bytes = new TextEncoder().encode(str);
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
 async function getAccessToken(serviceAccountKey: any, senderEmail: string): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const header = { alg: "RS256", typ: "JWT" };
@@ -85,8 +113,11 @@ function buildRawEmail(
   const boundary = `boundary_${crypto.randomUUID()}`;
   const hasAttachments = attachments && attachments.length > 0;
 
+  // Encode address headers for non-ASCII display names
+  const encodedFrom = encodeAddressHeader(from);
+
   const lines: string[] = [
-    `From: ${from}`,
+    `From: ${encodedFrom}`,
     `To: ${to}`,
     ...(cc ? [`Cc: ${cc}`] : []),
     ...(bcc ? [`Bcc: ${bcc}`] : []),
@@ -120,10 +151,11 @@ function buildRawEmail(
     lines.push(`--${altBoundary}--`);
 
     for (const att of attachments!) {
+      const encodedFilename = encodeRFC2047(att.filename);
       lines.push(``);
       lines.push(`--${boundary}`);
-      lines.push(`Content-Type: ${att.mime_type}; name="${att.filename}"`);
-      lines.push(`Content-Disposition: attachment; filename="${att.filename}"`);
+      lines.push(`Content-Type: ${att.mime_type}; name="${encodedFilename}"`);
+      lines.push(`Content-Disposition: attachment; filename="${encodedFilename}"`);
       lines.push(`Content-Transfer-Encoding: base64`);
       lines.push(``);
       const b64 = att.data;
@@ -155,7 +187,6 @@ function buildRawEmail(
 }
 
 async function getSignatureHtml(supabase: any, mailboxId: string): Promise<string> {
-  // Try mailbox-specific signature
   const { data: ms } = await supabase
     .from("mailbox_signatures")
     .select("signature_id")
@@ -171,7 +202,6 @@ async function getSignatureHtml(supabase: any, mailboxId: string): Promise<strin
     if (sig?.body_html) return sig.body_html;
   }
 
-  // Fallback: team default signature (get team_id from mailbox)
   const { data: mb } = await supabase
     .from("team_mailboxes")
     .select("team_id")
@@ -224,7 +254,6 @@ serve(async (req) => {
       );
     }
 
-    // Get signature for this mailbox (skip for campaign emails)
     const signatureHtml = skip_signature ? "" : await getSignatureHtml(supabase, mailbox.id);
 
     let serviceAccountKeyStr = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
@@ -244,8 +273,6 @@ serve(async (req) => {
 
     const accessToken = await getAccessToken(serviceAccountKey, from_email.toLowerCase());
 
-    // Build body with signature
-    // Detect if body is already HTML (from rich text editor)
     const isHtml = /<[a-z][\s\S]*>/i.test(body);
     const plainBody = isHtml ? body.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">") : body;
     const htmlBody = isHtml ? body : body.replace(/\n/g, "<br>");
@@ -261,10 +288,9 @@ serve(async (req) => {
     const inReplyToHeader = in_reply_to ? `<${in_reply_to}@mail.gmail.com>` : undefined;
     const referencesHeader = refHeader ? `<${refHeader}@mail.gmail.com>` : inReplyToHeader;
     const rawEmail = buildRawEmail(fromHeader, to, subject, bodyHtmlContent, bodyText, attachments, cc, bcc, inReplyToHeader, referencesHeader);
-    const encodedMessage = btoa(unescape(encodeURIComponent(rawEmail)))
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=+$/, "");
+
+    // Use proper UTF-8 → base64url encoding (no double-encoding)
+    const encodedMessage = toBase64Url(rawEmail);
 
     const sendRes = await fetch(
       "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
