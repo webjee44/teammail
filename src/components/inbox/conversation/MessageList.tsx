@@ -153,7 +153,7 @@ export function MessageList({ messages, comments, conversationSubject, currentUs
                 {msg.body_html ? (
                   <div
                     className="text-sm text-foreground prose prose-sm max-w-none dark:prose-invert [&_a:not([href^='mailto:'])]:target-blank"
-                    dangerouslySetInnerHTML={{ __html: msg.body_html.replace(/<a\s/gi, '<a target="_blank" rel="noopener noreferrer" ') }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(msg.body_html.replace(/<a\s/gi, '<a target="_blank" rel="noopener noreferrer" ')) }}
                     onClick={handleContentClick}
                   />
                 ) : (
@@ -190,7 +190,7 @@ export function MessageList({ messages, comments, conversationSubject, currentUs
             </div>
             <div
               className="text-sm text-foreground/80 prose prose-sm max-w-none dark:prose-invert"
-              dangerouslySetInnerHTML={{ __html: se.body }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(se.body) }}
             />
           </div>
         ))}
