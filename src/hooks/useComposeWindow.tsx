@@ -16,11 +16,12 @@ type ComposeState = {
   initialAttachments?: InitialAttachment[];
   threadId?: string;
   inReplyTo?: string;
+  initialCc?: string[];
 };
 
 type ComposeWindowContextType = {
   state: ComposeState;
-  openCompose: (params?: { to?: string; subject?: string; body?: string; draftId?: string; attachments?: InitialAttachment[]; threadId?: string; inReplyTo?: string }) => void;
+  openCompose: (params?: { to?: string; subject?: string; body?: string; draftId?: string; attachments?: InitialAttachment[]; threadId?: string; inReplyTo?: string; cc?: string[] }) => void;
   closeCompose: () => void;
   toggleMinimize: () => void;
 };
@@ -30,7 +31,7 @@ const ComposeWindowContext = createContext<ComposeWindowContextType | null>(null
 export function ComposeWindowProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<ComposeState>({ isOpen: false, isMinimized: false });
 
-  const openCompose = useCallback((params?: { to?: string; subject?: string; body?: string; draftId?: string; attachments?: InitialAttachment[]; threadId?: string; inReplyTo?: string }) => {
+  const openCompose = useCallback((params?: { to?: string; subject?: string; body?: string; draftId?: string; attachments?: InitialAttachment[]; threadId?: string; inReplyTo?: string; cc?: string[] }) => {
     setState({
       isOpen: true,
       isMinimized: false,
@@ -41,6 +42,7 @@ export function ComposeWindowProvider({ children }: { children: ReactNode }) {
       initialAttachments: params?.attachments,
       threadId: params?.threadId,
       inReplyTo: params?.inReplyTo,
+      initialCc: params?.cc,
     });
   }, []);
 
