@@ -69,6 +69,15 @@ serve(async (req) => {
 
   // Return appropriate response
   if (type === "click" && redirectUrl) {
+    // Validate redirect URL to prevent open redirect attacks
+    try {
+      const parsed = new URL(redirectUrl);
+      if (!["http:", "https:"].includes(parsed.protocol)) {
+        return new Response("Invalid redirect URL", { status: 400 });
+      }
+    } catch {
+      return new Response("Invalid redirect URL", { status: 400 });
+    }
     return new Response(null, {
       status: 302,
       headers: { Location: redirectUrl },
