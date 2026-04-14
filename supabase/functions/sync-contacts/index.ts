@@ -31,6 +31,14 @@ Deno.serve(async (req) => {
   const startTime = Date.now();
 
   try {
+    // Auth check: only service-role key (cron job)
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ") || authHeader.replace("Bearer ", "") !== supabaseServiceKey) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     // 1. Fetch all active customers with email from Cloud Vapor B2B
     const sourceResp = await fetch(
       `${CLOUD_VAPOR_URL}/rest/v1/b2b_customers?is_active=eq.true&email=not.is.null&select=id,name,email,phone,salesperson_name,city,street,street2,zip,country,odoo_id,updated_at`,
