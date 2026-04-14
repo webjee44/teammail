@@ -53,12 +53,12 @@ export function FloatingCompose() {
     setBody(state.initialBody || "");
     setDraftInitialized(false);
     setAttachedFiles(state.initialAttachments?.map((a) => ({ name: a.name, file: a.file, base64: a.base64 })) || []);
-    setCc([]);
+    setCc(state.initialCc || []);
     setBcc([]);
     setSending(false);
     setScheduling(false);
     resetDraft(state.draftId || null);
-  }, [state.isOpen, state.initialTo, state.initialSubject, state.initialBody, state.draftId, state.initialAttachments, resetDraft]);
+  }, [state.isOpen, state.initialTo, state.initialSubject, state.initialBody, state.draftId, state.initialAttachments, state.initialCc, resetDraft]);
 
   const handlePolish = async () => {
     if (!body.trim() && body !== "<p></p>") return;
@@ -197,6 +197,8 @@ export function FloatingCompose() {
           body: p.body,
           from_email: p.fromEmail,
           attachments: p.attachments.length > 0 ? p.attachments : undefined,
+          cc: cc.length > 0 ? cc.join(", ") : undefined,
+          bcc: bcc.length > 0 ? bcc.join(", ") : undefined,
           thread_id: state.threadId || undefined,
           in_reply_to: state.inReplyTo || undefined,
           references: state.inReplyTo || undefined,

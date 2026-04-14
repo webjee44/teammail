@@ -48,9 +48,10 @@ type Props = {
   onSelectConversation?: (id: string) => void;
   onAssign?: (conversationId: string, userId: string | null) => void;
   onForward?: () => void;
+  onReplyAll?: () => void;
 };
 
-export function ConversationHeader({ conversation, onStatusChange, onDelete, onReplyClick, onSelectConversation, onAssign, onForward }: Props) {
+export function ConversationHeader({ conversation, onStatusChange, onDelete, onReplyClick, onSelectConversation, onAssign, onForward, onReplyAll }: Props) {
   const { user } = useAuth();
   const [infoOpen, setInfoOpen] = useState(false);
   const [editingSubject, setEditingSubject] = useState(false);
@@ -187,6 +188,15 @@ export function ConversationHeader({ conversation, onStatusChange, onDelete, onR
 
         {/* Compact icon actions */}
         <div className="flex items-center gap-1 shrink-0 mr-8">
+          {/* Reply All button */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onReplyAll}>
+                <Send className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Répondre à tous</TooltipContent>
+          </Tooltip>
           {/* Forward button */}
           <Tooltip>
             <TooltipTrigger asChild>

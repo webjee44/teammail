@@ -4,7 +4,7 @@ import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
   Send, MessageSquare, Sparkles, Clock, Loader2, FileText, CalendarIcon, Wand2, Mail,
-  ChevronDown, Save, Forward,
+  ChevronDown, Save, Forward, Reply,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -38,9 +38,10 @@ type Props = {
   onReply?: (id: string, body: string, attachments?: FileToUpload[]) => void;
   onComment?: (id: string, body: string) => void;
   onForward?: () => void;
+  onReplyAll?: () => void;
 };
 
-export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply, onComment, onForward }: Props) {
+export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply, onComment, onForward, onReplyAll }: Props) {
   const navigate = useNavigate();
   const { draft, updateDraft, deleteDraft, loading: draftLoading } = useDraft({ conversationId: conversation.id });
   const [replyHtml, setReplyHtml] = useState("");
@@ -235,6 +236,13 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
           <TabsTrigger value="comment" className="text-xs h-7 px-3">
             <MessageSquare className="h-3 w-3 mr-1" /> Note interne
           </TabsTrigger>
+          <button
+            type="button"
+            onClick={onReplyAll}
+            className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 h-7 text-xs font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 text-muted-foreground hover:text-foreground hover:bg-muted"
+          >
+            <Reply className="h-3 w-3 mr-1" /> Répondre à tous
+          </button>
           <button
             type="button"
             onClick={onForward}
