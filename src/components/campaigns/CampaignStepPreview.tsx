@@ -141,7 +141,7 @@ export function CampaignStepPreview({ data, onSend, sending }: Props) {
         </CardHeader>
         <CardContent className="p-4">
           <div
-            className="prose prose-sm max-w-none text-sm [&>p+p]:mt-4"
+            className="prose prose-sm max-w-none text-sm [&>p+p]:mt-4 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:my-0.5 [&_li>p]:inline"
             dangerouslySetInnerHTML={{ __html: previewBody }}
           />
         </CardContent>
