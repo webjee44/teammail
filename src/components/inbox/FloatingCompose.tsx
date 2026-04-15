@@ -572,7 +572,7 @@ export function FloatingCompose() {
           </Button>
         </div>
       </div>
-      <UndoSendDialog open={undoSendOpen} onCancel={handleUndoCancel} onExpire={handleUndoExpire} />
+      {undoDialog}
     </div>
   );
 }
