@@ -56,8 +56,10 @@ export function useConversationRealtime({
 }: UseConversationRealtimeParams) {
   const [freshlyUpdated, setFreshlyUpdated] = useState<Set<string>>(new Set());
 
-  // Realtime: conversations
+  // Realtime: conversations (skip for special views like sent/drafts that use different data sources)
+  const isSpecialView = filter === "sent" || filter === "drafts";
   useEffect(() => {
+    if (isSpecialView) return;
     const channel = supabase
       .channel('rt-conversations')
       .on(
