@@ -687,6 +687,7 @@ export type Database = {
         Row: {
           body_html: string | null
           body_text: string | null
+          cc: string | null
           conversation_id: string
           created_at: string
           from_email: string | null
@@ -700,6 +701,7 @@ export type Database = {
         Insert: {
           body_html?: string | null
           body_text?: string | null
+          cc?: string | null
           conversation_id: string
           created_at?: string
           from_email?: string | null
@@ -713,6 +715,7 @@ export type Database = {
         Update: {
           body_html?: string | null
           body_text?: string | null
+          cc?: string | null
           conversation_id?: string
           created_at?: string
           from_email?: string | null

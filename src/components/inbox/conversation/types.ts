@@ -19,6 +19,7 @@ export type Message = {
   from_email: string | null;
   from_name: string | null;
   to_email: string | null;
+  cc?: string | null;
   body_html: string | null;
   body_text: string | null;
   sent_at: string;

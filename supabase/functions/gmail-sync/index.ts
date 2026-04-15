@@ -400,6 +400,7 @@ serve(async (req) => {
           for (const gMsg of gmailMessages) {
             const msgFromHeader = getHeader(gMsg.payload?.headers, "From") || "";
             const msgToHeader = getHeader(gMsg.payload?.headers, "To") || "";
+            const msgCcHeader = getHeader(gMsg.payload?.headers, "Cc") || null;
             const msgFromMatch = msgFromHeader.match(/^(.+?)\s*<(.+?)>$/);
             const msgFromName = msgFromMatch ? msgFromMatch[1].replace(/"/g, "").trim() : null;
             const msgFromEmail = msgFromMatch ? msgFromMatch[2] : msgFromHeader;
@@ -424,6 +425,7 @@ serve(async (req) => {
                 from_email: msgFromEmail,
                 from_name: msgFromName,
                 to_email: msgToHeader,
+                cc: msgCcHeader,
                 body_html: body.html,
                 body_text: body.text,
                 sent_at: sentAt,
