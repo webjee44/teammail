@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 
 type Props = {
@@ -13,8 +12,14 @@ type Props = {
 export function UndoSendDialog({ open, delaySeconds = 5, onCancel, onExpire }: Props) {
   const [remaining, setRemaining] = useState(delaySeconds);
   const expiredRef = useRef(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+
     if (!open) {
       setRemaining(delaySeconds);
       expiredRef.current = false;
@@ -24,32 +29,52 @@ export function UndoSendDialog({ open, delaySeconds = 5, onCancel, onExpire }: P
     setRemaining(delaySeconds);
     expiredRef.current = false;
 
-    const interval = setInterval(() => {
+    intervalRef.current = setInterval(() => {
       setRemaining((prev) => {
         if (prev <= 1) {
-          clearInterval(interval);
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+          }
+
           if (!expiredRef.current) {
             expiredRef.current = true;
             setTimeout(onExpire, 0);
           }
+
           return 0;
         }
+
         return prev - 1;
       });
     }, 1000);
 
-    return () => clearInterval(interval);
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
   }, [open, delaySeconds, onExpire]);
 
   if (!open) return null;
+
+  const handleCancelClick = () => {
+    expiredRef.current = true;
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    onCancel();
+  };
 
   const progress = remaining / delaySeconds;
   const circumference = 2 * Math.PI * 14;
   const strokeOffset = circumference * (1 - progress);
 
   return createPortal(
-    <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[200] flex justify-center animate-in slide-in-from-bottom-4 fade-in duration-300">
-      <div className="relative pointer-events-auto flex items-center gap-3 rounded-lg bg-foreground px-4 py-2.5 text-background shadow-lg min-w-[300px]">
+    <div className="fixed inset-x-0 bottom-4 z-[200] flex justify-center animate-in slide-in-from-bottom-4 fade-in duration-300">
+      <div className="relative flex items-center gap-3 rounded-lg bg-foreground px-4 py-2.5 text-background shadow-lg min-w-[300px]">
         <div className="absolute inset-0 overflow-hidden rounded-lg pointer-events-none">
           <div
             className="absolute inset-y-0 left-0 bg-background/10 transition-[width] duration-1000 ease-linear"
@@ -89,14 +114,13 @@ export function UndoSendDialog({ open, delaySeconds = 5, onCancel, onExpire }: P
         </span>
 
         {remaining > 0 && (
-          <Button
-            variant="link"
-            size="sm"
-            className="relative z-10 ml-auto h-auto px-1 font-semibold text-background hover:text-background/80"
-            onClick={onCancel}
+          <button
+            type="button"
+            className="relative z-10 ml-auto text-sm font-semibold text-background transition-opacity hover:opacity-80"
+            onClick={handleCancelClick}
           >
             Annuler
-          </Button>
+          </button>
         )}
       </div>
     </div>,
