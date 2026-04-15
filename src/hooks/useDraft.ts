@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { saveLocal, loadLocal, clearLocal } from "@/hooks/useLocalDraft";
 
 type DraftData = {
   to_email?: string;
@@ -8,6 +9,8 @@ type DraftData = {
   subject?: string;
   body?: string;
 };
+
+type DraftStatus = "draft" | "send_pending" | "sent" | "send_failed";
 
 type UseDraftOptions = {
   conversationId?: string | null;
@@ -26,11 +29,25 @@ export function useDraft({ conversationId = null, draftId = null }: UseDraftOpti
   const lifecycleRef = useRef(0);
   const saveChainRef = useRef<Promise<void>>(Promise.resolve());
 
+  // Local draft key
+  const localKey = savedDraftIdRef.current || activeDraftId || "new";
+
   // Load existing draft
   useEffect(() => {
     if (!user) return;
-    // Only load if activeDraftId or conversationId is set
     if (!activeDraftId && !conversationId) {
+      // Check localStorage for recovery
+      const local = loadLocal("new");
+      if (local && (local.to_email || local.subject || local.body)) {
+        const d: DraftData = {
+          to_email: local.to_email,
+          from_email: local.from_email,
+          subject: local.subject,
+          body: local.body,
+        };
+        setDraft(d);
+        latestDraft.current = d;
+      }
       setLoading(false);
       return;
     }
@@ -47,12 +64,14 @@ export function useDraft({ conversationId = null, draftId = null }: UseDraftOpti
 
       const { data } = await query.maybeSingle();
       if (data) {
-        const d: DraftData = {
-          to_email: data.to_email || undefined,
-          from_email: data.from_email || undefined,
-          subject: data.subject || undefined,
-          body: data.body || undefined,
-        };
+        // Check if localStorage has a more recent version
+        const local = loadLocal(data.id);
+        const useLocal = local?.savedAt && new Date(data.updated_at).getTime() < local.savedAt;
+
+        const d: DraftData = useLocal
+          ? { to_email: local!.to_email, from_email: local!.from_email, subject: local!.subject, body: local!.body }
+          : { to_email: data.to_email || undefined, from_email: data.from_email || undefined, subject: data.subject || undefined, body: data.body || undefined };
+
         setDraft(d);
         latestDraft.current = d;
         setSavedDraftId(data.id);
@@ -78,7 +97,6 @@ export function useDraft({ conversationId = null, draftId = null }: UseDraftOpti
 
   const saveDraft = useCallback(async (data: DraftData, generation: number) => {
     if (!user) return;
-    // Don't save if all fields are empty
     const hasContent = data.to_email || data.subject || data.body;
     if (!hasContent) return;
 
@@ -113,12 +131,19 @@ export function useDraft({ conversationId = null, draftId = null }: UseDraftOpti
 
         if (inserted?.id) {
           if (generation !== lifecycleRef.current) {
-            await supabase.from("drafts").delete().eq("id", inserted.id);
+            // Draft was cancelled while insert was in-flight — mark as sent to clean up
+            await supabase.from("drafts").update({ status: "sent" }).eq("id", inserted.id);
             return;
           }
 
           savedDraftIdRef.current = inserted.id;
           setSavedDraftId(inserted.id);
+          // Migrate localStorage from "new" to actual id
+          const local = loadLocal("new");
+          if (local) {
+            saveLocal(inserted.id, local);
+            clearLocal("new");
+          }
         }
       }
     } catch (err) {
@@ -126,26 +151,51 @@ export function useDraft({ conversationId = null, draftId = null }: UseDraftOpti
     }
   }, [user, conversationId]);
 
-  // Debounced auto-save
+  // Debounced auto-save (500ms)
   const updateDraft = useCallback((data: DraftData) => {
     setDraft(data);
     latestDraft.current = data;
+    // Immediate localStorage save
+    saveLocal(savedDraftIdRef.current || "new", data);
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
       const generation = lifecycleRef.current;
       saveChainRef.current = saveChainRef.current
         .catch(() => undefined)
         .then(() => saveDraft(data, generation));
-    }, 1500);
+    }, 500);
   }, [saveDraft]);
 
-  // Cleanup timer on unmount
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
+  // Flush: cancel timer, force immediate server save
+  const flushDraft = useCallback(async () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    const data = latestDraft.current;
+    const generation = lifecycleRef.current;
+    const p = saveChainRef.current
+      .catch(() => undefined)
+      .then(() => saveDraft(data, generation));
+    saveChainRef.current = p;
+    await p;
+  }, [saveDraft]);
+
+  // Set draft status in DB
+  const setDraftStatus = useCallback(async (status: DraftStatus, errorMessage?: string) => {
+    const id = savedDraftIdRef.current;
+    if (!id) return;
+    const update: any = { status };
+    if (errorMessage !== undefined) update.error_message = errorMessage;
+    if (status === "sent") update.error_message = null;
+    await supabase.from("drafts").update(update).eq("id", id);
+    if (status === "sent") {
+      clearLocal(id);
+      clearLocal("new");
+    }
   }, []);
 
+  // Legacy deleteDraft — now marks as sent
   const deleteDraft = useCallback(async () => {
     if (timerRef.current) clearTimeout(timerRef.current);
     lifecycleRef.current += 1;
@@ -154,11 +204,32 @@ export function useDraft({ conversationId = null, draftId = null }: UseDraftOpti
     setSavedDraftId(null);
 
     if (currentDraftId) {
-      await supabase.from("drafts").delete().eq("id", currentDraftId);
+      await supabase.from("drafts").update({ status: "sent" }).eq("id", currentDraftId);
+      clearLocal(currentDraftId);
     }
+    clearLocal("new");
     setDraft({});
     latestDraft.current = {};
   }, []);
 
-  return { draft, updateDraft, deleteDraft, loading, savedDraftId, resetDraft };
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  // beforeunload — flush to localStorage (sync, always works)
+  useEffect(() => {
+    const handler = () => {
+      const data = latestDraft.current;
+      if (data.to_email || data.subject || data.body) {
+        saveLocal(savedDraftIdRef.current || "new", data);
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, []);
+
+  return { draft, updateDraft, deleteDraft, flushDraft, setDraftStatus, loading, savedDraftId, resetDraft };
 }

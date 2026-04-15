@@ -8,11 +8,16 @@ const single = vi.fn();
 const insert = vi.fn();
 const updateEq = vi.fn();
 const update = vi.fn();
-const deleteEq = vi.fn();
-const removeDraft = vi.fn();
 
 vi.mock("@/hooks/useAuth", () => ({
   useAuth: () => ({ user: { id: "user-1" } }),
+}));
+
+vi.mock("@/hooks/useLocalDraft", () => ({
+  saveLocal: vi.fn(),
+  loadLocal: vi.fn().mockReturnValue(null),
+  clearLocal: vi.fn(),
+  listLocalDraftKeys: vi.fn().mockReturnValue([]),
 }));
 
 vi.mock("@/integrations/supabase/client", () => ({
@@ -37,7 +42,6 @@ vi.mock("@/integrations/supabase/client", () => ({
           }),
           insert,
           update,
-          delete: removeDraft,
         };
       }
 
@@ -62,17 +66,13 @@ describe("useDraft", () => {
       eq: updateEq,
     });
     updateEq.mockResolvedValue({ error: null });
-    removeDraft.mockReturnValue({
-      eq: deleteEq,
-    });
-    deleteEq.mockResolvedValue({ error: null });
   });
 
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  it("supprime un draft recréé par une sauvegarde en vol après envoi", async () => {
+  it("marque un draft comme 'sent' au lieu de le supprimer après envoi", async () => {
     let resolveInsert: ((value: { data: { id: string } }) => void) | undefined;
     single.mockImplementation(
       () =>
@@ -85,14 +85,10 @@ describe("useDraft", () => {
 
     await act(async () => {
       result.current.updateDraft({ subject: "Bonjour" });
-      await vi.advanceTimersByTimeAsync(1500);
+      await vi.advanceTimersByTimeAsync(600);
     });
 
     expect(insert).toHaveBeenCalledTimes(1);
-
-    await act(async () => {
-      await result.current.deleteDraft();
-    });
 
     await act(async () => {
       resolveInsert?.({ data: { id: "draft-1" } });
@@ -100,8 +96,13 @@ describe("useDraft", () => {
       await Promise.resolve();
     });
 
-    expect(deleteEq).toHaveBeenCalledWith("id", "draft-1");
-    expect(result.current.savedDraftId).toBeNull();
+    // Now deleteDraft should mark as 'sent', not delete
+    await act(async () => {
+      await result.current.deleteDraft();
+    });
+
+    expect(update).toHaveBeenCalled();
+    expect(updateEq).toHaveBeenCalledWith("id", "draft-1");
   });
 
   it("sérialise les sauvegardes pour éviter les doublons de draft", async () => {
@@ -117,14 +118,14 @@ describe("useDraft", () => {
 
     await act(async () => {
       result.current.updateDraft({ subject: "Version 1" });
-      await vi.advanceTimersByTimeAsync(1500);
+      await vi.advanceTimersByTimeAsync(600);
     });
 
     expect(insert).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       result.current.updateDraft({ subject: "Version 2" });
-      await vi.advanceTimersByTimeAsync(1500);
+      await vi.advanceTimersByTimeAsync(600);
     });
 
     expect(insert).toHaveBeenCalledTimes(1);
@@ -137,5 +138,42 @@ describe("useDraft", () => {
 
     expect(updateEq).toHaveBeenCalledWith("id", "draft-2");
     expect(insert).toHaveBeenCalledTimes(1);
+  });
+
+  it("flushDraft force un save immédiat", async () => {
+    single.mockResolvedValue({ data: { id: "draft-3" } });
+
+    const { result } = renderHook(() => useDraft());
+
+    await act(async () => {
+      result.current.updateDraft({ subject: "Flush test" });
+      // Don't wait for debounce — flush immediately
+      await result.current.flushDraft();
+    });
+
+    expect(insert).toHaveBeenCalledTimes(1);
+  });
+
+  it("setDraftStatus met à jour le status en base", async () => {
+    single.mockResolvedValue({ data: { id: "draft-4" } });
+
+    const { result } = renderHook(() => useDraft());
+
+    // Create a draft first
+    await act(async () => {
+      result.current.updateDraft({ subject: "Status test" });
+      await vi.advanceTimersByTimeAsync(600);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      await result.current.setDraftStatus("send_pending");
+    });
+
+    expect(update).toHaveBeenCalled();
   });
 });

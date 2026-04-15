@@ -20,12 +20,13 @@ import { TemplatePickerDialog } from "@/components/inbox/TemplatePickerDialog";
 import { useDraft } from "@/hooks/useDraft";
 import { useComposeWindow } from "@/hooks/useComposeWindow";
 import { UndoSendDialog } from "@/components/inbox/UndoSendDialog";
+import { clearLocal } from "@/hooks/useLocalDraft";
 
 
 export function FloatingCompose() {
   const { state, closeCompose, toggleMinimize } = useComposeWindow();
   const navigate = useNavigate();
-  const { draft, updateDraft, deleteDraft, loading: draftLoading, resetDraft } = useDraft({ draftId: state.draftId });
+  const { draft, updateDraft, deleteDraft, flushDraft, setDraftStatus, loading: draftLoading, savedDraftId, resetDraft } = useDraft({ draftId: state.draftId });
 
   const [to, setTo] = useState("");
   const [subject, setSubject] = useState("");
@@ -174,20 +175,31 @@ export function FloatingCompose() {
       })),
     };
 
-    // Don't delete draft yet — only delete after successful send
+    // Flush draft to DB then mark as send_pending
+    try {
+      await flushDraft();
+      await setDraftStatus("send_pending");
+    } catch (err) {
+      console.error("Failed to flush draft before send:", err);
+    }
+
     cancelledRef.current = false;
     pendingSendRef.current = sendPayload;
     closeCompose();
     setUndoSendOpen(true);
   };
 
-  const handleUndoCancel = useCallback(() => {
+  const handleUndoCancel = useCallback(async () => {
     cancelledRef.current = true;
     pendingSendRef.current = null;
     setUndoSendOpen(false);
     setSending(false);
-    toast.info("Envoi annulé");
-  }, []);
+    // Revert draft back to 'draft' status
+    try {
+      await setDraftStatus("draft");
+    } catch {}
+    toast.info("Envoi annulé — brouillon conservé");
+  }, [setDraftStatus]);
 
   // Store cc/bcc/thread info in refs so the callback doesn't go stale after closeCompose
   const ccRef = useRef(cc);
@@ -221,14 +233,19 @@ export function FloatingCompose() {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      await deleteDraft();
+      // Success — mark draft as sent
+      await setDraftStatus("sent");
       toast.success("Email envoyé !");
     } catch (err: any) {
+      // Failure — mark draft as send_failed so it's recoverable
+      try {
+        await setDraftStatus("send_failed", err.message || String(err));
+      } catch {}
       toast.error("Erreur : " + (err.message || String(err)));
     } finally {
       setSending(false);
     }
-  }, []);
+  }, [setDraftStatus]);
 
   const handleSchedule = async () => {
     if (!to || !subject || !body || !fromEmail || !scheduleDate) return;

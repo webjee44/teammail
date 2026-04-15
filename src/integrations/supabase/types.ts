@@ -556,8 +556,10 @@ export type Database = {
           conversation_id: string | null
           created_at: string
           created_by: string
+          error_message: string | null
           from_email: string | null
           id: string
+          status: string
           subject: string | null
           team_id: string
           to_email: string | null
@@ -569,8 +571,10 @@ export type Database = {
           conversation_id?: string | null
           created_at?: string
           created_by: string
+          error_message?: string | null
           from_email?: string | null
           id?: string
+          status?: string
           subject?: string | null
           team_id: string
           to_email?: string | null
@@ -582,8 +586,10 @@ export type Database = {
           conversation_id?: string | null
           created_at?: string
           created_by?: string
+          error_message?: string | null
           from_email?: string | null
           id?: string
+          status?: string
           subject?: string | null
           team_id?: string
           to_email?: string | null
