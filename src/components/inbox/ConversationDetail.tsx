@@ -118,6 +118,7 @@ export function ConversationDetail({ conversation, currentUserId, onStatusChange
       cc: ccList.length > 0 ? ccList : undefined,
       threadId: convRow?.gmail_thread_id || undefined,
       inReplyTo: (lastMsg as any)?.gmail_message_id || undefined,
+      conversationId: conversation.id,
     });
   };
 
