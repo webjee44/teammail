@@ -44,7 +44,7 @@ type Props = {
 
 export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply, onComment, onForward, onReplyAll }: Props) {
   const navigate = useNavigate();
-  const { draft, updateDraft, deleteDraft, loading: draftLoading } = useDraft({ conversationId: conversation.id });
+  const { draft, updateDraft, deleteDraft, flushDraft, loading: draftLoading } = useDraft({ conversationId: conversation.id });
   const [replyHtml, setReplyHtml] = useState("");
   const [commentText, setCommentText] = useState("");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);

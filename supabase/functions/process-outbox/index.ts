@@ -60,6 +60,8 @@ serve(async (req) => {
               from_email: payload.from_email,
               from_name: payload.from_name,
               attachments: payload.attachments,
+              cc: payload.cc,
+              bcc: payload.bcc,
               thread_id: payload.thread_id,
               in_reply_to: payload.in_reply_to,
               references: payload.in_reply_to,
@@ -72,32 +74,101 @@ serve(async (req) => {
             throw new Error(sendData.error || `HTTP ${sendRes.status}`);
           }
 
+          const gmailMessageId = sendData.messageId || null;
+
+          // Idempotency check: if this gmail_message_id already exists, skip insert
+          if (payload.conversation_id && gmailMessageId) {
+            const { data: existingMsg } = await supabase
+              .from("messages")
+              .select("id")
+              .eq("gmail_message_id", gmailMessageId)
+              .maybeSingle();
+
+            if (existingMsg) {
+              // Already recorded — mark as sent and move on
+              await supabase
+                .from("outbox_commands")
+                .update({ status: "sent", processed_at: new Date().toISOString() })
+                .eq("id", cmd.id);
+              processed++;
+              continue;
+            }
+          }
+
           // Insert message record
           if (payload.conversation_id) {
-            const { data: newMsg } = await supabase
-              .from("messages")
-              .insert({
-                conversation_id: payload.conversation_id,
-                from_email: payload.from_email,
-                from_name: payload.from_name || payload.from_email,
-                to_email: payload.to,
-                body_text: payload.body,
-                body_html: payload.body?.replace(/\n/g, "<br>"),
-                is_outbound: true,
-                gmail_message_id: sendData.messageId || null,
-              })
-              .select("id")
-              .single();
+            try {
+              const { data: newMsg } = await supabase
+                .from("messages")
+                .insert({
+                  conversation_id: payload.conversation_id,
+                  from_email: payload.from_email,
+                  from_name: payload.from_name || payload.from_email,
+                  to_email: payload.to,
+                  cc: payload.cc || null,
+                  body_text: payload.body,
+                  body_html: payload.body?.replace(/\n/g, "<br>"),
+                  is_outbound: true,
+                  gmail_message_id: gmailMessageId,
+                })
+                .select("id")
+                .single();
 
-            // Update conversation
-            await supabase
-              .from("conversations")
-              .update({
-                last_message_at: new Date().toISOString(),
-                status: "closed",
-                is_read: true,
-              })
-              .eq("id", payload.conversation_id);
+              // Upload attachments if present
+              if (newMsg && payload.attached_files?.length) {
+                for (const f of payload.attached_files) {
+                  const storagePath = `${payload.conversation_id}/${newMsg.id}/${f.name}`;
+                  // Decode base64 and upload
+                  const binaryData = Uint8Array.from(atob(f.base64), c => c.charCodeAt(0));
+                  await supabase.storage
+                    .from("attachments")
+                    .upload(storagePath, binaryData, {
+                      contentType: f.type || "application/octet-stream",
+                      upsert: true,
+                    });
+                  await supabase.from("attachments").insert({
+                    message_id: newMsg.id,
+                    filename: f.name,
+                    mime_type: f.type || "application/octet-stream",
+                    size_bytes: f.size || 0,
+                    storage_path: storagePath,
+                  });
+                }
+              }
+
+              // Update conversation
+              await supabase
+                .from("conversations")
+                .update({
+                  last_message_at: new Date().toISOString(),
+                  status: "closed",
+                  is_read: true,
+                })
+                .eq("id", payload.conversation_id);
+            } catch (postSendErr: any) {
+              // Email was sent but local record failed — log drift, DON'T mark as sent
+              console.error("Post-send insert failed:", postSendErr);
+              await supabase.from("sync_journal").insert({
+                drift_type: "outbox_partial_send",
+                action_taken: "email_sent_but_local_insert_failed",
+                conversation_id: payload.conversation_id || null,
+                local_state: `outbox_cmd=${cmd.id}`,
+                remote_state: `gmail_msg_id=${gmailMessageId}`,
+              });
+              // Leave command as processing so next run retries the insert
+              // (idempotency check above will skip the re-send)
+              const retryCount = (cmd.retry_count || 0) + 1;
+              await supabase
+                .from("outbox_commands")
+                .update({
+                  status: retryCount >= 5 ? "failed" : "pending",
+                  error_message: `Post-send: ${postSendErr.message}`,
+                  retry_count: retryCount,
+                })
+                .eq("id", cmd.id);
+              failed++;
+              continue;
+            }
           }
 
           // Mark as sent
@@ -106,10 +177,18 @@ serve(async (req) => {
             .update({ status: "sent", processed_at: new Date().toISOString() })
             .eq("id", cmd.id);
 
+          // Mark associated draft as sent
+          if (cmd.idempotency_key?.startsWith("draft-")) {
+            const draftId = cmd.idempotency_key.replace("draft-", "");
+            await supabase
+              .from("drafts")
+              .update({ status: "sent" })
+              .eq("id", draftId);
+          }
+
           processed++;
         } else if (cmd.command_type === "archive") {
           const payload = cmd.payload as any;
-          // Call gmail-archive
           await fetch(`${supabaseUrl}/functions/v1/gmail-archive`, {
             method: "POST",
             headers: {
@@ -150,6 +229,15 @@ serve(async (req) => {
             processed_at: retryCount >= maxRetries ? new Date().toISOString() : null,
           })
           .eq("id", cmd.id);
+
+        // If send failed and linked to a draft, mark draft as send_failed
+        if (retryCount >= maxRetries && cmd.idempotency_key?.startsWith("draft-")) {
+          const draftId = cmd.idempotency_key.replace("draft-", "");
+          await supabase
+            .from("drafts")
+            .update({ status: "send_failed", error_message: err.message || String(err) })
+            .eq("id", draftId);
+        }
 
         failed++;
       }

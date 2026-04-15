@@ -232,71 +232,50 @@ export function useInboxMutations({
     if (!p || replyCancelledRef.current) return;
     pendingSendRef.current = null;
 
-    const { data, error } = await supabase.functions.invoke("gmail-send", {
-      body: {
-        to: p.to,
-        subject: p.subject,
-        body: p.body,
-        from_email: p.fromEmail,
-        from_name: p.senderName,
-        attachments: p.gmailAttachments,
-        thread_id: p.thread_id || undefined,
-        in_reply_to: p.in_reply_to || undefined,
-        references: p.in_reply_to || undefined,
-      },
-    });
+    try {
+      // Route reply through outbox_commands for durable delivery
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) throw new Error("Non authentifié");
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("team_id")
+        .eq("user_id", currentUser.id)
+        .maybeSingle();
+      if (!profile?.team_id) throw new Error("Aucune équipe");
 
-    if (error || data?.error) {
-      toast.error("Erreur d'envoi : " + (data?.error || error?.message));
-      return;
-    }
-
-    const { data: newMsg } = await supabase
-      .from("messages")
-      .insert({
+      const { error: insertErr } = await supabase.from("outbox_commands").insert({
+        team_id: profile.team_id,
+        created_by: currentUser.id,
+        command_type: "send_reply",
         conversation_id: p.id,
-        from_email: p.fromEmail,
-        from_name: p.senderName || p.fromEmail,
-        to_email: p.to,
-        body_text: p.body,
-        body_html: p.body.replace(/\n/g, "<br>"),
-        is_outbound: true,
-        gmail_message_id: data?.messageId || null,
-      })
-      .select("id")
-      .single();
+        idempotency_key: `reply-${p.id}-${Date.now()}`,
+        payload: {
+          to: p.to,
+          subject: p.subject,
+          body: p.body,
+          from_email: p.fromEmail,
+          from_name: p.senderName || p.fromEmail,
+          attachments: p.gmailAttachments?.length ? p.gmailAttachments : undefined,
+          thread_id: p.thread_id || undefined,
+          in_reply_to: p.in_reply_to || undefined,
+          references: p.in_reply_to || undefined,
+          conversation_id: p.id,
+          attached_files: p.attachedFiles?.map((f: FileToUpload) => ({
+            name: f.name,
+            type: f.file.type,
+            size: f.file.size,
+            base64: f.base64,
+          })) || undefined,
+        },
+      });
+      if (insertErr) throw insertErr;
 
-    if (newMsg && p.attachedFiles && p.attachedFiles.length > 0) {
-      for (const f of p.attachedFiles) {
-        const storagePath = `${p.id}/${newMsg.id}/${f.name}`;
-        await supabase.storage
-          .from("attachments")
-          .upload(storagePath, f.file, {
-            contentType: f.file.type,
-            upsert: true,
-          });
-        await supabase.from("attachments").insert({
-          message_id: newMsg.id,
-          filename: f.name,
-          mime_type: f.file.type || "application/octet-stream",
-          size_bytes: f.file.size,
-          storage_path: storagePath,
-        });
-      }
+      toast.success("Réponse en file d'envoi");
+      fetchDetail(p.id);
+      refetch();
+    } catch (err: any) {
+      toast.error("Erreur d'envoi : " + (err.message || String(err)));
     }
-
-    await supabase
-      .from("conversations")
-      .update({
-        last_message_at: new Date().toISOString(),
-        status: "closed" as const,
-        is_read: true,
-      })
-      .eq("id", p.id);
-
-    toast.success("Réponse envoyée");
-    fetchDetail(p.id);
-    refetch();
   }, [fetchDetail, refetch]);
 
   // ─── Bulk actions ───────────────────────────────────────────────
