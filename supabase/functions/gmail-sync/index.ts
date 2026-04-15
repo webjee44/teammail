@@ -554,14 +554,22 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
+
+    // Auth: accept service_role key, anon key (for pg_cron), or valid user JWT
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       console.error("gmail-sync: No Authorization header");
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     const token = authHeader.replace("Bearer ", "");
-    if (token !== supabaseServiceKey) {
-      const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
+
+    if (token === supabaseServiceKey) {
+      console.log("gmail-sync: Authenticated with service role key");
+    } else if (token === anonKey) {
+      // pg_cron calls with anon key — allowed for internal cron scheduling
+      console.log("gmail-sync: Authenticated via cron (anon key)");
+    } else {
       const authClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
       const { data: authData, error: authErr } = await authClient.auth.getUser(token);
       if (authErr || !authData?.user) {
@@ -569,8 +577,6 @@ serve(async (req) => {
         return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       console.log(`gmail-sync: Authenticated as user ${authData.user.email}`);
-    } else {
-      console.log("gmail-sync: Authenticated with service role key");
     }
 
     let requestedMailboxId: string | null = null;
