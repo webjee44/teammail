@@ -121,7 +121,7 @@ export function useInboxList({ filter, mailboxId, userId, activeState }: UseInbo
       let query = supabase
         .from("conversations")
         .select("*")
-        .eq("state", activeState)
+        .eq("state", activeState as any)
         .order("last_message_at", { ascending: false });
 
       if (filter === "closed") {
