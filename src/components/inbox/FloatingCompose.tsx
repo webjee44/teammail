@@ -189,13 +189,17 @@ export function FloatingCompose() {
     setUndoSendOpen(true);
   };
 
-  const handleUndoCancel = useCallback(() => {
+  const handleUndoCancel = useCallback(async () => {
     cancelledRef.current = true;
     pendingSendRef.current = null;
     setUndoSendOpen(false);
     setSending(false);
-    toast.info("Envoi annulé");
-  }, []);
+    // Revert draft back to 'draft' status
+    try {
+      await setDraftStatus("draft");
+    } catch {}
+    toast.info("Envoi annulé — brouillon conservé");
+  }, [setDraftStatus]);
 
   // Store cc/bcc/thread info in refs so the callback doesn't go stale after closeCompose
   const ccRef = useRef(cc);
