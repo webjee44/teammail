@@ -1,33 +1,24 @@
 
 
-# Plan : Afficher les destinataires (To + CC) dans chaque message
+# Plan : Corriger les pièces jointes dupliquées
 
 ## Problème
-Quand on ouvre un mail, on ne voit pas qui sont les destinataires ni les personnes en CC. Le champ `to_email` n'est affiché que pour les messages sortants, et il n'y a aucun champ CC dans la base de données.
+Chaque synchronisation Gmail re-télécharge et ré-insère les pièces jointes même pour les messages déjà existants. Résultat : 66-72 doublons par fichier dans cette conversation.
 
 ## Solution
 
-### 1. Ajouter une colonne `cc` à la table `messages`
-Migration SQL pour ajouter `cc text` nullable à la table `messages`.
+### 1. Corriger `gmail-sync` — ne pas re-traiter les attachments des messages existants
+Dans `supabase/functions/gmail-sync/index.ts`, ligne 439 : ajouter un `if (!existingMsg)` autour du bloc d'attachments (lignes 439-481), ou à minima vérifier si l'attachment existe déjà avant d'insérer.
 
-### 2. Extraire le header CC dans `gmail-sync`
-Dans `supabase/functions/gmail-sync/index.ts`, extraire le header `Cc` via `getHeader(gMsg.payload?.headers, "Cc")` et le stocker dans la nouvelle colonne lors de l'insert du message.
+Approche retenue : déplacer le bloc attachments à l'intérieur du `else` (nouveau message uniquement), car les pièces jointes d'un message Gmail ne changent jamais.
 
-### 3. Afficher To et CC dans `MessageList.tsx`
-Pour chaque message (inbound et outbound), afficher sous le nom de l'expéditeur :
-- **À :** `msg.to_email` (toujours, pas seulement pour les outbound)
-- **Cc :** `msg.cc` (si présent)
+### 2. Nettoyer les doublons existants en base
+Migration SQL pour supprimer les lignes dupliquées dans `attachments`, en ne gardant qu'une seule ligne par combinaison `(message_id, storage_path)`.
 
-En texte compact `text-xs text-muted-foreground`, tronqué avec ellipsis si trop long.
-
-### 4. Mettre à jour les types
-- Ajouter `cc?: string | null` dans le type `Message` de `src/components/inbox/conversation/types.ts`
-- Ajouter `cc` dans le type `Message` local de `src/pages/Index.tsx`
+### 3. Ajouter une contrainte UNIQUE
+Ajouter un index unique `(message_id, storage_path)` pour empêcher les doublons futurs.
 
 ## Fichiers modifiés
-- Migration SQL (nouvelle colonne `cc`)
-- `supabase/functions/gmail-sync/index.ts` — extraire header CC
-- `src/components/inbox/conversation/types.ts` — type Message
-- `src/pages/Index.tsx` — type Message local
-- `src/components/inbox/conversation/MessageList.tsx` — affichage To/CC
+- `supabase/functions/gmail-sync/index.ts` — conditionner l'insertion des attachments aux nouveaux messages
+- Migration SQL — nettoyage des doublons + contrainte UNIQUE
 
