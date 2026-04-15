@@ -175,7 +175,14 @@ export function FloatingCompose() {
       })),
     };
 
-    // Don't delete draft yet — only delete after successful send
+    // Flush draft to DB then mark as send_pending
+    try {
+      await flushDraft();
+      await setDraftStatus("send_pending");
+    } catch (err) {
+      console.error("Failed to flush draft before send:", err);
+    }
+
     cancelledRef.current = false;
     pendingSendRef.current = sendPayload;
     closeCompose();
