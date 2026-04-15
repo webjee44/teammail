@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 type Props = {
   open: boolean;
@@ -65,6 +66,7 @@ export function UndoSendDialog({ open, delaySeconds = 5, onCancel, onExpire }: P
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
+    toast.success("Envoi annulé");
     onCancel();
   };
 
