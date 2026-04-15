@@ -231,7 +231,7 @@ export function useInboxMutations({
         if (insertErr) throw insertErr;
 
         toast.success("Réponse en cours d'envoi…");
-        fetchDetail(id);
+        setSelectedId(null);
         refetch();
       } catch (err: any) {
         toast.error("Erreur d'envoi : " + (err.message || String(err)));
