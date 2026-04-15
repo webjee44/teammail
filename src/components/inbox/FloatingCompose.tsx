@@ -174,8 +174,7 @@ export function FloatingCompose() {
       })),
     };
 
-    await deleteDraft();
-
+    // Don't delete draft yet — only delete after successful send
     cancelledRef.current = false;
     pendingSendRef.current = sendPayload;
     closeCompose();
