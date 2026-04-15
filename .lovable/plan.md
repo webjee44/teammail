@@ -1,44 +1,33 @@
 
 
-# Plan : Correction de l'encodage des accents dans les emails
+# Plan : Afficher les destinataires (To + CC) dans chaque message
 
-## Problème identifié
-
-Le fichier `supabase/functions/gmail-send/index.ts` a un **double encodage** qui corrompt les caractères accentués. Voici les points précis :
-
-1. **Encodage final du message MIME (ligne 264)** : `btoa(unescape(encodeURIComponent(rawEmail)))` — le message MIME contient déjà des parties body encodées en base64 via `btoa(unescape(encodeURIComponent(...)))` dans `buildRawEmail`. Quand le message complet est ré-encodé en base64 pour l'API Gmail, le `unescape(encodeURIComponent(...))` traite les caractères UTF-8 des headers comme des séquences d'octets Latin-1, ce qui peut causer des corruptions.
-
-2. **Header `From` (ligne 260)** : `"${from_name}" <${from_email}>` — si le nom contient des accents (ex: "François"), il n'est PAS encodé en RFC 2047 (`=?UTF-8?B?...?=`) comme l'est le sujet. C'est invalide en RFC 2822.
-
-3. **Noms de fichiers attachés (lignes 125-126)** : les noms de fichiers avec accents (ex: "Capture d'écran") ne sont pas encodés — c'est d'ailleurs la cause des erreurs `InvalidKey` visibles dans les logs de `gmail-sync`.
+## Problème
+Quand on ouvre un mail, on ne voit pas qui sont les destinataires ni les personnes en CC. Le champ `to_email` n'est affiché que pour les messages sortants, et il n'y a aucun champ CC dans la base de données.
 
 ## Solution
 
-### 1. Créer une fonction utilitaire d'encodage RFC 2047
+### 1. Ajouter une colonne `cc` à la table `messages`
+Migration SQL pour ajouter `cc text` nullable à la table `messages`.
 
-```text
-function encodeRFC2047(text: string): string
-  → Si ASCII pur, retourner tel quel
-  → Sinon, encoder en =?UTF-8?B?base64?=
-```
+### 2. Extraire le header CC dans `gmail-sync`
+Dans `supabase/functions/gmail-sync/index.ts`, extraire le header `Cc` via `getHeader(gMsg.payload?.headers, "Cc")` et le stocker dans la nouvelle colonne lors de l'insert du message.
 
-### 2. Appliquer l'encodage aux headers dans `buildRawEmail`
+### 3. Afficher To et CC dans `MessageList.tsx`
+Pour chaque message (inbound et outbound), afficher sous le nom de l'expéditeur :
+- **À :** `msg.to_email` (toujours, pas seulement pour les outbound)
+- **Cc :** `msg.cc` (si présent)
 
-- **From** : encoder la partie display-name
-- **To, Cc, Bcc** : encoder les éventuels display-names
-- **Noms de fichiers** : encoder avec RFC 2047 dans `Content-Type` et `Content-Disposition`
+En texte compact `text-xs text-muted-foreground`, tronqué avec ellipsis si trop long.
 
-### 3. Corriger l'encodage final (ligne 264)
+### 4. Mettre à jour les types
+- Ajouter `cc?: string | null` dans le type `Message` de `src/components/inbox/conversation/types.ts`
+- Ajouter `cc` dans le type `Message` local de `src/pages/Index.tsx`
 
-Remplacer `btoa(unescape(encodeURIComponent(rawEmail)))` par un encodage qui utilise `TextEncoder` pour convertir proprement la chaîne en bytes UTF-8, puis en base64url. Cela évite le passage par le hack `unescape(encodeURIComponent(...))`.
-
-### 4. Redéployer la fonction
-
-Déployer `gmail-send` après les modifications.
-
-## Fichier modifié
-- `supabase/functions/gmail-send/index.ts`
-
-## Impact
-- Toutes les réponses, nouveaux mails, campagnes et mails programmés passent par `gmail-send` → ce fix corrige tout d'un coup.
+## Fichiers modifiés
+- Migration SQL (nouvelle colonne `cc`)
+- `supabase/functions/gmail-sync/index.ts` — extraire header CC
+- `src/components/inbox/conversation/types.ts` — type Message
+- `src/pages/Index.tsx` — type Message local
+- `src/components/inbox/conversation/MessageList.tsx` — affichage To/CC
 
