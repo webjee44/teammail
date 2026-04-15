@@ -174,10 +174,12 @@ async function fullScan(
   let synced = 0;
   let pageToken: string | undefined;
   let latestHistoryId: string | null = null;
+  let pagesProcessed = 0;
+  const MAX_PAGES = 3; // Limit to avoid edge function timeout
 
   do {
     const url = new URL("https://gmail.googleapis.com/gmail/v1/users/me/threads");
-    url.searchParams.set("maxResults", "50");
+    url.searchParams.set("maxResults", "20");
     url.searchParams.set("labelIds", "INBOX");
     if (pageToken) url.searchParams.set("pageToken", pageToken);
 
@@ -199,7 +201,10 @@ async function fullScan(
       const threadSynced = await syncThread(accessToken, thread.id, mailbox, supabase);
       if (threadSynced) synced++;
     }
-  } while (pageToken);
+
+    pagesProcessed++;
+    console.log(`Full scan ${mailbox.email}: page ${pagesProcessed}, synced ${synced} threads so far`);
+  } while (pageToken && pagesProcessed < MAX_PAGES);
 
   // Get current historyId from profile
   try {
