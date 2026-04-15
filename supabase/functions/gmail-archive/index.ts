@@ -110,7 +110,7 @@ serve(async (req) => {
       );
     }
 
-    // Already deleted or doesn't exist — treat as success
+    // Already gone — treat as success
     if (!conv) {
       return new Response(
         JSON.stringify({ success: true, already_gone: true }),
@@ -118,7 +118,7 @@ serve(async (req) => {
       );
     }
 
-    // Archive on Gmail if we have a thread ID
+    // Archive on Gmail if we have a thread ID (remove INBOX label)
     if (conv.gmail_thread_id && conv.mailbox_id) {
       const { data: mailbox } = await supabase
         .from("team_mailboxes")
@@ -143,7 +143,6 @@ serve(async (req) => {
             try {
               const accessToken = await getAccessToken(serviceAccountKey, mailbox.email);
 
-              // Archive = remove INBOX label
               const archiveRes = await fetch(
                 `https://gmail.googleapis.com/gmail/v1/users/me/threads/${conv.gmail_thread_id}/modify`,
                 {
@@ -167,15 +166,15 @@ serve(async (req) => {
       }
     }
 
-    // Delete conversation from DB (cascades to messages via FK)
-    const { error: delErr } = await supabase
+    // Soft-archive: update state instead of deleting
+    const { error: updateErr } = await supabase
       .from("conversations")
-      .delete()
+      .update({ state: "archived" })
       .eq("id", conversation_id);
 
-    if (delErr) {
+    if (updateErr) {
       return new Response(
-        JSON.stringify({ error: delErr.message }),
+        JSON.stringify({ error: updateErr.message }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
