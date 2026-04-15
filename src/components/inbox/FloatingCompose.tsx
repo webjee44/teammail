@@ -198,7 +198,6 @@ export function FloatingCompose() {
     try {
       await setDraftStatus("draft");
     } catch {}
-    toast.info("Envoi annulé — brouillon conservé");
   }, [setDraftStatus]);
 
   // Store cc/bcc/thread info in refs so the callback doesn't go stale after closeCompose

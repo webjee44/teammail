@@ -223,7 +223,6 @@ export function useInboxMutations({
     }
     pendingSendRef.current = null;
     setUndoSendOpen(false);
-    toast.info("Envoi annulé");
   }, []);
 
   const handleUndoExpire = useCallback(async () => {
