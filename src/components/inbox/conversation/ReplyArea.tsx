@@ -44,7 +44,7 @@ type Props = {
 
 export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply, onComment, onForward, onReplyAll }: Props) {
   const navigate = useNavigate();
-  const { draft, updateDraft, deleteDraft, loading: draftLoading } = useDraft({ conversationId: conversation.id });
+  const { draft, updateDraft, deleteDraft, flushDraft, loading: draftLoading } = useDraft({ conversationId: conversation.id });
   const [replyHtml, setReplyHtml] = useState("");
   const [commentText, setCommentText] = useState("");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -66,6 +66,13 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
     if (draft.body) setReplyHtml(draft.body);
     setDraftInitialized(true);
   }, [draftLoading, draft, draftInitialized]);
+
+  // Flush draft to DB when conversation changes or component unmounts
+  useEffect(() => {
+    return () => {
+      flushDraft();
+    };
+  }, [conversation.id, flushDraft]);
 
   useEffect(() => {
     if (!draftInitialized) return;

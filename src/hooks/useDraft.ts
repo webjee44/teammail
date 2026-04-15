@@ -231,5 +231,25 @@ export function useDraft({ conversationId = null, draftId = null }: UseDraftOpti
     return () => window.removeEventListener("beforeunload", handler);
   }, []);
 
+  // visibilitychange — flush to DB when tab goes hidden (more reliable than beforeunload on mobile)
+  useEffect(() => {
+    const handler = () => {
+      if (document.visibilityState === "hidden") {
+        const data = latestDraft.current;
+        if (data.to_email || data.subject || data.body) {
+          // Save locally first (sync, guaranteed)
+          saveLocal(savedDraftIdRef.current || "new", data);
+          // Attempt DB flush (best-effort, may be killed by browser)
+          const generation = lifecycleRef.current;
+          saveChainRef.current = saveChainRef.current
+            .catch(() => undefined)
+            .then(() => saveDraft(data, generation));
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", handler);
+    return () => document.removeEventListener("visibilitychange", handler);
+  }, [saveDraft]);
+
   return { draft, updateDraft, deleteDraft, flushDraft, setDraftStatus, loading, savedDraftId, resetDraft };
 }
