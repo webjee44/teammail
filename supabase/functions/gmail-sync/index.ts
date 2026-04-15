@@ -76,18 +76,15 @@ function decodeBody(data: string | undefined): string {
   }
 }
 
-/** Decode RFC 2047 encoded-words (=?charset?encoding?text?=) in email headers */
 function decodeRfc2047(value: string): string {
   if (!value) return value;
   return value.replace(/=\?([^?]+)\?([BbQq])\?([^?]*)\?=/g, (_match, _charset, encoding, text) => {
     try {
       if (encoding.toUpperCase() === "B") {
-        // Base64
         const binary = atob(text);
         const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
         return new TextDecoder("utf-8").decode(bytes);
       } else {
-        // Quoted-Printable
         const decoded = text
           .replace(/_/g, " ")
           .replace(/=([0-9A-Fa-f]{2})/g, (_: string, hex: string) =>
@@ -136,7 +133,6 @@ function parseBody(payload: any): { html: string | null; text: string | null } {
   return { html, text };
 }
 
-// Extract attachment metadata from Gmail message parts
 type AttachmentInfo = {
   partId: string;
   filename: string;
@@ -168,13 +164,386 @@ function extractAttachments(payload: any): AttachmentInfo[] {
   return attachments;
 }
 
+// ─── Full scan: paginated threads.list ────────────────────────────
+
+async function fullScan(
+  accessToken: string,
+  mailbox: any,
+  supabase: any,
+): Promise<{ synced: number; historyId: string | null }> {
+  let synced = 0;
+  let pageToken: string | undefined;
+  let latestHistoryId: string | null = null;
+
+  do {
+    const url = new URL("https://gmail.googleapis.com/gmail/v1/users/me/threads");
+    url.searchParams.set("maxResults", "50");
+    url.searchParams.set("labelIds", "INBOX");
+    if (pageToken) url.searchParams.set("pageToken", pageToken);
+
+    const threadsRes = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    if (!threadsRes.ok) {
+      const errText = await threadsRes.text();
+      console.error(`Gmail API error for ${mailbox.email}:`, errText);
+      break;
+    }
+
+    const threadsData = await threadsRes.json();
+    const threads = threadsData.threads || [];
+    pageToken = threadsData.nextPageToken;
+
+    for (const thread of threads) {
+      const threadSynced = await syncThread(accessToken, thread.id, mailbox, supabase);
+      if (threadSynced) synced++;
+    }
+  } while (pageToken);
+
+  // Get current historyId from profile
+  try {
+    const profileRes = await fetch(
+      "https://gmail.googleapis.com/gmail/v1/users/me/profile",
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    if (profileRes.ok) {
+      const profile = await profileRes.json();
+      latestHistoryId = profile.historyId || null;
+    }
+  } catch (e) {
+    console.error("Failed to get Gmail profile historyId:", e);
+  }
+
+  return { synced, historyId: latestHistoryId };
+}
+
+// ─── Incremental sync: history.list ───────────────────────────────
+
+async function incrementalSync(
+  accessToken: string,
+  mailbox: any,
+  supabase: any,
+  startHistoryId: string,
+): Promise<{ synced: number; historyId: string | null; needsFullScan: boolean }> {
+  let synced = 0;
+  let pageToken: string | undefined;
+  let latestHistoryId: string | null = null;
+  const processedThreadIds = new Set<string>();
+
+  do {
+    const url = new URL("https://gmail.googleapis.com/gmail/v1/users/me/history");
+    url.searchParams.set("startHistoryId", startHistoryId);
+    url.searchParams.set("historyTypes", "messageAdded,labelAdded,labelRemoved");
+    url.searchParams.set("labelId", "INBOX");
+    if (pageToken) url.searchParams.set("pageToken", pageToken);
+
+    const historyRes = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    if (historyRes.status === 404) {
+      // historyId expired — need full scan
+      console.log(`History expired for ${mailbox.email}, falling back to full scan`);
+      return { synced: 0, historyId: null, needsFullScan: true };
+    }
+
+    if (!historyRes.ok) {
+      const errText = await historyRes.text();
+      console.error(`Gmail history API error for ${mailbox.email}:`, errText);
+      break;
+    }
+
+    const historyData = await historyRes.json();
+    latestHistoryId = historyData.historyId || null;
+    const historyRecords = historyData.history || [];
+    pageToken = historyData.nextPageToken;
+
+    for (const record of historyRecords) {
+      // messagesAdded → sync the thread
+      if (record.messagesAdded) {
+        for (const added of record.messagesAdded) {
+          const threadId = added.message?.threadId;
+          if (threadId && !processedThreadIds.has(threadId)) {
+            processedThreadIds.add(threadId);
+            const threadSynced = await syncThread(accessToken, threadId, mailbox, supabase);
+            if (threadSynced) synced++;
+          }
+        }
+      }
+
+      // labelsRemoved → if INBOX removed, archive the conversation
+      if (record.labelsRemoved) {
+        for (const removed of record.labelsRemoved) {
+          const removedLabels = removed.labelIds || [];
+          if (removedLabels.includes("INBOX")) {
+            const threadId = removed.message?.threadId;
+            if (threadId) {
+              await supabase
+                .from("conversations")
+                .update({ state: "archived" })
+                .eq("gmail_thread_id", threadId)
+                .eq("mailbox_id", mailbox.id);
+            }
+          }
+        }
+      }
+
+      // labelsAdded → if INBOX added back, unarchive
+      if (record.labelsAdded) {
+        for (const added of record.labelsAdded) {
+          const addedLabels = added.labelIds || [];
+          if (addedLabels.includes("INBOX")) {
+            const threadId = added.message?.threadId;
+            if (threadId) {
+              await supabase
+                .from("conversations")
+                .update({ state: "inbox" })
+                .eq("gmail_thread_id", threadId)
+                .eq("mailbox_id", mailbox.id);
+            }
+          }
+        }
+      }
+    }
+  } while (pageToken);
+
+  return { synced, historyId: latestHistoryId, needsFullScan: false };
+}
+
+// ─── Sync a single thread (shared between full/incremental) ──────
+
+async function syncThread(
+  accessToken: string,
+  threadId: string,
+  mailbox: any,
+  supabase: any,
+): Promise<boolean> {
+  const { data: existing } = await supabase
+    .from("conversations")
+    .select("id")
+    .eq("gmail_thread_id", threadId)
+    .eq("mailbox_id", mailbox.id)
+    .maybeSingle();
+
+  const threadRes = await fetch(
+    `https://gmail.googleapis.com/gmail/v1/users/me/threads/${threadId}?format=full`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+
+  if (!threadRes.ok) return false;
+  const threadData = await threadRes.json();
+  const gmailMessages = threadData.messages || [];
+  if (gmailMessages.length === 0) return false;
+
+  const firstMsg = gmailMessages[0];
+  const lastMsg = gmailMessages[gmailMessages.length - 1];
+  const subject = getHeader(firstMsg.payload?.headers, "Subject") || "(sans objet)";
+  const fromHeader = getHeader(firstMsg.payload?.headers, "From") || "";
+
+  const fromMatch = fromHeader.match(/^(.+?)\s*<(.+?)>$/);
+  const fromName = fromMatch ? fromMatch[1].replace(/"/g, "").trim() : null;
+  const fromEmail = fromMatch ? fromMatch[2] : fromHeader;
+
+  const snippet = threadData.snippet || null;
+  const isRead = !lastMsg.labelIds?.includes("UNREAD");
+  const lastMessageAt = new Date(parseInt(lastMsg.internalDate)).toISOString();
+
+  let conversationId: string;
+
+  if (existing) {
+    conversationId = existing.id;
+    await supabase
+      .from("conversations")
+      .update({
+        snippet,
+        is_read: isRead,
+        last_message_at: lastMessageAt,
+        mailbox_id: mailbox.id,
+      })
+      .eq("id", conversationId);
+  } else {
+    const msgIds = gmailMessages.map((m: any) => m.id);
+    const { data: existingMsgs } = await supabase
+      .from("messages")
+      .select("conversation_id, gmail_message_id")
+      .in("gmail_message_id", msgIds)
+      .limit(1);
+
+    if (existingMsgs && existingMsgs.length > 0) {
+      conversationId = existingMsgs[0].conversation_id;
+      await supabase
+        .from("conversations")
+        .update({
+          snippet,
+          is_read: isRead,
+          last_message_at: lastMessageAt,
+          mailbox_id: mailbox.id,
+        })
+        .eq("id", conversationId);
+    } else {
+      const { data: newConv, error: convError } = await supabase
+        .from("conversations")
+        .insert({
+          team_id: mailbox.team_id,
+          gmail_thread_id: threadId,
+          subject,
+          snippet,
+          from_email: fromEmail,
+          from_name: fromName,
+          is_read: isRead,
+          last_message_at: lastMessageAt,
+          status: "open",
+          mailbox_id: mailbox.id,
+        })
+        .select("id")
+        .single();
+
+      if (convError) {
+        console.error("Failed to create conversation:", convError);
+        return false;
+      }
+      conversationId = newConv.id;
+
+      // Auto-create or link contact
+      if (fromEmail) {
+        try {
+          const { data: existingContact } = await supabase
+            .from("contacts")
+            .select("id")
+            .eq("team_id", mailbox.team_id)
+            .eq("email", fromEmail)
+            .maybeSingle();
+
+          let contactId: string;
+          if (existingContact) {
+            contactId = existingContact.id;
+          } else {
+            const domain = fromEmail.split("@")[1] || null;
+            const { data: newContact } = await supabase
+              .from("contacts")
+              .insert({
+                team_id: mailbox.team_id,
+                email: fromEmail,
+                name: fromName,
+                company: domain,
+              })
+              .select("id")
+              .single();
+            contactId = newContact?.id;
+          }
+
+          if (contactId) {
+            await supabase.from("contact_conversations").insert({
+              contact_id: contactId,
+              conversation_id: conversationId,
+            }).select().maybeSingle();
+
+            await supabase
+              .from("conversations")
+              .update({ contact_id: contactId })
+              .eq("id", conversationId);
+          }
+        } catch (contactErr) {
+          console.error("Auto-contact creation error:", contactErr);
+        }
+      }
+    }
+  }
+
+  // Sync messages + attachments
+  for (const gMsg of gmailMessages) {
+    const msgFromHeader = getHeader(gMsg.payload?.headers, "From") || "";
+    const msgToHeader = getHeader(gMsg.payload?.headers, "To") || "";
+    const msgCcHeader = getHeader(gMsg.payload?.headers, "Cc") || null;
+    const msgFromMatch = msgFromHeader.match(/^(.+?)\s*<(.+?)>$/);
+    const msgFromName = msgFromMatch ? msgFromMatch[1].replace(/"/g, "").trim() : null;
+    const msgFromEmail = msgFromMatch ? msgFromMatch[2] : msgFromHeader;
+    const body = parseBody(gMsg.payload);
+    const sentAt = new Date(parseInt(gMsg.internalDate)).toISOString();
+    const isOutbound = msgFromEmail.toLowerCase() === mailbox.email.toLowerCase();
+
+    // Idempotent: skip already-synced messages
+    const { data: existingMsg } = await supabase
+      .from("messages")
+      .select("id")
+      .eq("gmail_message_id", gMsg.id)
+      .maybeSingle();
+
+    if (existingMsg) continue;
+
+    const { data: newMsg, error: msgErr } = await supabase.from("messages").insert({
+      conversation_id: conversationId,
+      gmail_message_id: gMsg.id,
+      from_email: msgFromEmail,
+      from_name: msgFromName,
+      to_email: msgToHeader,
+      cc: msgCcHeader,
+      body_html: body.html,
+      body_text: body.text,
+      sent_at: sentAt,
+      is_outbound: isOutbound,
+    }).select("id").single();
+
+    if (msgErr || !newMsg) continue;
+    const messageId = newMsg.id;
+
+    // Download and store attachments
+    const attachmentInfos = extractAttachments(gMsg.payload);
+    for (const att of attachmentInfos) {
+      try {
+        const attRes = await fetch(
+          `https://gmail.googleapis.com/gmail/v1/users/me/messages/${gMsg.id}/attachments/${att.attachmentId}`,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        if (!attRes.ok) {
+          console.error(`Failed to download attachment ${att.filename}:`, await attRes.text());
+          continue;
+        }
+        const attData = await attRes.json();
+        const b64 = (attData.data || "").replace(/-/g, "+").replace(/_/g, "/");
+        const padded = b64.padEnd(Math.ceil(b64.length / 4) * 4, "=");
+        const binary = atob(padded);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+
+        const storagePath = `${conversationId}/${messageId}/${att.filename}`;
+        const { error: uploadErr } = await supabase.storage
+          .from("attachments")
+          .upload(storagePath, bytes, {
+            contentType: att.mimeType,
+            upsert: true,
+          });
+
+        if (uploadErr) {
+          console.error(`Failed to upload attachment ${att.filename}:`, uploadErr);
+          continue;
+        }
+
+        await supabase.from("attachments").insert({
+          message_id: messageId,
+          filename: att.filename,
+          mime_type: att.mimeType,
+          size_bytes: att.size,
+          storage_path: storagePath,
+        });
+      } catch (attErr) {
+        console.error(`Error processing attachment ${att.filename}:`, attErr);
+      }
+    }
+  }
+
+  return true;
+}
+
+// ─── Main handler ─────────────────────────────────────────────────
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    // Auth check: accept user JWT or service-role key
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const authHeader = req.headers.get("Authorization");
@@ -191,7 +560,6 @@ serve(async (req) => {
       }
     }
 
-    // Parse optional mailbox_id from request body
     let requestedMailboxId: string | null = null;
     try {
       const body = await req.json();
@@ -216,8 +584,7 @@ serve(async (req) => {
       }
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    // Single declaration of supabase client (bug fix: was declared twice before)
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     let mbQuery = supabase
@@ -243,254 +610,43 @@ serve(async (req) => {
     for (const mailbox of mailboxes) {
       try {
         const accessToken = await getAccessToken(serviceAccountKey, mailbox.email);
-
-        const threadsRes = await fetch(
-          `https://gmail.googleapis.com/gmail/v1/users/me/threads?maxResults=50&labelIds=INBOX`,
-          { headers: { Authorization: `Bearer ${accessToken}` } }
-        );
-
-        if (!threadsRes.ok) {
-          const errText = await threadsRes.text();
-          console.error(`Gmail API error for ${mailbox.email}:`, errText);
-          results.push({ email: mailbox.email, error: errText });
-          continue;
-        }
-
-        const threadsData = await threadsRes.json();
-        const threads = threadsData.threads || [];
         let synced = 0;
+        let newHistoryId: string | null = null;
 
-        for (const thread of threads) {
-          const { data: existing } = await supabase
-            .from("conversations")
-            .select("id")
-            .eq("gmail_thread_id", thread.id)
-            .eq("mailbox_id", mailbox.id)
-            .maybeSingle();
+        if (mailbox.history_id) {
+          // Incremental sync using history.list
+          console.log(`Incremental sync for ${mailbox.email} from historyId ${mailbox.history_id}`);
+          const result = await incrementalSync(accessToken, mailbox, supabase, String(mailbox.history_id));
 
-          const threadRes = await fetch(
-            `https://gmail.googleapis.com/gmail/v1/users/me/threads/${thread.id}?format=full`,
-            { headers: { Authorization: `Bearer ${accessToken}` } }
-          );
-
-          if (!threadRes.ok) continue;
-          const threadData = await threadRes.json();
-          const gmailMessages = threadData.messages || [];
-          if (gmailMessages.length === 0) continue;
-
-          const firstMsg = gmailMessages[0];
-          const lastMsg = gmailMessages[gmailMessages.length - 1];
-          const subject = getHeader(firstMsg.payload?.headers, "Subject") || "(sans objet)";
-          const fromHeader = getHeader(firstMsg.payload?.headers, "From") || "";
-          
-          const fromMatch = fromHeader.match(/^(.+?)\s*<(.+?)>$/);
-          const fromName = fromMatch ? fromMatch[1].replace(/"/g, "").trim() : null;
-          const fromEmail = fromMatch ? fromMatch[2] : fromHeader;
-
-          const lastBody = parseBody(lastMsg.payload);
-          const snippet = threadData.snippet || null;
-          const isRead = !lastMsg.labelIds?.includes("UNREAD");
-          const lastMessageAt = new Date(parseInt(lastMsg.internalDate)).toISOString();
-
-          let conversationId: string;
-
-          if (existing) {
-            conversationId = existing.id;
-            await supabase
-              .from("conversations")
-              .update({
-                snippet,
-                is_read: isRead,
-                last_message_at: lastMessageAt,
-                mailbox_id: mailbox.id,
-              })
-              .eq("id", conversationId);
+          if (result.needsFullScan) {
+            // historyId expired, fall back to full scan
+            console.log(`Full scan fallback for ${mailbox.email}`);
+            const fullResult = await fullScan(accessToken, mailbox, supabase);
+            synced = fullResult.synced;
+            newHistoryId = fullResult.historyId;
           } else {
-            const msgIds = gmailMessages.map((m: any) => m.id);
-            const { data: existingMsgs } = await supabase
-              .from("messages")
-              .select("conversation_id, gmail_message_id")
-              .in("gmail_message_id", msgIds)
-              .limit(1);
-
-            if (existingMsgs && existingMsgs.length > 0) {
-              conversationId = existingMsgs[0].conversation_id;
-              await supabase
-                .from("conversations")
-                .update({
-                  snippet,
-                  is_read: isRead,
-                  last_message_at: lastMessageAt,
-                  mailbox_id: mailbox.id,
-                })
-                .eq("id", conversationId);
-            } else {
-              const { data: newConv, error: convError } = await supabase
-                .from("conversations")
-                .insert({
-                  team_id: mailbox.team_id,
-                  gmail_thread_id: thread.id,
-                  subject,
-                  snippet,
-                  from_email: fromEmail,
-                  from_name: fromName,
-                  is_read: isRead,
-                  last_message_at: lastMessageAt,
-                  status: "open",
-                  mailbox_id: mailbox.id,
-                })
-                .select("id")
-                .single();
-
-              if (convError) {
-                console.error("Failed to create conversation:", convError);
-                continue;
-              }
-              conversationId = newConv.id;
-
-              // Auto-create or link contact
-              if (fromEmail) {
-                try {
-                  const { data: existingContact } = await supabase
-                    .from("contacts")
-                    .select("id")
-                    .eq("team_id", mailbox.team_id)
-                    .eq("email", fromEmail)
-                    .maybeSingle();
-
-                  let contactId: string;
-                  if (existingContact) {
-                    contactId = existingContact.id;
-                  } else {
-                    const domain = fromEmail.split("@")[1] || null;
-                    const { data: newContact } = await supabase
-                      .from("contacts")
-                      .insert({
-                        team_id: mailbox.team_id,
-                        email: fromEmail,
-                        name: fromName,
-                        company: domain,
-                      })
-                      .select("id")
-                      .single();
-                    contactId = newContact?.id;
-                  }
-
-                  if (contactId) {
-                    // Link contact to conversation
-                    await supabase.from("contact_conversations").insert({
-                      contact_id: contactId,
-                      conversation_id: conversationId,
-                    }).select().maybeSingle();
-
-                    // Set contact_id on conversation
-                    await supabase
-                      .from("conversations")
-                      .update({ contact_id: contactId })
-                      .eq("id", conversationId);
-                  }
-                } catch (contactErr) {
-                  console.error("Auto-contact creation error:", contactErr);
-                }
-              }
-            }
+            synced = result.synced;
+            newHistoryId = result.historyId;
           }
-
-          // Sync messages + attachments
-          for (const gMsg of gmailMessages) {
-            const msgFromHeader = getHeader(gMsg.payload?.headers, "From") || "";
-            const msgToHeader = getHeader(gMsg.payload?.headers, "To") || "";
-            const msgCcHeader = getHeader(gMsg.payload?.headers, "Cc") || null;
-            const msgFromMatch = msgFromHeader.match(/^(.+?)\s*<(.+?)>$/);
-            const msgFromName = msgFromMatch ? msgFromMatch[1].replace(/"/g, "").trim() : null;
-            const msgFromEmail = msgFromMatch ? msgFromMatch[2] : msgFromHeader;
-            const body = parseBody(gMsg.payload);
-            const sentAt = new Date(parseInt(gMsg.internalDate)).toISOString();
-            const isOutbound = msgFromEmail.toLowerCase() === mailbox.email.toLowerCase();
-
-            // Check if message already exists to avoid silent skip from ignoreDuplicates
-            const { data: existingMsg } = await supabase
-              .from("messages")
-              .select("id")
-              .eq("gmail_message_id", gMsg.id)
-              .maybeSingle();
-
-            // Skip already-synced messages entirely (attachments never change)
-            if (existingMsg) {
-              continue;
-            }
-
-            const { data: newMsg, error: msgErr } = await supabase.from("messages").insert({
-              conversation_id: conversationId,
-              gmail_message_id: gMsg.id,
-              from_email: msgFromEmail,
-              from_name: msgFromName,
-              to_email: msgToHeader,
-              cc: msgCcHeader,
-              body_html: body.html,
-              body_text: body.text,
-              sent_at: sentAt,
-              is_outbound: isOutbound,
-            }).select("id").single();
-
-            if (msgErr || !newMsg) continue;
-            const messageId = newMsg.id;
-
-            // Download and store attachments (only for new messages)
-            const attachmentInfos = extractAttachments(gMsg.payload);
-            for (const att of attachmentInfos) {
-              try {
-                const attRes = await fetch(
-                  `https://gmail.googleapis.com/gmail/v1/users/me/messages/${gMsg.id}/attachments/${att.attachmentId}`,
-                  { headers: { Authorization: `Bearer ${accessToken}` } }
-                );
-                if (!attRes.ok) {
-                  console.error(`Failed to download attachment ${att.filename}:`, await attRes.text());
-                  continue;
-                }
-                const attData = await attRes.json();
-                const b64 = (attData.data || "").replace(/-/g, "+").replace(/_/g, "/");
-                const padded = b64.padEnd(Math.ceil(b64.length / 4) * 4, "=");
-                const binary = atob(padded);
-                const bytes = new Uint8Array(binary.length);
-                for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-
-                const storagePath = `${conversationId}/${messageId}/${att.filename}`;
-                const { error: uploadErr } = await supabase.storage
-                  .from("attachments")
-                  .upload(storagePath, bytes, {
-                    contentType: att.mimeType,
-                    upsert: true,
-                  });
-
-                if (uploadErr) {
-                  console.error(`Failed to upload attachment ${att.filename}:`, uploadErr);
-                  continue;
-                }
-
-                await supabase.from("attachments").insert({
-                  message_id: messageId,
-                  filename: att.filename,
-                  mime_type: att.mimeType,
-                  size_bytes: att.size,
-                  storage_path: storagePath,
-                });
-              } catch (attErr) {
-                console.error(`Error processing attachment ${att.filename}:`, attErr);
-              }
-            }
-          }
-
-          synced++;
+        } else {
+          // First sync: full scan
+          console.log(`Full scan for ${mailbox.email} (no history_id)`);
+          const fullResult = await fullScan(accessToken, mailbox, supabase);
+          synced = fullResult.synced;
+          newHistoryId = fullResult.historyId;
         }
 
+        // Update last_sync_at and history_id
+        const updatePayload: any = { last_sync_at: new Date().toISOString() };
+        if (newHistoryId) updatePayload.history_id = parseInt(newHistoryId, 10);
         await supabase
           .from("team_mailboxes")
-          .update({ last_sync_at: new Date().toISOString() })
+          .update(updatePayload)
           .eq("id", mailbox.id);
 
-        results.push({ email: mailbox.email, synced });
+        results.push({ email: mailbox.email, synced, incremental: !!mailbox.history_id });
 
+        // Trigger AI analysis
         try {
           const analyzeUrl = `${supabaseUrl}/functions/v1/ai-analyze-email`;
           await fetch(analyzeUrl, {

@@ -85,6 +85,44 @@ export function useInboxMutations({
     [removeFromActiveView, refetch]
   );
 
+  // ─── Trash (soft) ──────────────────────────────────────────────
+
+  const handleTrash = useCallback(
+    async (id: string) => {
+      removeFromActiveView(id);
+      const { error } = await supabase
+        .from("conversations")
+        .update({ state: "trash" as any })
+        .eq("id", id);
+      if (error) {
+        toast.error("Erreur : " + error.message);
+        refetch();
+        return;
+      }
+      toast.success("Conversation mise à la corbeille");
+    },
+    [removeFromActiveView, refetch]
+  );
+
+  // ─── Spam ──────────────────────────────────────────────────────
+
+  const handleSpam = useCallback(
+    async (id: string) => {
+      removeFromActiveView(id);
+      const { error } = await supabase
+        .from("conversations")
+        .update({ state: "spam" as any })
+        .eq("id", id);
+      if (error) {
+        toast.error("Erreur : " + error.message);
+        refetch();
+        return;
+      }
+      toast.success("Conversation marquée comme spam");
+    },
+    [removeFromActiveView, refetch]
+  );
+
   // ─── Status change ──────────────────────────────────────────────
 
   const handleStatusChange = useCallback(
@@ -356,6 +394,8 @@ export function useInboxMutations({
 
   return {
     handleArchive,
+    handleTrash,
+    handleSpam,
     handleStatusChange,
     handleReply,
     handleUndoCancel,
