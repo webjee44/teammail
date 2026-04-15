@@ -190,6 +190,16 @@ export function FloatingCompose() {
     toast.info("Envoi annulé");
   }, []);
 
+  // Store cc/bcc/thread info in refs so the callback doesn't go stale after closeCompose
+  const ccRef = useRef(cc);
+  ccRef.current = cc;
+  const bccRef = useRef(bcc);
+  bccRef.current = bcc;
+  const threadIdRef = useRef(state.threadId);
+  threadIdRef.current = state.threadId;
+  const inReplyToRef = useRef(state.inReplyTo);
+  inReplyToRef.current = state.inReplyTo;
+
   const handleUndoExpire = useCallback(async () => {
     setUndoSendOpen(false);
     const p = pendingSendRef.current;
@@ -203,11 +213,11 @@ export function FloatingCompose() {
           body: p.body,
           from_email: p.fromEmail,
           attachments: p.attachments.length > 0 ? p.attachments : undefined,
-          cc: cc.length > 0 ? cc.join(", ") : undefined,
-          bcc: bcc.length > 0 ? bcc.join(", ") : undefined,
-          thread_id: state.threadId || undefined,
-          in_reply_to: state.inReplyTo || undefined,
-          references: state.inReplyTo || undefined,
+          cc: ccRef.current.length > 0 ? ccRef.current.join(", ") : undefined,
+          bcc: bccRef.current.length > 0 ? bccRef.current.join(", ") : undefined,
+          thread_id: threadIdRef.current || undefined,
+          in_reply_to: inReplyToRef.current || undefined,
+          references: inReplyToRef.current || undefined,
         },
       });
       if (error) throw error;
@@ -260,7 +270,10 @@ export function FloatingCompose() {
     }
   };
 
-  if (!state.isOpen) return null;
+  // Render UndoSendDialog BEFORE the early return so it stays mounted after closeCompose
+  const undoDialog = <UndoSendDialog open={undoSendOpen} onCancel={handleUndoCancel} onExpire={handleUndoExpire} />;
+
+  if (!state.isOpen) return undoDialog;
 
   const isFormValid = to && subject && body && fromEmail;
 
@@ -559,7 +572,7 @@ export function FloatingCompose() {
           </Button>
         </div>
       </div>
-      <UndoSendDialog open={undoSendOpen} onCancel={handleUndoCancel} onExpire={handleUndoExpire} />
+      {undoDialog}
     </div>
   );
 }
