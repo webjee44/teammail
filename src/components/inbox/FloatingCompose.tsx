@@ -20,6 +20,7 @@ import { TemplatePickerDialog } from "@/components/inbox/TemplatePickerDialog";
 import { useDraft } from "@/hooks/useDraft";
 import { useComposeWindow } from "@/hooks/useComposeWindow";
 import { UndoSendDialog } from "@/components/inbox/UndoSendDialog";
+import { clearLocal } from "@/hooks/useLocalDraft";
 
 
 export function FloatingCompose() {
