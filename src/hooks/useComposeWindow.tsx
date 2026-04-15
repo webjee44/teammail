@@ -18,11 +18,12 @@ type ComposeState = {
   threadId?: string;
   inReplyTo?: string;
   initialCc?: string[];
+  conversationId?: string;
 };
 
 type ComposeWindowContextType = {
   state: ComposeState;
-  openCompose: (params?: { to?: string; subject?: string; body?: string; fromEmail?: string; draftId?: string; attachments?: InitialAttachment[]; threadId?: string; inReplyTo?: string; cc?: string[] }) => void;
+  openCompose: (params?: { to?: string; subject?: string; body?: string; fromEmail?: string; draftId?: string; attachments?: InitialAttachment[]; threadId?: string; inReplyTo?: string; cc?: string[]; conversationId?: string }) => void;
   closeCompose: () => void;
   toggleMinimize: () => void;
 };
@@ -32,7 +33,7 @@ const ComposeWindowContext = createContext<ComposeWindowContextType | null>(null
 export function ComposeWindowProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<ComposeState>({ isOpen: false, isMinimized: false });
 
-  const openCompose = useCallback((params?: { to?: string; subject?: string; body?: string; fromEmail?: string; draftId?: string; attachments?: InitialAttachment[]; threadId?: string; inReplyTo?: string; cc?: string[] }) => {
+  const openCompose = useCallback((params?: { to?: string; subject?: string; body?: string; fromEmail?: string; draftId?: string; attachments?: InitialAttachment[]; threadId?: string; inReplyTo?: string; cc?: string[]; conversationId?: string }) => {
     setState({
       isOpen: true,
       isMinimized: false,
@@ -45,6 +46,7 @@ export function ComposeWindowProvider({ children }: { children: ReactNode }) {
       threadId: params?.threadId,
       inReplyTo: params?.inReplyTo,
       initialCc: params?.cc,
+      conversationId: params?.conversationId,
     });
   }, []);
 

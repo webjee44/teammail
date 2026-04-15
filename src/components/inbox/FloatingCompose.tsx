@@ -185,6 +185,7 @@ export function FloatingCompose() {
         team_id: profile.team_id,
         created_by: user.id,
         command_type: "send_new",
+        conversation_id: state.conversationId || undefined,
         idempotency_key: savedDraftId ? `draft-${savedDraftId}` : undefined,
         payload: {
           to,
@@ -193,10 +194,17 @@ export function FloatingCompose() {
           from_email: fromEmail,
           from_name: fromEmail,
           attachments: attachments.length > 0 ? attachments : undefined,
+          attached_files: attachedFiles.length > 0 ? attachedFiles.map((f) => ({
+            name: f.name,
+            type: f.file.type || "application/octet-stream",
+            size: f.file.size,
+            base64: f.base64,
+          })) : undefined,
           cc: cc.length > 0 ? cc.join(", ") : undefined,
           bcc: bcc.length > 0 ? bcc.join(", ") : undefined,
           thread_id: state.threadId || undefined,
           in_reply_to: state.inReplyTo || undefined,
+          conversation_id: state.conversationId || undefined,
         },
       });
       if (insertErr) throw insertErr;
