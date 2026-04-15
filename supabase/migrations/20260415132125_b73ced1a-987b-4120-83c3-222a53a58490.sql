@@ -1,0 +1,1 @@
+UPDATE team_mailboxes SET sync_mode = 'full_scan', history_id = NULL, full_scan_page_token = NULL, last_error_at = NULL, last_error_message = NULL WHERE email = 'marketing@cloudvapor.com';
