@@ -790,6 +790,66 @@ export type Database = {
           },
         ]
       }
+      outbox_commands: {
+        Row: {
+          command_type: string
+          conversation_id: string | null
+          created_at: string
+          created_by: string
+          error_message: string | null
+          id: string
+          idempotency_key: string | null
+          payload: Json
+          processed_at: string | null
+          retry_count: number
+          status: string
+          team_id: string
+        }
+        Insert: {
+          command_type: string
+          conversation_id?: string | null
+          created_at?: string
+          created_by: string
+          error_message?: string | null
+          id?: string
+          idempotency_key?: string | null
+          payload?: Json
+          processed_at?: string | null
+          retry_count?: number
+          status?: string
+          team_id: string
+        }
+        Update: {
+          command_type?: string
+          conversation_id?: string | null
+          created_at?: string
+          created_by?: string
+          error_message?: string | null
+          id?: string
+          idempotency_key?: string | null
+          payload?: Json
+          processed_at?: string | null
+          retry_count?: number
+          status?: string
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outbox_commands_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outbox_commands_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -960,6 +1020,54 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      sync_journal: {
+        Row: {
+          action_taken: string
+          conversation_id: string | null
+          created_at: string
+          drift_type: string
+          id: string
+          local_state: string | null
+          mailbox_id: string | null
+          remote_state: string | null
+        }
+        Insert: {
+          action_taken: string
+          conversation_id?: string | null
+          created_at?: string
+          drift_type: string
+          id?: string
+          local_state?: string | null
+          mailbox_id?: string | null
+          remote_state?: string | null
+        }
+        Update: {
+          action_taken?: string
+          conversation_id?: string | null
+          created_at?: string
+          drift_type?: string
+          id?: string
+          local_state?: string | null
+          mailbox_id?: string | null
+          remote_state?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sync_journal_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sync_journal_mailbox_id_fkey"
+            columns: ["mailbox_id"]
+            isOneToOne: false
+            referencedRelation: "team_mailboxes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tags: {
         Row: {
@@ -1333,6 +1441,10 @@ export type Database = {
     }
     Functions: {
       cleanup_whatsapp_groups: { Args: never; Returns: undefined }
+      conversation_detail: {
+        Args: { p_conversation_id: string }
+        Returns: Json
+      }
       get_actionable_count: { Args: { _mailbox_id?: string }; Returns: number }
       get_sent_conversation_ids: {
         Args: never
@@ -1347,6 +1459,38 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      inbox_list: {
+        Args: {
+          p_limit?: number
+          p_mailbox_id?: string
+          p_offset?: number
+          p_state?: string
+          p_status?: string
+        }
+        Returns: {
+          ai_summary: string
+          assigned_to: string
+          assignee_name: string
+          category: string
+          from_email: string
+          from_name: string
+          has_draft: boolean
+          id: string
+          is_noise: boolean
+          is_read: boolean
+          last_message_at: string
+          needs_reply: boolean
+          priority: string
+          seq_number: number
+          snippet: string
+          state: string
+          status: string
+          subject: string
+          tag_colors: string[]
+          tag_ids: string[]
+          tag_names: string[]
+        }[]
       }
       search_inbox: {
         Args: { p_limit?: number; p_query: string }
