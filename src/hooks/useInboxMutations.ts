@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { Conversation } from "@/components/inbox/ConversationList";
@@ -37,10 +37,6 @@ export function useInboxMutations({
   refetch,
 }: UseInboxMutationsParams) {
   const [bulkLoading, setBulkLoading] = useState(false);
-  const [undoSendOpen, setUndoSendOpen] = useState(false);
-  const replyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const replyCancelledRef = useRef(false);
-  const pendingSendRef = useRef<any>(null);
 
   // ─── Internal helpers ───────────────────────────────────────────
 
@@ -196,86 +192,53 @@ export function useInboxMutations({
         data: f.base64,
       }));
 
-      replyCancelledRef.current = false;
-      setUndoSendOpen(true);
+      // Insert directly into outbox_commands
+      try {
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        if (!currentUser) throw new Error("Non authentifié");
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("team_id")
+          .eq("user_id", currentUser.id)
+          .maybeSingle();
+        if (!profile?.team_id) throw new Error("Aucune équipe");
 
-      pendingSendRef.current = {
-        to: conv.from_email,
-        subject: `Re: ${conv.subject}`,
-        body,
-        fromEmail,
-        senderName,
-        gmailAttachments,
-        id,
-        attachedFiles,
-        thread_id: convRow?.gmail_thread_id || null,
-        in_reply_to: (lastMsg as any)?.gmail_message_id || null,
-      };
+        const { error: insertErr } = await supabase.from("outbox_commands").insert({
+          team_id: profile.team_id,
+          created_by: currentUser.id,
+          command_type: "send_reply",
+          conversation_id: id,
+          idempotency_key: `reply-${id}-${Date.now()}`,
+          payload: {
+            to: conv.from_email,
+            subject: `Re: ${conv.subject}`,
+            body,
+            from_email: fromEmail,
+            from_name: senderName || fromEmail,
+            attachments: gmailAttachments?.length ? gmailAttachments : undefined,
+            thread_id: convRow?.gmail_thread_id || undefined,
+            in_reply_to: (lastMsg as any)?.gmail_message_id || undefined,
+            references: (lastMsg as any)?.gmail_message_id || undefined,
+            conversation_id: id,
+            attached_files: attachedFiles?.map((f: FileToUpload) => ({
+              name: f.name,
+              type: f.file.type,
+              size: f.file.size,
+              base64: f.base64,
+            })) || undefined,
+          },
+        });
+        if (insertErr) throw insertErr;
+
+        toast.success("Réponse en cours d'envoi…");
+        fetchDetail(id);
+        refetch();
+      } catch (err: any) {
+        toast.error("Erreur d'envoi : " + (err.message || String(err)));
+      }
     },
-    [conversations, searchResults, mailboxId, user, messages]
+    [conversations, searchResults, mailboxId, user, messages, fetchDetail, refetch]
   );
-
-  const handleUndoCancel = useCallback(() => {
-    replyCancelledRef.current = true;
-    if (replyTimerRef.current) {
-      clearTimeout(replyTimerRef.current);
-      replyTimerRef.current = null;
-    }
-    pendingSendRef.current = null;
-    setUndoSendOpen(false);
-  }, []);
-
-  const handleUndoExpire = useCallback(async () => {
-    setUndoSendOpen(false);
-    const p = pendingSendRef.current;
-    if (!p || replyCancelledRef.current) return;
-    pendingSendRef.current = null;
-
-    try {
-      // Route reply through outbox_commands for durable delivery
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      if (!currentUser) throw new Error("Non authentifié");
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("team_id")
-        .eq("user_id", currentUser.id)
-        .maybeSingle();
-      if (!profile?.team_id) throw new Error("Aucune équipe");
-
-      const { error: insertErr } = await supabase.from("outbox_commands").insert({
-        team_id: profile.team_id,
-        created_by: currentUser.id,
-        command_type: "send_reply",
-        conversation_id: p.id,
-        idempotency_key: `reply-${p.id}-${Date.now()}`,
-        payload: {
-          to: p.to,
-          subject: p.subject,
-          body: p.body,
-          from_email: p.fromEmail,
-          from_name: p.senderName || p.fromEmail,
-          attachments: p.gmailAttachments?.length ? p.gmailAttachments : undefined,
-          thread_id: p.thread_id || undefined,
-          in_reply_to: p.in_reply_to || undefined,
-          references: p.in_reply_to || undefined,
-          conversation_id: p.id,
-          attached_files: p.attachedFiles?.map((f: FileToUpload) => ({
-            name: f.name,
-            type: f.file.type,
-            size: f.file.size,
-            base64: f.base64,
-          })) || undefined,
-        },
-      });
-      if (insertErr) throw insertErr;
-
-      toast.success("Réponse en file d'envoi");
-      fetchDetail(p.id);
-      refetch();
-    } catch (err: any) {
-      toast.error("Erreur d'envoi : " + (err.message || String(err)));
-    }
-  }, [fetchDetail, refetch]);
 
   // ─── Bulk actions ───────────────────────────────────────────────
 
@@ -376,12 +339,9 @@ export function useInboxMutations({
     handleSpam,
     handleStatusChange,
     handleReply,
-    handleUndoCancel,
-    handleUndoExpire,
     handleBulkArchive,
     handleBulkStatusChange,
     handleBulkMarkRead,
     bulkLoading,
-    undoSendOpen,
   };
 }

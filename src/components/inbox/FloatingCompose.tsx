@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +19,7 @@ import { AttachmentUpload, FileToUpload } from "@/components/inbox/Attachments";
 import { TemplatePickerDialog } from "@/components/inbox/TemplatePickerDialog";
 import { useDraft } from "@/hooks/useDraft";
 import { useComposeWindow } from "@/hooks/useComposeWindow";
-import { UndoSendDialog } from "@/components/inbox/UndoSendDialog";
+
 import { clearLocal } from "@/hooks/useLocalDraft";
 
 
@@ -158,65 +158,14 @@ export function FloatingCompose() {
     updateDraft({ to_email: to, from_email: fromEmail, subject, body });
   }, [to, fromEmail, subject, body, draftInitialized, updateDraft, state.isOpen]);
 
-  const cancelledRef = useRef(false);
-  const pendingSendRef = useRef<any>(null);
-  const [undoSendOpen, setUndoSendOpen] = useState(false);
-
   const handleSend = async () => {
     if (!to || !subject || !body || !fromEmail) return;
     setSending(true);
 
-    const sendPayload = {
-      to, subject, body, fromEmail,
-      attachments: attachedFiles.map((f) => ({
-        filename: f.name,
-        mime_type: f.file.type || "application/octet-stream",
-        data: f.base64,
-      })),
-    };
-
-    // Flush draft to DB then mark as send_pending
     try {
       await flushDraft();
       await setDraftStatus("send_pending");
-    } catch (err) {
-      console.error("Failed to flush draft before send:", err);
-    }
 
-    cancelledRef.current = false;
-    pendingSendRef.current = sendPayload;
-    closeCompose();
-    setUndoSendOpen(true);
-  };
-
-  const handleUndoCancel = useCallback(async () => {
-    cancelledRef.current = true;
-    pendingSendRef.current = null;
-    setUndoSendOpen(false);
-    setSending(false);
-    // Revert draft back to 'draft' status
-    try {
-      await setDraftStatus("draft");
-    } catch {}
-  }, [setDraftStatus]);
-
-  // Store cc/bcc/thread info in refs so the callback doesn't go stale after closeCompose
-  const ccRef = useRef(cc);
-  ccRef.current = cc;
-  const bccRef = useRef(bcc);
-  bccRef.current = bcc;
-  const threadIdRef = useRef(state.threadId);
-  threadIdRef.current = state.threadId;
-  const inReplyToRef = useRef(state.inReplyTo);
-  inReplyToRef.current = state.inReplyTo;
-
-  const handleUndoExpire = useCallback(async () => {
-    setUndoSendOpen(false);
-    const p = pendingSendRef.current;
-    if (!p || cancelledRef.current) { setSending(false); return; }
-    pendingSendRef.current = null;
-    try {
-      // Insert into outbox_commands instead of calling gmail-send directly
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Non authentifié");
       const { data: profile } = await supabase
@@ -226,38 +175,42 @@ export function FloatingCompose() {
         .maybeSingle();
       if (!profile?.team_id) throw new Error("Aucune équipe");
 
+      const attachments = attachedFiles.map((f) => ({
+        filename: f.name,
+        mime_type: f.file.type || "application/octet-stream",
+        data: f.base64,
+      }));
+
       const { error: insertErr } = await supabase.from("outbox_commands").insert({
         team_id: profile.team_id,
         created_by: user.id,
         command_type: "send_new",
         idempotency_key: savedDraftId ? `draft-${savedDraftId}` : undefined,
         payload: {
-          to: p.to,
-          subject: p.subject,
-          body: p.body,
-          from_email: p.fromEmail,
-          from_name: p.fromEmail,
-          attachments: p.attachments.length > 0 ? p.attachments : undefined,
-          cc: ccRef.current.length > 0 ? ccRef.current.join(", ") : undefined,
-          bcc: bccRef.current.length > 0 ? bccRef.current.join(", ") : undefined,
-          thread_id: threadIdRef.current || undefined,
-          in_reply_to: inReplyToRef.current || undefined,
+          to,
+          subject,
+          body,
+          from_email: fromEmail,
+          from_name: fromEmail,
+          attachments: attachments.length > 0 ? attachments : undefined,
+          cc: cc.length > 0 ? cc.join(", ") : undefined,
+          bcc: bcc.length > 0 ? bcc.join(", ") : undefined,
+          thread_id: state.threadId || undefined,
+          in_reply_to: state.inReplyTo || undefined,
         },
       });
       if (insertErr) throw insertErr;
 
-      // Mark draft as sent — outbox takes over delivery
       await setDraftStatus("sent");
-      toast.success("Message en file d'envoi");
+      toast.success("Message en cours d'envoi…");
+      closeCompose();
     } catch (err: any) {
-      try {
-        await setDraftStatus("send_failed", err.message || String(err));
-      } catch {}
+      try { await setDraftStatus("send_failed", err.message || String(err)); } catch {}
       toast.error("Erreur : " + (err.message || String(err)));
     } finally {
       setSending(false);
     }
-  }, [setDraftStatus, savedDraftId]);
+  };
 
   const handleSchedule = async () => {
     if (!to || !subject || !body || !fromEmail || !scheduleDate) return;
@@ -299,10 +252,7 @@ export function FloatingCompose() {
     }
   };
 
-  // Render UndoSendDialog BEFORE the early return so it stays mounted after closeCompose
-  const undoDialog = <UndoSendDialog open={undoSendOpen} onCancel={handleUndoCancel} onExpire={handleUndoExpire} />;
-
-  if (!state.isOpen) return undoDialog;
+  if (!state.isOpen) return null;
 
   const isFormValid = to && subject && body && fromEmail;
 
@@ -601,7 +551,6 @@ export function FloatingCompose() {
           </Button>
         </div>
       </div>
-      {undoDialog}
     </div>
   );
 }
