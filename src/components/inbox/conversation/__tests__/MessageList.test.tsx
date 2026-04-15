@@ -58,19 +58,19 @@ const comments: Comment[] = [
 
 describe("MessageList", () => {
   it("renders all messages", () => {
-    render(<MessageList messages={messages} comments={[]} />);
+    render(<MessageList messages={messages} comments={[]} />, { wrapper });
     expect(screen.getByText("Alice Dupont")).toBeInTheDocument();
     expect(screen.getByText("Bonjour, j'ai un problème.")).toBeInTheDocument();
     expect(screen.getByText("Équipe Support")).toBeInTheDocument();
   });
 
   it("renders HTML body when body_html is provided", () => {
-    render(<MessageList messages={messages} comments={[]} />);
+    render(<MessageList messages={messages} comments={[]} />, { wrapper });
     expect(screen.getByText("On s'en occupe !")).toBeInTheDocument();
   });
 
   it("renders initials from from_name", () => {
-    render(<MessageList messages={[messages[0]]} comments={[]} />);
+    render(<MessageList messages={[messages[0]]} comments={[]} />, { wrapper });
     expect(screen.getByText("AD")).toBeInTheDocument();
   });
 
@@ -81,30 +81,30 @@ describe("MessageList", () => {
       from_name: null,
       from_email: "xyz@test.com",
     };
-    render(<MessageList messages={[noNameMsg]} comments={[]} />);
+    render(<MessageList messages={[noNameMsg]} comments={[]} />, { wrapper });
     expect(screen.getByText("XY")).toBeInTheDocument();
   });
 
   it("renders comments section when comments exist", () => {
-    render(<MessageList messages={[]} comments={comments} />);
+    render(<MessageList messages={[]} comments={comments} />, { wrapper });
     expect(screen.getByText("Notes internes")).toBeInTheDocument();
     expect(screen.getByText("Bob Martin")).toBeInTheDocument();
   });
 
   it("renders @mentions with styling in comments", () => {
-    render(<MessageList messages={[]} comments={comments} />);
+    render(<MessageList messages={[]} comments={comments} />, { wrapper });
     const mention = screen.getByText("@Alice");
     expect(mention).toBeInTheDocument();
     expect(mention.className).toContain("text-primary");
   });
 
   it("does not render comments section when no comments", () => {
-    render(<MessageList messages={messages} comments={[]} />);
+    render(<MessageList messages={messages} comments={[]} />, { wrapper });
     expect(screen.queryByText("Notes internes")).not.toBeInTheDocument();
   });
 
   it("renders outbound messages with ml-8 class", () => {
-    const { container } = render(<MessageList messages={[messages[1]]} comments={[]} />);
+    const { container } = render(<MessageList messages={[messages[1]]} comments={[]} />, { wrapper });
     const msgDiv = container.querySelector(".ml-8");
     expect(msgDiv).toBeInTheDocument();
   });
