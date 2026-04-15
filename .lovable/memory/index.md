@@ -8,6 +8,7 @@ Mock data in place — backend wiring (Gmail API sync) not yet implemented.
 
 ## Memories
 - [DB Schema](mem://features/db-schema) — Tables: teams, profiles, user_roles, tags, conversations, messages, comments, rules, team_invitations
+- [Conversation State](mem://features/conversation-state) — state=inbox|archived|trash|spam, soft-archive, strict reply routing, useInboxMutations hook
 - [Pages](mem://features/pages) — Login, Inbox (3-col), Compose, Rules, Analytics, Settings
 - [Email Templates](mem://features/email-templates) — Reusable templates with dynamic variables, CRUD in Settings
 - [Contacts](mem://features/contacts) — Contacts table with team RLS, ContactPanel, auto-enrichment
