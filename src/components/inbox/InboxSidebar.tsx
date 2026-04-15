@@ -86,7 +86,7 @@ export function InboxSidebar() {
   const [scheduledEmails, setScheduledEmails] = useState<MailboxScopedEmail[]>([]);
   const [waUnread, setWaUnread] = useState(0);
   const [tags, setTags] = useState<{ id: string; name: string; color: string }[]>([]);
-  const [mailboxes, setMailboxes] = useState<{ id: string; email: string; label: string | null }[]>([]);
+  const [mailboxes, setMailboxes] = useState<{ id: string; email: string; label: string | null; last_successful_sync_at: string | null; last_error_at: string | null; last_error_message: string | null; sync_mode: string | null }[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
