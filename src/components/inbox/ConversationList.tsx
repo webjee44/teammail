@@ -36,6 +36,7 @@ export type Conversation = {
   has_draft?: boolean;
   needs_reply?: boolean;
   is_sent?: boolean;
+  draft_status?: string;
 };
 
 export type InboxFilter = "all" | "actionable" | "unread" | "replied" | "noise";
@@ -314,6 +315,12 @@ export function ConversationList({
                             <span className="inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400">
                               <FileEdit className="h-2.5 w-2.5" />
                               Brouillon
+                            </span>
+                          )}
+                          {conv.draft_status === "send_failed" && (
+                            <span className="inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-destructive/15 text-destructive">
+                              <AlertTriangle className="h-2.5 w-2.5" />
+                              Échec d'envoi
                             </span>
                           )}
                           {conv.tags?.map((tag) => (

@@ -30,6 +30,7 @@ export function useInboxList({ filter, mailboxId, userId, activeState }: UseInbo
           .select("*")
           .is("conversation_id", null)
           .eq("created_by", userId)
+          .in("status", ["draft", "send_failed"])
           .order("updated_at", { ascending: false });
 
         const draftEmails = new Set<string>();
@@ -67,6 +68,7 @@ export function useInboxList({ filter, mailboxId, userId, activeState }: UseInbo
             category: null,
             entities: null,
             is_sent: true,
+            draft_status: d.status,
           }))
         );
         setLoading(false);

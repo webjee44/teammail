@@ -217,27 +217,40 @@ export function FloatingCompose() {
     if (!p || cancelledRef.current) { setSending(false); return; }
     pendingSendRef.current = null;
     try {
-      const { data, error } = await supabase.functions.invoke("gmail-send", {
-        body: {
+      // Insert into outbox_commands instead of calling gmail-send directly
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Non authentifié");
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("team_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (!profile?.team_id) throw new Error("Aucune équipe");
+
+      const { error: insertErr } = await supabase.from("outbox_commands").insert({
+        team_id: profile.team_id,
+        created_by: user.id,
+        command_type: "send_new",
+        idempotency_key: savedDraftId ? `draft-${savedDraftId}` : undefined,
+        payload: {
           to: p.to,
           subject: p.subject,
           body: p.body,
           from_email: p.fromEmail,
+          from_name: p.fromEmail,
           attachments: p.attachments.length > 0 ? p.attachments : undefined,
           cc: ccRef.current.length > 0 ? ccRef.current.join(", ") : undefined,
           bcc: bccRef.current.length > 0 ? bccRef.current.join(", ") : undefined,
           thread_id: threadIdRef.current || undefined,
           in_reply_to: inReplyToRef.current || undefined,
-          references: inReplyToRef.current || undefined,
         },
       });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      // Success — mark draft as sent
+      if (insertErr) throw insertErr;
+
+      // Mark draft as sent — outbox takes over delivery
       await setDraftStatus("sent");
-      toast.success("Email envoyé !");
+      toast.success("Message en file d'envoi");
     } catch (err: any) {
-      // Failure — mark draft as send_failed so it's recoverable
       try {
         await setDraftStatus("send_failed", err.message || String(err));
       } catch {}
@@ -245,7 +258,7 @@ export function FloatingCompose() {
     } finally {
       setSending(false);
     }
-  }, [setDraftStatus]);
+  }, [setDraftStatus, savedDraftId]);
 
   const handleSchedule = async () => {
     if (!to || !subject || !body || !fromEmail || !scheduleDate) return;
@@ -305,7 +318,7 @@ export function FloatingCompose() {
           <span className="truncate">{subject || "Nouveau message"}</span>
           <div className="flex items-center gap-1 ml-2 shrink-0">
             <Maximize2 className="h-3.5 w-3.5" />
-            <X className="h-3.5 w-3.5 hover:text-destructive" onClick={(e) => { e.stopPropagation(); closeCompose(); }} />
+            <X className="h-3.5 w-3.5 hover:text-destructive" onClick={(e) => { e.stopPropagation(); flushDraft(); closeCompose(); }} />
           </div>
         </button>
       </div>
@@ -321,7 +334,7 @@ export function FloatingCompose() {
           <Button variant="ghost" size="icon" className="h-6 w-6" onClick={toggleMinimize}>
             <Minus className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={closeCompose}>
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { flushDraft(); closeCompose(); }}>
             <X className="h-3.5 w-3.5" />
           </Button>
         </div>
