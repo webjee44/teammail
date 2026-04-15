@@ -1089,6 +1089,7 @@ export type Database = {
         Row: {
           created_at: string
           email: string
+          history_id: number | null
           id: string
           label: string | null
           last_sync_at: string | null
@@ -1099,6 +1100,7 @@ export type Database = {
         Insert: {
           created_at?: string
           email: string
+          history_id?: number | null
           id?: string
           label?: string | null
           last_sync_at?: string | null
@@ -1109,6 +1111,7 @@ export type Database = {
         Update: {
           created_at?: string
           email?: string
+          history_id?: number | null
           id?: string
           label?: string | null
           last_sync_at?: string | null
