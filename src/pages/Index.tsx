@@ -19,7 +19,7 @@ import { useConversationRealtime } from "@/hooks/useConversationRealtime";
 import { useBulkActions } from "@/hooks/useBulkActions";
 import { useInboxSearch } from "@/hooks/useInboxSearch";
 import { NotificationBell } from "@/components/inbox/NotificationBell";
-import { UndoSendDialog } from "@/components/inbox/UndoSendDialog";
+
 
 const Index = () => {
   const navigate = useNavigate();
@@ -74,10 +74,9 @@ const Index = () => {
 
   const {
     handleArchive, handleStatusChange, handleReply,
-    handleUndoCancel, handleUndoExpire,
     handleBulkArchive, handleBulkStatusChange, handleBulkMarkRead,
     handleTrash, handleSpam,
-    bulkLoading, undoSendOpen,
+    bulkLoading,
   } = useInboxMutations({
     conversations, setConversations, selectedId, setSelectedId,
     searchResults, mailboxId, user, messages, fetchDetail, refetch,
@@ -293,7 +292,7 @@ const Index = () => {
         onOpenChange={setCommandOpen}
         onSelect={setSelectedId}
       />
-      <UndoSendDialog open={undoSendOpen} onCancel={handleUndoCancel} onExpire={handleUndoExpire} />
+      
     </AppLayout>
   );
 };
