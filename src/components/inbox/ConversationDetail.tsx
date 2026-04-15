@@ -36,7 +36,7 @@ function collectThreadEmails(messages: NonNullable<ConversationDetailProps["conv
   return emails;
 }
 
-export function ConversationDetail({ conversation, currentUserId, onStatusChange, onReply, onComment, onEditComment, onDeleteComment, onDelete }: ConversationDetailProps) {
+export function ConversationDetail({ conversation, currentUserId, onStatusChange, onReply, onComment, onEditComment, onDeleteComment, onArchive }: ConversationDetailProps) {
   const [activeTab, setActiveTab] = useState("reply");
   const { openCompose } = useComposeWindow();
 
@@ -126,7 +126,7 @@ export function ConversationDetail({ conversation, currentUserId, onStatusChange
       <ConversationHeader
         conversation={conversation}
         onStatusChange={onStatusChange}
-        onDelete={onDelete}
+        onDelete={onArchive}
         onReplyClick={() => {
           setActiveTab("reply");
           document.querySelector("[data-reply-area]")?.scrollIntoView({ behavior: "smooth" });

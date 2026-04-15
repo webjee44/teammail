@@ -118,11 +118,11 @@ serve(async (req) => {
       );
     }
 
-    // Archive on Gmail if we have a thread ID (remove INBOX label)
+    // If we have a Gmail thread, archive on Gmail FIRST — fail hard if it doesn't work
     if (conv.gmail_thread_id && conv.mailbox_id) {
       const { data: mailbox } = await supabase
         .from("team_mailboxes")
-        .select("email")
+        .select("email, id")
         .eq("id", conv.mailbox_id)
         .single();
 
@@ -136,7 +136,7 @@ serve(async (req) => {
           } catch {
             try {
               serviceAccountKey = JSON.parse(atob(serviceAccountKeyStr));
-            } catch { /* skip Gmail archive if key is invalid */ }
+            } catch { /* invalid key */ }
           }
 
           if (serviceAccountKey) {
@@ -156,17 +156,51 @@ serve(async (req) => {
               );
 
               if (!archiveRes.ok) {
-                console.error("Gmail archive error:", await archiveRes.text());
+                const errText = await archiveRes.text();
+                console.error("Gmail archive error:", errText);
+
+                // Log drift in sync_journal
+                await supabase.from("sync_journal").insert({
+                  conversation_id: conv.id,
+                  mailbox_id: mailbox.id,
+                  drift_type: "archive_failed",
+                  local_state: "inbox",
+                  remote_state: "inbox",
+                  action_taken: `Gmail API error: ${archiveRes.status} — ${errText.slice(0, 200)}`,
+                });
+
+                // DO NOT update local state — return error to client
+                return new Response(
+                  JSON.stringify({ error: "Gmail archive failed", detail: errText.slice(0, 200) }),
+                  { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                );
               }
             } catch (gmailErr) {
               console.error("Gmail archive failed:", gmailErr);
+
+              // Log drift in sync_journal
+              await supabase.from("sync_journal").insert({
+                conversation_id: conv.id,
+                mailbox_id: mailbox.id,
+                drift_type: "archive_failed",
+                local_state: "inbox",
+                remote_state: "inbox",
+                action_taken: `Exception: ${String(gmailErr).slice(0, 200)}`,
+              });
+
+              // DO NOT update local state — return error to client
+              return new Response(
+                JSON.stringify({ error: "Gmail archive failed", detail: String(gmailErr).slice(0, 200) }),
+                { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+              );
             }
           }
         }
       }
     }
 
-    // Soft-archive: update state instead of deleting
+    // Gmail archive succeeded (or no gmail_thread_id — local-only conversation)
+    // Now safe to update local state
     const { error: updateErr } = await supabase
       .from("conversations")
       .update({ state: "archived" })
