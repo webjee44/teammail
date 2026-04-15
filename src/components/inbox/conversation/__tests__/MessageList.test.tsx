@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { MessageList } from "../MessageList";
 import type { Message, Comment } from "../types";
 
@@ -7,10 +8,20 @@ import type { Message, Comment } from "../types";
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
     from: () => ({
-      select: () => Promise.resolve({ data: [] }),
+      select: () => ({
+        eq: () => ({
+          or: () => ({
+            order: () => Promise.resolve({ data: [] }),
+          }),
+        }),
+      }),
     }),
   },
 }));
+
+const wrapper = ({ children }: { children: React.ReactNode }) => (
+  <MemoryRouter>{children}</MemoryRouter>
+);
 
 const messages: Message[] = [
   {
