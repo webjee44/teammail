@@ -9,7 +9,7 @@ type Props = {
   onExpire: () => void;
 };
 
-export function UndoSendDialog({ open, delaySeconds = 15, onCancel, onExpire }: Props) {
+export function UndoSendDialog({ open, delaySeconds = 5, onCancel, onExpire }: Props) {
   const [remaining, setRemaining] = useState(delaySeconds);
   const expiredRef = useRef(false);
 
