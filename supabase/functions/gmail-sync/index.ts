@@ -541,6 +541,8 @@ async function syncThread(
 // ─── Main handler ─────────────────────────────────────────────────
 
 serve(async (req) => {
+  console.log(`gmail-sync invoked: ${req.method} at ${new Date().toISOString()}`);
+
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -550,6 +552,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
+      console.error("gmail-sync: No Authorization header");
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     const token = authHeader.replace("Bearer ", "");
@@ -558,8 +561,12 @@ serve(async (req) => {
       const authClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
       const { data: authData, error: authErr } = await authClient.auth.getUser(token);
       if (authErr || !authData?.user) {
+        console.error("gmail-sync: Auth failed -", authErr?.message || "no user");
         return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
+      console.log(`gmail-sync: Authenticated as user ${authData.user.email}`);
+    } else {
+      console.log("gmail-sync: Authenticated with service role key");
     }
 
     let requestedMailboxId: string | null = null;
