@@ -654,7 +654,7 @@ const Index = () => {
   }, [filter, user]);
 
   const selectedConv = selectedId
-    ? conversations.find((c) => c.id === selectedId)
+    ? (conversations.find((c) => c.id === selectedId) ?? searchResults?.find((c) => c.id === selectedId) ?? null)
     : null;
 
   const selectedDetail = selectedConv
