@@ -97,7 +97,7 @@ export function InboxSidebar() {
         supabase.rpc("get_actionable_count", { _mailbox_id: activeMailbox || undefined }),
         supabase.from("drafts").select("id, from_email").is("conversation_id", null).eq("created_by", user.id),
         supabase.from("scheduled_emails").select("id, from_email").eq("status", "pending"),
-        supabase.from("team_mailboxes").select("id, email, label").order("email"),
+        supabase.from("team_mailboxes").select("id, email, label, last_successful_sync_at, last_error_at, last_error_message, sync_mode").order("email"),
         supabase.from("tags").select("id, name, color").order("name"),
         supabase.from("whatsapp_conversations").select("id", { count: "exact", head: true }).eq("is_read", false).eq("status", "open"),
       ]);
