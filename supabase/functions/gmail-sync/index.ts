@@ -415,28 +415,28 @@ serve(async (req) => {
               .eq("gmail_message_id", gMsg.id)
               .maybeSingle();
 
-            let messageId: string;
+            // Skip already-synced messages entirely (attachments never change)
             if (existingMsg) {
-              messageId = existingMsg.id;
-            } else {
-              const { data: newMsg, error: msgErr } = await supabase.from("messages").insert({
-                conversation_id: conversationId,
-                gmail_message_id: gMsg.id,
-                from_email: msgFromEmail,
-                from_name: msgFromName,
-                to_email: msgToHeader,
-                cc: msgCcHeader,
-                body_html: body.html,
-                body_text: body.text,
-                sent_at: sentAt,
-                is_outbound: isOutbound,
-              }).select("id").single();
-
-              if (msgErr || !newMsg) continue;
-              messageId = newMsg.id;
+              continue;
             }
 
-            // Download and store attachments
+            const { data: newMsg, error: msgErr } = await supabase.from("messages").insert({
+              conversation_id: conversationId,
+              gmail_message_id: gMsg.id,
+              from_email: msgFromEmail,
+              from_name: msgFromName,
+              to_email: msgToHeader,
+              cc: msgCcHeader,
+              body_html: body.html,
+              body_text: body.text,
+              sent_at: sentAt,
+              is_outbound: isOutbound,
+            }).select("id").single();
+
+            if (msgErr || !newMsg) continue;
+            const messageId = newMsg.id;
+
+            // Download and store attachments (only for new messages)
             const attachmentInfos = extractAttachments(gMsg.payload);
             for (const att of attachmentInfos) {
               try {
