@@ -356,10 +356,11 @@ async function syncThread(
     await supabase
       .from("conversations")
       .update({
-        snippet,
+      snippet,
         is_read: isRead,
         last_message_at: lastMessageAt,
         mailbox_id: mailbox.id,
+        state: "inbox" as const,
       })
       .eq("id", conversationId);
   } else {
