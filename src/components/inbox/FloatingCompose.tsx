@@ -221,6 +221,7 @@ export function FloatingCompose() {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
+      await deleteDraft();
       toast.success("Email envoyé !");
     } catch (err: any) {
       toast.error("Erreur : " + (err.message || String(err)));
