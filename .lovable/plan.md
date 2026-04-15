@@ -1,106 +1,56 @@
 
 
-# Plan : Sécurisation complète des brouillons
+# Correctif : sécurisation complète du cycle de vie brouillon → envoi
 
-## Contexte
+## Ce qui est déjà en place
 
-Aujourd'hui `useDraft` sauvegarde en DB avec un debounce de 1500ms, sans couche locale. Un crash, un démontage ou une coupure réseau = perte. Le clic "Envoyer" supprime le brouillon avant confirmation Gmail. Aucune machine d'état formelle.
+- `useLocalDraft.ts` : snapshot localStorage immédiat à chaque frappe
+- `useDraft.ts` : debounce 500ms, `flushDraft()`, `setDraftStatus()`, `beforeunload` handler
+- `FloatingCompose.tsx` : flush → `send_pending` → UndoSendDialog → `sent`/`send_failed`
+- `inbox_list` DB : filtre `has_draft` sur `status = 'draft'` uniquement
+- DB : colonnes `status` et `error_message` sur `drafts`, index `idx_drafts_status`
 
-## Architecture cible
+## Ce qui manque (3 correctifs)
 
-```text
-Frappe clavier
-  ├─► setState React (instantané)
-  ├─► localStorage snapshot (instantané, clé = "draft:<id>")
-  └─► debounce 500ms ─► upsert DB (drafts table)
+### 1. Flush du brouillon à la fermeture de la fenêtre compose
 
-Clic Envoyer
-  ├─► flush immédiat DB (annule debounce, force upsert)
-  ├─► UPDATE drafts SET status = 'send_pending'
-  ├─► ferme compose, ouvre UndoSendDialog
-  │
-  ├── Annuler pendant countdown ──► UPDATE status = 'draft', rouvre compose
-  │
-  └── Countdown expire ──► gmail-send
-        ├─ succès ──► UPDATE status = 'sent', supprime localStorage
-        └─ échec  ──► UPDATE status = 'send_failed' + error_message
-```
+Aujourd'hui, cliquer X appelle `closeCompose()` sans flush. Si le debounce n'a pas encore tiré, le dernier contenu est perdu côté serveur (il reste en localStorage, mais pas en DB).
 
-## Étapes d'implémentation
+**Fichier** : `src/components/inbox/FloatingCompose.tsx`
+- Intercepter le bouton X (et le X minimisé) pour appeler `flushDraft()` avant `closeCompose()`
+- Ajouter un `useEffect` cleanup qui flush quand `state.isOpen` passe à `false`
 
-### 1. Migration DB : ajouter `status` et `error_message` aux drafts
+### 2. Envoi via `outbox_commands` au lieu d'appel direct à `gmail-send`
 
-La table `drafts` a déjà `status` (default `'draft'`) et `error_message` depuis une migration précédente. Vérifier que c'est bien en place, sinon ajouter :
-- `status text NOT NULL DEFAULT 'draft'` — valeurs : `draft`, `send_pending`, `sent`, `send_failed`
-- `error_message text` — message d'erreur si `send_failed`
-- Index sur `(created_by, status)` pour les requêtes de listing
+Aujourd'hui `handleUndoExpire` appelle `gmail-send` directement depuis le front. Si le tab se ferme pendant l'appel, le message est perdu. La table `outbox_commands` existe déjà avec `idempotency_key`, `status`, `retry_count` — il faut l'utiliser.
 
-### 2. Nouveau hook `useLocalDraft` (localStorage)
+**Fichier** : `src/components/inbox/FloatingCompose.tsx`
+- `handleUndoExpire` : au lieu d'invoquer `gmail-send`, insérer une ligne dans `outbox_commands` avec `command_type = 'send_email'`, `status = 'pending'`, le payload complet, et un `idempotency_key` basé sur le `savedDraftId`
+- Marquer le draft comme `sent` immédiatement (l'outbox prend le relai)
+- Toast "Message en file d'envoi"
 
-Fichier : `src/hooks/useLocalDraft.ts`
+**Fichier** : `supabase/functions/process-outbox/index.ts`
+- Vérifier qu'il traite déjà `send_email` commands — sinon ajouter le handler qui appelle `gmail-send` avec le payload
 
-- `saveLocal(draftKey, data)` — écrit dans `localStorage` sous clé `draft:<draftId|"new">`
-- `loadLocal(draftKey)` — lit le snapshot local
-- `clearLocal(draftKey)` — supprime l'entrée
-- `listOrphanDrafts()` — liste les drafts locaux sans équivalent serveur (pour recovery au démarrage)
-- Sérialisation JSON, taille limitée à ~500KB par draft
+### 3. Récupération des brouillons `send_failed`
 
-### 3. Refactor `useDraft` 
+Un brouillon en `send_failed` doit être réouvrable depuis la sidebar.
 
-Fichier : `src/hooks/useDraft.ts`
-
-- Réduire le debounce de 1500ms à 500ms
-- Appeler `saveLocal()` à chaque `updateDraft()` (synchrone, avant le debounce)
-- Ajouter `flushDraft()` : annule le timer, exécute immédiatement le save serveur, retourne une Promise
-- Ajouter `setDraftStatus(status, errorMessage?)` : UPDATE en base
-- Au chargement, vérifier d'abord localStorage pour récupérer un snapshot plus récent que la DB
-- Ne plus appeler `deleteDraft()` nulle part — remplacer par `setDraftStatus('sent')`
-
-### 4. Refactor `FloatingCompose` — flux d'envoi
-
-Fichier : `src/components/inbox/FloatingCompose.tsx`
-
-**handleSend :**
-1. `await flushDraft()` — garantit que le brouillon est sauvé en DB
-2. `await setDraftStatus('send_pending')` — transition d'état
-3. `closeCompose()` + ouvrir `UndoSendDialog`
-
-**handleUndoCancel :**
-1. `await setDraftStatus('draft')` — retour en brouillon
-2. Rouvrir le compose avec `openCompose({ draftId })` pour restaurer le contenu
-
-**handleUndoExpire :**
-1. Appel `gmail-send`
-2. Succès → `setDraftStatus('sent')` + `clearLocal()`
-3. Échec → `setDraftStatus('send_failed', error.message)` + toast d'erreur
-
-**Flush sur fermeture :**
-- `closeCompose` déclenche `flushDraft()` (via `useEffect` cleanup ou interception du bouton X)
-- `beforeunload` event → `flushDraft()` via `navigator.sendBeacon` ou sync localStorage
-
-### 5. Filtrage des brouillons dans la sidebar
-
-La vue "Brouillons" de `inbox_list` (fonction DB) utilise `EXISTS(SELECT 1 FROM drafts d WHERE d.conversation_id = c.id)`. Pour la liste dédiée des brouillons standalone, filtrer sur `status = 'draft'` uniquement (exclure `sent`, `send_pending`).
-
-### 6. Tests
-
-- Test unitaire `useDraft` : vérifier que `flushDraft` force un save immédiat
-- Test unitaire `useDraft` : vérifier que `setDraftStatus` fait l'UPDATE correct
-- Test unitaire `useLocalDraft` : vérifier write/read/clear localStorage
-- Test existant à adapter : le test "supprime un draft recréé" doit vérifier `status = 'sent'` au lieu de `delete`
+**Fichier** : `src/hooks/useInboxList.ts` ou sidebar
+- Dans la vue "Brouillons", inclure aussi `status = 'send_failed'` (en plus de `'draft'`)
+- Afficher un badge "Échec" sur ces brouillons
+- Au clic, rouvrir le compose avec `openCompose({ draftId })` et remettre `status = 'draft'`
 
 ## Fichiers modifiés
 
 | Fichier | Changement |
 |---------|-----------|
-| Migration SQL | Vérifier/ajouter `status` + `error_message` + index |
-| `src/hooks/useLocalDraft.ts` | Nouveau — couche localStorage |
-| `src/hooks/useDraft.ts` | Debounce 500ms, `flushDraft()`, `setDraftStatus()`, intégration localStorage |
-| `src/components/inbox/FloatingCompose.tsx` | Flux send_pending, flush avant envoi, recovery sur annulation |
-| `src/hooks/__tests__/useDraft.test.tsx` | Adapter les tests existants + nouveaux tests |
-| `src/hooks/__tests__/useLocalDraft.test.ts` | Nouveau — tests localStorage |
+| `src/components/inbox/FloatingCompose.tsx` | Flush on close, envoi via outbox_commands |
+| `supabase/functions/process-outbox/index.ts` | Vérifier/ajouter handler `send_email` |
+| `src/hooks/useInboxList.ts` / sidebar | Inclure `send_failed` dans la vue Brouillons |
+| `src/components/inbox/ConversationList.tsx` | Badge "Échec" sur les brouillons send_failed |
 
-## Pas de nouvelle dépendance
+## Aucune migration DB nécessaire
 
-Tout repose sur `localStorage` natif (pas d'IndexedDB pour simplifier). Suffisant pour les tailles de draft email.
+Toutes les tables et colonnes existent déjà (`drafts.status`, `outbox_commands`).
 
