@@ -221,6 +221,14 @@ export function InboxSidebar() {
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-2 w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-[13px] hover:bg-accent/50 transition-colors outline-none">
                   <Inbox className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  {activeMailboxData && (
+                    <SyncHealthIndicator
+                      lastSuccessfulSyncAt={activeMailboxData.last_successful_sync_at}
+                      lastErrorAt={activeMailboxData.last_error_at}
+                      lastErrorMessage={activeMailboxData.last_error_message}
+                      syncMode={activeMailboxData.sync_mode}
+                    />
+                  )}
                   <span className="flex-1 text-left truncate font-medium">
                     {activeMailboxLabel || "Toutes les boîtes"}
                   </span>
