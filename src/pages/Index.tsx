@@ -13,6 +13,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Search, Trash2, CheckCircle, Clock, MailOpen, X } from "lucide-react";
 import { useComposeWindow } from "@/hooks/useComposeWindow";
 import { Button } from "@/components/ui/button";
+import { useInboxMutations } from "@/hooks/useInboxMutations";
 
 import { NotificationBell } from "@/components/inbox/NotificationBell";
 
@@ -56,19 +57,28 @@ const Index = () => {
   const [searchResults, setSearchResults] = useState<Conversation[] | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const [bulkLoading, setBulkLoading] = useState(false);
   const [freshlyUpdated, setFreshlyUpdated] = useState<Set<string>>(new Set());
   const [searchParams, setSearchParams] = useSearchParams();
   const filter = searchParams.get("filter");
   const mailboxId = searchParams.get("mailbox");
   const { user } = useAuth();
 
-  // Default to Commercial mailbox if no mailbox is selected
+  // Dynamic mailbox fallback — no hardcoded UUID
   useEffect(() => {
     if (!searchParams.has("mailbox") && !filter) {
-      const params = new URLSearchParams(searchParams);
-      params.set("mailbox", "674f3650-de84-4bd2-9551-9ed5f97da83f");
-      setSearchParams(params, { replace: true });
+      supabase
+        .from("team_mailboxes")
+        .select("id")
+        .eq("sync_enabled", true)
+        .order("created_at")
+        .limit(1)
+        .then(({ data }) => {
+          if (data?.[0]) {
+            const params = new URLSearchParams(searchParams);
+            params.set("mailbox", data[0].id);
+            setSearchParams(params, { replace: true });
+          }
+        });
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -97,19 +107,15 @@ const Index = () => {
   // Keyboard shortcuts
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
-      // ⌘K / Ctrl+K → command palette
       if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         setCommandOpen((prev) => !prev);
         return;
       }
-      // Ignore shortcuts when typing in an input/textarea/contenteditable
       const tag = (e.target as HTMLElement)?.tagName;
       const isEditable = tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable;
       if (isEditable) return;
-      // Skip when modifier keys are held (allow Ctrl+C, Ctrl+V, Ctrl+A, etc.)
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      // C → compose
       if (e.key === "c" || e.key === "C") {
         e.preventDefault();
         openCompose();
@@ -118,6 +124,9 @@ const Index = () => {
     document.addEventListener("keydown", down);
     return () => document.removeEventListener("keydown", down);
   }, [openCompose]);
+
+  // Determine which conversation state to load based on filter
+  const activeState = filter === "archived" ? "archived" : "inbox";
 
   // Fetch conversations based on filter
   const refetchRef = useRef<() => void>(() => {});
@@ -135,7 +144,6 @@ const Index = () => {
           .eq("created_by", user.id)
           .order("updated_at", { ascending: false });
 
-        // Enrich drafts with contact names
         const draftEmails = new Set<string>();
         for (const d of drafts || []) {
           if (d.to_email) draftEmails.add(d.to_email.toLowerCase());
@@ -177,7 +185,7 @@ const Index = () => {
         return;
       }
 
-      // Special handling for sent filter — use RPC to get all sent conversation IDs (bypasses 1000-row limit)
+      // Special handling for sent filter
       if (filter === "sent") {
         const { data: sentConvs } = await supabase.rpc("get_sent_conversation_ids");
         const sentConvIds = (sentConvs || []).map((r: any) => r.conversation_id);
@@ -203,12 +211,10 @@ const Index = () => {
           console.error("Failed to fetch sent conversations:", error);
           toast.error("Erreur lors du chargement des conversations envoyées");
         } else {
-          // Fetch first outbound message to_email for each conversation
           const ids = (data || []).map((c: any) => c.id);
           let toEmailMap = new Map<string, string>();
           let toNameMap = new Map<string, string>();
           if (ids.length > 0) {
-            // Fetch in batches of conversation IDs to avoid hitting the 1000-row limit
             const allMsgs: { conversation_id: string; to_email: string | null }[] = [];
             const BATCH = 50;
             for (let i = 0; i < ids.length; i += BATCH) {
@@ -227,7 +233,6 @@ const Index = () => {
               const rawEmails = new Set<string>();
               for (const m of msgs) {
                 if (m.to_email && !toEmailMap.has(m.conversation_id)) {
-                  // Parse "Name <email>" format
                   const match = m.to_email.match(/^(.+?)\s*<(.+?)>$/);
                   const email = match ? match[2] : m.to_email;
                   const parsedName = match ? match[1].trim() : null;
@@ -236,7 +241,6 @@ const Index = () => {
                   rawEmails.add(email.toLowerCase());
                 }
               }
-              // Lookup contact names by email
               if (rawEmails.size > 0) {
                 const { data: contacts } = await supabase
                   .from("contacts")
@@ -286,16 +290,17 @@ const Index = () => {
       let query = supabase
         .from("conversations")
         .select("*")
+        .eq("state", activeState)
         .order("last_message_at", { ascending: false });
 
-      // Apply filter
+      // Apply workflow filter
       if (filter === "closed") {
         query = query.eq("status", "closed");
       } else if (filter === "mine") {
         query = query.eq("status", "open").eq("assigned_to", user?.id ?? "");
       } else if (filter === "unassigned") {
         query = query.eq("status", "open").is("assigned_to", null);
-      } else {
+      } else if (filter !== "archived") {
         query = query.eq("status", "open");
       }
 
@@ -309,7 +314,6 @@ const Index = () => {
         console.error("Failed to fetch conversations:", error);
         toast.error("Erreur lors du chargement des conversations");
       } else {
-        // Fetch conversation IDs that have drafts
         const convIds = (data || []).map((c: any) => c.id);
         let draftConvIds = new Set<string>();
         if (convIds.length > 0 && user) {
@@ -323,15 +327,12 @@ const Index = () => {
           }
         }
 
-        // Detect outbound conversations and enrich with recipient info
-        // Fetch mailbox emails to detect outbound conversations
         let mailboxEmails = new Set<string>();
         const { data: mailboxes } = await supabase.from("team_mailboxes").select("email");
         if (mailboxes) {
           mailboxEmails = new Set(mailboxes.map((m: any) => m.email.toLowerCase()));
         }
 
-        // Filter out pure outbound conversations from inbox views (keep them only in closed/show-all)
         const isInboxView = !filter || filter === "mine" || filter === "unassigned";
         const filteredData = isInboxView
           ? (data || []).filter((c: any) => !c.from_email || !mailboxEmails.has(c.from_email.toLowerCase()))
@@ -432,7 +433,6 @@ const Index = () => {
             byConvo.set(m.conversation_id, list);
           }
           for (const [cid, msgs] of byConvo) {
-            // Check if last message is inbound (needs reply)
             if (msgs.length > 0 && !msgs[msgs.length - 1].is_outbound) {
               needsReplySet.add(cid);
             }
@@ -453,7 +453,6 @@ const Index = () => {
             }
           }
           setResponseTimes(rtMap);
-          // Update conversations with needs_reply flag
           setConversations(prev => prev.map(c => ({
             ...c,
             needs_reply: needsReplySet.has(c.id),
@@ -465,7 +464,7 @@ const Index = () => {
 
     refetchRef.current = fetchConversations;
     fetchConversations();
-  }, [filter, mailboxId, user?.id]);
+  }, [filter, mailboxId, user?.id, activeState]);
 
   // Fetch messages & comments when conversation is selected
   const fetchDetail = useCallback(async (convId: string) => {
@@ -530,14 +529,13 @@ const Index = () => {
         .update({ is_read: true })
         .eq("id", selectedId)
         .then();
-      // Mark as read in Gmail too
       supabase.functions.invoke("gmail-mark-read", {
         body: { conversation_id: selectedId },
       }).catch((err) => console.error("Gmail mark-read failed:", err));
     }
   }, [selectedId, fetchDetail]);
 
-  // Realtime: conversations
+  // Realtime: conversations — handle UPDATE state changes
   useEffect(() => {
     const channel = supabase
       .channel('rt-conversations')
@@ -546,6 +544,8 @@ const Index = () => {
         { event: 'INSERT', schema: 'public', table: 'conversations' },
         (payload) => {
           const c = payload.new as any;
+          // Only insert if state matches current view
+          if (c.state !== activeState) return;
           setConversations((prev) => {
             if (prev.some((x) => x.id === c.id)) return prev;
             return [{
@@ -557,7 +557,6 @@ const Index = () => {
               ai_summary: c.ai_summary, category: c.category, entities: c.entities,
             }, ...prev];
           });
-          // Flash highlight for new conversation
           setFreshlyUpdated((prev) => new Set(prev).add(c.id));
           setTimeout(() => setFreshlyUpdated((prev) => { const next = new Set(prev); next.delete(c.id); return next; }), 3000);
         }
@@ -567,6 +566,13 @@ const Index = () => {
         { event: 'UPDATE', schema: 'public', table: 'conversations' },
         (payload) => {
           const c = payload.new as any;
+          // If state changed and no longer matches current view, remove from list
+          if (c.state !== activeState) {
+            setConversations((prev) => prev.filter((x) => x.id !== c.id));
+            if (selectedId === c.id) setSelectedId(null);
+            return;
+          }
+          // Otherwise update in place
           setConversations((prev) =>
             prev.map((x) => x.id === c.id ? {
               ...x, subject: c.subject, snippet: c.snippet, status: c.status,
@@ -577,7 +583,6 @@ const Index = () => {
             } : x)
             .sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime())
           );
-          // Flash highlight for updated conversation
           setFreshlyUpdated((prev) => new Set(prev).add(c.id));
           setTimeout(() => setFreshlyUpdated((prev) => { const next = new Set(prev); next.delete(c.id); return next; }), 3000);
         }
@@ -594,7 +599,7 @@ const Index = () => {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [selectedId]);
+  }, [selectedId, activeState]);
 
   // Realtime: messages (for selected conversation)
   useEffect(() => {
@@ -626,7 +631,6 @@ const Index = () => {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'drafts' },
         () => {
-          // Simple refetch for drafts
           if (!user) return;
           supabase
             .from("drafts")
@@ -653,6 +657,31 @@ const Index = () => {
     return () => { supabase.removeChannel(channel); };
   }, [filter, user]);
 
+  // Centralized mutations hook
+  const {
+    handleArchive,
+    handleStatusChange,
+    handleReply,
+    handleUndoCancel,
+    handleUndoExpire,
+    handleBulkArchive,
+    handleBulkStatusChange,
+    handleBulkMarkRead,
+    bulkLoading,
+    undoSendOpen,
+  } = useInboxMutations({
+    conversations,
+    setConversations,
+    selectedId,
+    setSelectedId,
+    searchResults,
+    mailboxId,
+    user,
+    messages,
+    fetchDetail,
+    refetch: () => refetchRef.current(),
+  });
+
   const selectedConv = selectedId
     ? (conversations.find((c) => c.id === selectedId) ?? searchResults?.find((c) => c.id === selectedId) ?? null)
     : null;
@@ -664,156 +693,6 @@ const Index = () => {
         comments,
       }
     : null;
-
-  const handleStatusChange = async (id: string, status: "open" | "closed") => {
-    const { error } = await supabase
-      .from("conversations")
-      .update({ status })
-      .eq("id", id);
-    if (error) {
-      toast.error("Erreur : " + error.message);
-      return;
-    }
-    setConversations((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, status } : c))
-    );
-    toast.success(`Statut → ${status === "open" ? "Ouvert" : "Fermé"}`);
-  };
-
-  const replyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const replyCancelledRef = useRef(false);
-
-  useEffect(() => {
-    return () => { if (replyTimerRef.current) clearTimeout(replyTimerRef.current); };
-  }, []);
-
-  const handleReply = async (id: string, body: string, attachedFiles?: FileToUpload[]) => {
-    const conv = conversations.find((c) => c.id === id) ?? searchResults?.find((c) => c.id === id);
-    if (!conv?.from_email) return;
-
-    const { data: mailboxes } = await supabase
-      .from("team_mailboxes")
-      .select("email")
-      .eq("sync_enabled", true)
-      .limit(1);
-
-    const fromEmail = mailboxes?.[0]?.email;
-    if (!fromEmail) {
-      toast.error("Aucune boîte mail configurée pour l'envoi");
-      return;
-    }
-
-    // Get threading info
-    const { data: convRow } = await supabase
-      .from("conversations")
-      .select("gmail_thread_id")
-      .eq("id", id)
-      .maybeSingle();
-
-    const lastMsg = messages.length > 0 ? messages[messages.length - 1] : null;
-
-    const senderName = user?.user_metadata?.full_name || "";
-    const gmailAttachments = attachedFiles?.map((f) => ({
-      filename: f.name,
-      mime_type: f.file.type || "application/octet-stream",
-      data: f.base64,
-    }));
-
-    replyCancelledRef.current = false;
-    setUndoSendOpen(true);
-
-    const pendingSend = {
-      to: conv.from_email,
-      subject: `Re: ${conv.subject}`,
-      body,
-      fromEmail,
-      senderName,
-      gmailAttachments,
-      id,
-      attachedFiles,
-      thread_id: convRow?.gmail_thread_id || null,
-      in_reply_to: (lastMsg as any)?.gmail_message_id || null,
-    };
-    pendingSendRef.current = pendingSend;
-  };
-
-  const pendingSendRef = useRef<any>(null);
-  const [undoSendOpen, setUndoSendOpen] = useState(false);
-
-  const handleUndoCancel = useCallback(() => {
-    replyCancelledRef.current = true;
-    if (replyTimerRef.current) {
-      clearTimeout(replyTimerRef.current);
-      replyTimerRef.current = null;
-    }
-    pendingSendRef.current = null;
-    setUndoSendOpen(false);
-    toast.info("Envoi annulé");
-  }, []);
-
-  const handleUndoExpire = useCallback(async () => {
-    setUndoSendOpen(false);
-    const p = pendingSendRef.current;
-    if (!p || replyCancelledRef.current) return;
-    pendingSendRef.current = null;
-
-    const { data, error } = await supabase.functions.invoke("gmail-send", {
-      body: {
-        to: p.to,
-        subject: p.subject,
-        body: p.body,
-        from_email: p.fromEmail,
-        from_name: p.senderName,
-        attachments: p.gmailAttachments,
-        thread_id: p.thread_id || undefined,
-        in_reply_to: p.in_reply_to || undefined,
-        references: p.in_reply_to || undefined,
-      },
-    });
-
-    if (error || data?.error) {
-      toast.error("Erreur d'envoi : " + (data?.error || error?.message));
-      return;
-    }
-
-    const { data: newMsg } = await supabase.from("messages").insert({
-      conversation_id: p.id,
-      from_email: p.fromEmail,
-      from_name: p.senderName || p.fromEmail,
-      to_email: p.to,
-      body_text: p.body,
-      body_html: p.body.replace(/\n/g, "<br>"),
-      is_outbound: true,
-      gmail_message_id: data?.messageId || null,
-    }).select("id").single();
-
-    if (newMsg && p.attachedFiles && p.attachedFiles.length > 0) {
-      for (const f of p.attachedFiles) {
-        const storagePath = `${p.id}/${newMsg.id}/${f.name}`;
-        await supabase.storage.from("attachments").upload(storagePath, f.file, {
-          contentType: f.file.type,
-          upsert: true,
-        });
-        await supabase.from("attachments").insert({
-          message_id: newMsg.id,
-          filename: f.name,
-          mime_type: f.file.type || "application/octet-stream",
-          size_bytes: f.file.size,
-          storage_path: storagePath,
-        });
-      }
-    }
-
-    await supabase
-      .from("conversations")
-      .update({ last_message_at: new Date().toISOString(), status: "closed" as const, is_read: true })
-      .eq("id", p.id);
-
-    toast.success("Réponse envoyée");
-    fetchDetail(p.id);
-    // Refetch conversation list so "Envoyés" view updates instantly
-    refetchRef.current();
-  }, [fetchDetail]);
 
   const handleComment = async (id: string, body: string) => {
     if (!user) return;
@@ -854,23 +733,6 @@ const Index = () => {
     }
     toast.success("Note supprimée");
     if (selectedId) fetchDetail(selectedId);
-  };
-
-  const handleDelete = async (id: string) => {
-    try {
-      const { data, error } = await supabase.functions.invoke("gmail-archive", {
-        body: { conversation_id: id },
-      });
-      if (error || data?.error) {
-        toast.error("Erreur : " + (data?.error || error?.message));
-        return;
-      }
-      setConversations((prev) => prev.filter((c) => c.id !== id));
-      if (selectedId === id) setSelectedId(null);
-      toast.success("Conversation supprimée et archivée sur Gmail");
-    } catch (err: any) {
-      toast.error("Erreur : " + (err.message || String(err)));
-    }
   };
 
   // Compute counts from all conversations (before filtering)
@@ -927,73 +789,6 @@ const Index = () => {
     setBulkSelected(new Set());
   }, []);
 
-  const handleBulkArchive = async () => {
-    if (bulkSelected.size === 0) return;
-    setBulkLoading(true);
-    const ids = Array.from(bulkSelected);
-    try {
-      // Archive all selected in parallel
-      await Promise.all(
-        ids.map((id) =>
-          supabase.functions.invoke("gmail-archive", { body: { conversation_id: id } })
-        )
-      );
-      setConversations((prev) => prev.filter((c) => !bulkSelected.has(c.id)));
-      if (selectedId && bulkSelected.has(selectedId)) setSelectedId(null);
-      setBulkSelected(new Set());
-      toast.success(`${ids.length} conversation(s) archivée(s)`);
-    } catch (err: any) {
-      toast.error("Erreur : " + (err.message || String(err)));
-    } finally {
-      setBulkLoading(false);
-    }
-  };
-
-  const handleBulkStatusChange = async (status: "open" | "closed") => {
-    if (bulkSelected.size === 0) return;
-    setBulkLoading(true);
-    const ids = Array.from(bulkSelected);
-    try {
-      const { error } = await supabase
-        .from("conversations")
-        .update({ status })
-        .in("id", ids);
-      if (error) throw error;
-      setConversations((prev) =>
-        prev.map((c) => (bulkSelected.has(c.id) ? { ...c, status } : c))
-      );
-      setBulkSelected(new Set());
-      const labels = { open: "Ouvert", closed: "Fermé" } as Record<string, string>;
-      toast.success(`${ids.length} conversation(s) → ${labels[status]}`);
-    } catch (err: any) {
-      toast.error("Erreur : " + (err.message || String(err)));
-    } finally {
-      setBulkLoading(false);
-    }
-  };
-
-  const handleBulkMarkRead = async () => {
-    if (bulkSelected.size === 0) return;
-    setBulkLoading(true);
-    const ids = Array.from(bulkSelected);
-    try {
-      const { error } = await supabase
-        .from("conversations")
-        .update({ is_read: true })
-        .in("id", ids);
-      if (error) throw error;
-      setConversations((prev) =>
-        prev.map((c) => (bulkSelected.has(c.id) ? { ...c, is_read: true } : c))
-      );
-      setBulkSelected(new Set());
-      toast.success(`${ids.length} conversation(s) marquée(s) comme lue(s)`);
-    } catch (err: any) {
-      toast.error("Erreur : " + (err.message || String(err)));
-    } finally {
-      setBulkLoading(false);
-    }
-  };
-
   const handleSearch = useCallback(async (query: string) => {
     if (query.trim().length < 2) return;
     setSearchLoading(true);
@@ -1036,6 +831,7 @@ const Index = () => {
     closed: "Fermé",
     sent: "Envoyés",
     drafts: "Brouillons",
+    archived: "Archivées",
   };
   const headerTitle = filter ? filterLabels[filter] || "Boîte de réception" : "Boîte de réception";
 
@@ -1095,13 +891,13 @@ const Index = () => {
                 {bulkSelected.size} sélectionné(s)
               </span>
               <div className="flex items-center gap-1 ml-auto">
-                <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={handleBulkMarkRead} disabled={bulkLoading}>
+                <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => handleBulkMarkRead(bulkSelected, handleBulkDeselectAll)} disabled={bulkLoading}>
                   <MailOpen className="h-3.5 w-3.5" /> Lu
                 </Button>
-                <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => handleBulkStatusChange("closed")} disabled={bulkLoading}>
+                <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => handleBulkStatusChange(bulkSelected, "closed", handleBulkDeselectAll)} disabled={bulkLoading}>
                   <CheckCircle className="h-3.5 w-3.5" /> Fermer
                 </Button>
-                <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={handleBulkArchive} disabled={bulkLoading}>
+                <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => handleBulkArchive(bulkSelected, handleBulkDeselectAll)} disabled={bulkLoading}>
                   <Trash2 className="h-3.5 w-3.5" /> Archiver
                 </Button>
                 <Button variant="ghost" size="sm" className="h-8" onClick={handleBulkDeselectAll} disabled={bulkLoading}>
@@ -1139,7 +935,7 @@ const Index = () => {
             onComment={handleComment}
             onEditComment={handleEditComment}
             onDeleteComment={handleDeleteComment}
-            onDelete={handleDelete}
+            onDelete={handleArchive}
           />
         </SheetContent>
       </Sheet>
