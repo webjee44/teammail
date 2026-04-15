@@ -63,7 +63,7 @@ export type ConversationDetailProps = {
   onComment?: (id: string, body: string) => void;
   onEditComment?: (commentId: string, newBody: string) => void;
   onDeleteComment?: (commentId: string) => void;
-  onDelete?: (id: string) => void;
+  onArchive?: (id: string) => void;
 };
 
 export type Suggestion = {

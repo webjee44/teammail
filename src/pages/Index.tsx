@@ -280,7 +280,7 @@ const Index = () => {
             onComment={handleComment}
             onEditComment={handleEditComment}
             onDeleteComment={handleDeleteComment}
-            onDelete={handleArchive}
+            onArchive={handleArchive}
           />
         </SheetContent>
       </Sheet>
