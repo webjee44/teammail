@@ -52,6 +52,10 @@ const Index = () => {
   const [activeFilter, setActiveFilter] = useState<InboxFilter>("all");
   const [commandOpen, setCommandOpen] = useState(false);
   const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Conversation[] | null>(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [bulkLoading, setBulkLoading] = useState(false);
   const [freshlyUpdated, setFreshlyUpdated] = useState<Set<string>>(new Set());
   const [searchParams, setSearchParams] = useSearchParams();
