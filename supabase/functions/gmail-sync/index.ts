@@ -380,6 +380,7 @@ async function syncThread(
           is_read: isRead,
           last_message_at: lastMessageAt,
           mailbox_id: mailbox.id,
+          state: "inbox" as const,
         })
         .eq("id", conversationId);
     } else {

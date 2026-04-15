@@ -13,6 +13,35 @@ interface UseConversationRealtimeParams {
   setMessages: SetMessages;
   filter: string | null;
   userId: string | undefined;
+  mailboxId: string | null;
+}
+
+/** Check if a conversation matches the current view filters */
+function matchesView(
+  c: any,
+  activeState: string,
+  mailboxId: string | null,
+  filter: string | null,
+  userId: string | undefined,
+): boolean {
+  // Must match the active state
+  if (c.state !== activeState) return false;
+
+  // Must match mailbox if one is selected (only for inbox/archived views)
+  if (mailboxId && c.mailbox_id && c.mailbox_id !== mailboxId) return false;
+
+  // Apply filter-specific rules
+  switch (filter) {
+    case "mine":
+      return c.assigned_to === userId;
+    case "unassigned":
+      return c.assigned_to === null;
+    case "closed":
+      return c.status === "closed";
+    // sent, drafts, archived, trash, spam are handled by activeState already
+    default:
+      return true;
+  }
 }
 
 export function useConversationRealtime({
@@ -23,6 +52,7 @@ export function useConversationRealtime({
   setMessages,
   filter,
   userId,
+  mailboxId,
 }: UseConversationRealtimeParams) {
   const [freshlyUpdated, setFreshlyUpdated] = useState<Set<string>>(new Set());
 
@@ -35,7 +65,7 @@ export function useConversationRealtime({
         { event: 'INSERT', schema: 'public', table: 'conversations' },
         (payload) => {
           const c = payload.new as any;
-          if (c.state !== activeState) return;
+          if (!matchesView(c, activeState, mailboxId, filter, userId)) return;
           setConversations((prev) => {
             if (prev.some((x) => x.id === c.id)) return prev;
             return [{
@@ -55,21 +85,28 @@ export function useConversationRealtime({
         { event: 'UPDATE', schema: 'public', table: 'conversations' },
         (payload) => {
           const c = payload.new as any;
-          if (c.state !== activeState) {
+          const belongs = matchesView(c, activeState, mailboxId, filter, userId);
+
+          if (!belongs) {
+            // Conversation no longer matches this view — remove it
             setConversations((prev) => prev.filter((x) => x.id !== c.id));
             if (selectedId === c.id) setSelectedId(null);
             return;
           }
-          setConversations((prev) =>
-            prev.map((x) => x.id === c.id ? {
+
+          // Update existing conversation in the list (don't auto-insert new ones on UPDATE)
+          setConversations((prev) => {
+            const exists = prev.some((x) => x.id === c.id);
+            if (!exists) return prev; // Don't insert — let next refetch handle it
+            return prev.map((x) => x.id === c.id ? {
               ...x, subject: c.subject, snippet: c.snippet, status: c.status,
               assigned_to: c.assigned_to, is_read: c.is_read,
               last_message_at: c.last_message_at, priority: c.priority,
               is_noise: c.is_noise, ai_summary: c.ai_summary,
               category: c.category, entities: c.entities,
             } : x)
-            .sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime())
-          );
+            .sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime());
+          });
           markFreshlyUpdated(c.id);
         }
       )
@@ -85,7 +122,7 @@ export function useConversationRealtime({
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [selectedId, activeState, setConversations, setSelectedId]);
+  }, [selectedId, activeState, setConversations, setSelectedId, mailboxId, filter, userId]);
 
   // Realtime: messages for selected conversation
   useEffect(() => {

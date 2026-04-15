@@ -98,7 +98,7 @@ const Index = () => {
   const { bulkSelected, handleBulkToggle, handleBulkSelectAll, handleBulkDeselectAll } = useBulkActions(filteredConversations);
 
   const { freshlyUpdated } = useConversationRealtime({
-    activeState, selectedId, setSelectedId, setConversations, setMessages, filter, userId: user?.id,
+    activeState, selectedId, setSelectedId, setConversations, setMessages, filter, userId: user?.id, mailboxId,
   });
 
   // Keyboard shortcuts
