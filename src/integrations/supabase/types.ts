@@ -1203,33 +1203,51 @@ export type Database = {
         Row: {
           created_at: string
           email: string
+          full_scan_page_token: string | null
           history_id: number | null
           id: string
           label: string | null
+          last_error_at: string | null
+          last_error_message: string | null
+          last_run_at: string | null
+          last_successful_sync_at: string | null
           last_sync_at: string | null
           sync_enabled: boolean
+          sync_mode: string
           team_id: string
           updated_at: string
         }
         Insert: {
           created_at?: string
           email: string
+          full_scan_page_token?: string | null
           history_id?: number | null
           id?: string
           label?: string | null
+          last_error_at?: string | null
+          last_error_message?: string | null
+          last_run_at?: string | null
+          last_successful_sync_at?: string | null
           last_sync_at?: string | null
           sync_enabled?: boolean
+          sync_mode?: string
           team_id: string
           updated_at?: string
         }
         Update: {
           created_at?: string
           email?: string
+          full_scan_page_token?: string | null
           history_id?: number | null
           id?: string
           label?: string | null
+          last_error_at?: string | null
+          last_error_message?: string | null
+          last_run_at?: string | null
+          last_successful_sync_at?: string | null
           last_sync_at?: string | null
           sync_enabled?: boolean
+          sync_mode?: string
           team_id?: string
           updated_at?: string
         }
