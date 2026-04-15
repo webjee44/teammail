@@ -91,11 +91,16 @@ export function FloatingCompose() {
         .order("created_at");
       if (data && data.length > 0) {
         setMailboxes(data);
-        if (!fromEmail) setFromEmail(data[0].email);
+        // Use the mailbox passed via openCompose, otherwise fall back to first
+        if (state.initialFromEmail && data.some(m => m.email === state.initialFromEmail)) {
+          setFromEmail(state.initialFromEmail);
+        } else if (!fromEmail) {
+          setFromEmail(data[0].email);
+        }
       }
     };
     fetchMailboxes();
-  }, [state.isOpen]);
+  }, [state.isOpen, state.initialFromEmail]);
 
   useEffect(() => {
     if (!fromEmail || mailboxes.length === 0) {

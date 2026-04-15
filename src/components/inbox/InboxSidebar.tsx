@@ -195,11 +195,17 @@ export function InboxSidebar() {
         {/* Compose button */}
         <div className="px-3 mb-1">
           {collapsed ? (
-            <Button size="icon" variant="outline" className="w-8 h-8 border-dashed" onClick={() => openCompose()}>
+            <Button size="icon" variant="outline" className="w-8 h-8 border-dashed" onClick={() => {
+              const mb = mailboxes.find(m => m.id === activeMailbox);
+              openCompose(mb ? { fromEmail: mb.email } : undefined);
+            }}>
               <PenSquare className="h-3.5 w-3.5" />
             </Button>
           ) : (
-            <Button variant="outline" size="sm" className="w-full gap-2 h-8 border-dashed text-base font-medium" onClick={() => openCompose()}>
+            <Button variant="outline" size="sm" className="w-full gap-2 h-8 border-dashed text-base font-medium" onClick={() => {
+              const mb = mailboxes.find(m => m.id === activeMailbox);
+              openCompose(mb ? { fromEmail: mb.email } : undefined);
+            }}>
               <PenSquare className="h-3.5 w-3.5" />
               Rédiger
               <span className="ml-auto text-[10px] text-muted-foreground font-normal">C</span>
