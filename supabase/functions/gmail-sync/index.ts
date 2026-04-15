@@ -6,6 +6,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// ─── Google OAuth JWT ─────────────────────────────────────────────
+
 async function getAccessToken(serviceAccountKey: any, userEmail: string): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const header = { alg: "RS256", typ: "JWT" };
@@ -62,6 +64,8 @@ async function getAccessToken(serviceAccountKey: any, userEmail: string): Promis
   const tokenData = await tokenRes.json();
   return tokenData.access_token;
 }
+
+// ─── Helpers ──────────────────────────────────────────────────────
 
 function decodeBody(data: string | undefined): string {
   if (!data) return "";
@@ -164,63 +168,47 @@ function extractAttachments(payload: any): AttachmentInfo[] {
   return attachments;
 }
 
-// ─── Full scan: paginated threads.list ────────────────────────────
+// ─── Full scan: ONE page per run, resumable via page token ────────
 
-async function fullScan(
+async function fullScanOnePage(
   accessToken: string,
   mailbox: any,
   supabase: any,
-): Promise<{ synced: number; historyId: string | null }> {
+): Promise<{ synced: number; nextPageToken: string | null; done: boolean }> {
   let synced = 0;
-  let pageToken: string | undefined;
-  let latestHistoryId: string | null = null;
-  let pagesProcessed = 0;
-  const MAX_PAGES = 3; // Limit to avoid edge function timeout
 
-  do {
-    const url = new URL("https://gmail.googleapis.com/gmail/v1/users/me/threads");
-    url.searchParams.set("maxResults", "20");
-    url.searchParams.set("labelIds", "INBOX");
-    if (pageToken) url.searchParams.set("pageToken", pageToken);
-
-    const threadsRes = await fetch(url.toString(), {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-
-    if (!threadsRes.ok) {
-      const errText = await threadsRes.text();
-      console.error(`Gmail API error for ${mailbox.email}:`, errText);
-      break;
-    }
-
-    const threadsData = await threadsRes.json();
-    const threads = threadsData.threads || [];
-    pageToken = threadsData.nextPageToken;
-
-    for (const thread of threads) {
-      const threadSynced = await syncThread(accessToken, thread.id, mailbox, supabase);
-      if (threadSynced) synced++;
-    }
-
-    pagesProcessed++;
-    console.log(`Full scan ${mailbox.email}: page ${pagesProcessed}, synced ${synced} threads so far`);
-  } while (pageToken && pagesProcessed < MAX_PAGES);
-
-  // Get current historyId from profile
-  try {
-    const profileRes = await fetch(
-      "https://gmail.googleapis.com/gmail/v1/users/me/profile",
-      { headers: { Authorization: `Bearer ${accessToken}` } }
-    );
-    if (profileRes.ok) {
-      const profile = await profileRes.json();
-      latestHistoryId = profile.historyId || null;
-    }
-  } catch (e) {
-    console.error("Failed to get Gmail profile historyId:", e);
+  const url = new URL("https://gmail.googleapis.com/gmail/v1/users/me/threads");
+  url.searchParams.set("maxResults", "20");
+  url.searchParams.set("labelIds", "INBOX");
+  // Resume from stored page token if available
+  if (mailbox.full_scan_page_token) {
+    url.searchParams.set("pageToken", mailbox.full_scan_page_token);
   }
 
-  return { synced, historyId: latestHistoryId };
+  const threadsRes = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!threadsRes.ok) {
+    const errText = await threadsRes.text();
+    console.error(`Gmail API error for ${mailbox.email}:`, errText);
+    throw new Error(`Gmail threads.list failed: ${errText.substring(0, 200)}`);
+  }
+
+  const threadsData = await threadsRes.json();
+  const threads = threadsData.threads || [];
+  const nextPageToken = threadsData.nextPageToken || null;
+
+  for (const thread of threads) {
+    // During full scan, skip binary attachment downloads to stay within timeout
+    const threadSynced = await syncThread(accessToken, thread.id, mailbox, supabase, /* skipAttachmentBinaries */ true);
+    if (threadSynced) synced++;
+  }
+
+  const pageNum = mailbox.full_scan_page_token ? "next" : "1";
+  console.log(`Full scan ${mailbox.email}: page ${pageNum}, synced ${synced} threads this page`);
+
+  return { synced, nextPageToken, done: !nextPageToken };
 }
 
 // ─── Incremental sync: history.list ───────────────────────────────
@@ -239,7 +227,10 @@ async function incrementalSync(
   do {
     const url = new URL("https://gmail.googleapis.com/gmail/v1/users/me/history");
     url.searchParams.set("startHistoryId", startHistoryId);
-    url.searchParams.set("historyTypes", "messageAdded,labelAdded,labelRemoved");
+    // FIX: historyTypes must be repeated params, not comma-separated
+    url.searchParams.append("historyTypes", "messageAdded");
+    url.searchParams.append("historyTypes", "labelAdded");
+    url.searchParams.append("historyTypes", "labelRemoved");
     url.searchParams.set("labelId", "INBOX");
     if (pageToken) url.searchParams.set("pageToken", pageToken);
 
@@ -248,7 +239,6 @@ async function incrementalSync(
     });
 
     if (historyRes.status === 404) {
-      // historyId expired — need full scan
       console.log(`History expired for ${mailbox.email}, falling back to full scan`);
       return { synced: 0, historyId: null, needsFullScan: true };
     }
@@ -256,7 +246,7 @@ async function incrementalSync(
     if (!historyRes.ok) {
       const errText = await historyRes.text();
       console.error(`Gmail history API error for ${mailbox.email}:`, errText);
-      break;
+      throw new Error(`Gmail history.list failed: ${errText.substring(0, 200)}`);
     }
 
     const historyData = await historyRes.json();
@@ -265,19 +255,17 @@ async function incrementalSync(
     pageToken = historyData.nextPageToken;
 
     for (const record of historyRecords) {
-      // messagesAdded → sync the thread
       if (record.messagesAdded) {
         for (const added of record.messagesAdded) {
           const threadId = added.message?.threadId;
           if (threadId && !processedThreadIds.has(threadId)) {
             processedThreadIds.add(threadId);
-            const threadSynced = await syncThread(accessToken, threadId, mailbox, supabase);
+            const threadSynced = await syncThread(accessToken, threadId, mailbox, supabase, false);
             if (threadSynced) synced++;
           }
         }
       }
 
-      // labelsRemoved → if INBOX removed, archive the conversation
       if (record.labelsRemoved) {
         for (const removed of record.labelsRemoved) {
           const removedLabels = removed.labelIds || [];
@@ -294,7 +282,6 @@ async function incrementalSync(
         }
       }
 
-      // labelsAdded → if INBOX added back, unarchive
       if (record.labelsAdded) {
         for (const added of record.labelsAdded) {
           const addedLabels = added.labelIds || [];
@@ -316,13 +303,14 @@ async function incrementalSync(
   return { synced, historyId: latestHistoryId, needsFullScan: false };
 }
 
-// ─── Sync a single thread (shared between full/incremental) ──────
+// ─── Sync a single thread ─────────────────────────────────────────
 
 async function syncThread(
   accessToken: string,
   threadId: string,
   mailbox: any,
   supabase: any,
+  skipAttachmentBinaries: boolean = false,
 ): Promise<boolean> {
   const { data: existing } = await supabase
     .from("conversations")
@@ -361,7 +349,7 @@ async function syncThread(
     await supabase
       .from("conversations")
       .update({
-      snippet,
+        snippet,
         is_read: isRead,
         last_message_at: lastMessageAt,
         mailbox_id: mailbox.id,
@@ -458,7 +446,7 @@ async function syncThread(
     }
   }
 
-  // Sync messages + attachments
+  // Sync messages
   for (const gMsg of gmailMessages) {
     const msgFromHeader = getHeader(gMsg.payload?.headers, "From") || "";
     const msgToHeader = getHeader(gMsg.payload?.headers, "To") || "";
@@ -495,10 +483,26 @@ async function syncThread(
     if (msgErr || !newMsg) continue;
     const messageId = newMsg.id;
 
-    // Download and store attachments
+    // Attachments: save metadata always, download binary only if not skipping
     const attachmentInfos = extractAttachments(gMsg.payload);
     for (const att of attachmentInfos) {
       try {
+        if (skipAttachmentBinaries) {
+          // During full scan: record metadata only, no binary download
+          const safeFilename = att.filename
+            .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^a-zA-Z0-9._-]/g, "_");
+          const storagePath = `${conversationId}/${messageId}/${safeFilename}`;
+          await supabase.from("attachments").insert({
+            message_id: messageId,
+            filename: att.filename,
+            mime_type: att.mimeType,
+            size_bytes: att.size,
+            storage_path: storagePath, // placeholder — binary not yet uploaded
+          });
+          continue;
+        }
+
         const attRes = await fetch(
           `https://gmail.googleapis.com/gmail/v1/users/me/messages/${gMsg.id}/attachments/${att.attachmentId}`,
           { headers: { Authorization: `Bearer ${accessToken}` } }
@@ -514,7 +518,6 @@ async function syncThread(
         const bytes = new Uint8Array(binary.length);
         for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
 
-        // Sanitize filename for storage: remove accented chars, spaces, special chars
         const safeFilename = att.filename
           .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
           .replace(/[^a-zA-Z0-9._-]/g, "_");
@@ -547,9 +550,32 @@ async function syncThread(
   return true;
 }
 
+// ─── Logging helper ───────────────────────────────────────────────
+
+async function logSyncRun(
+  supabase: any,
+  mailboxId: string,
+  action: string,
+  remoteState: string,
+  localState: string,
+) {
+  try {
+    await supabase.from("sync_journal").insert({
+      mailbox_id: mailboxId,
+      drift_type: "sync_run",
+      action_taken: action,
+      remote_state: remoteState,
+      local_state: localState,
+    });
+  } catch (e) {
+    console.error("Failed to log sync run:", e);
+  }
+}
+
 // ─── Main handler ─────────────────────────────────────────────────
 
 serve(async (req) => {
+  const startTime = Date.now();
   console.log(`gmail-sync invoked: ${req.method} at ${new Date().toISOString()}`);
 
   if (req.method === "OPTIONS") {
@@ -569,7 +595,6 @@ serve(async (req) => {
     }
     const token = authHeader.replace("Bearer ", "");
 
-    // Check if token is a Supabase anon JWT (role=anon) for pg_cron calls
     let isCronCall = false;
     try {
       const payloadB64 = token.split(".")[1];
@@ -584,7 +609,6 @@ serve(async (req) => {
     if (token === supabaseServiceKey) {
       console.log("gmail-sync: Authenticated with service role key");
     } else if (isCronCall) {
-      // pg_cron calls with anon key — allowed for internal cron scheduling
       console.log("gmail-sync: Authenticated via cron (anon key)");
     } else {
       const authClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
@@ -601,7 +625,7 @@ serve(async (req) => {
       const body = await req.json();
       requestedMailboxId = body?.mailbox_id || null;
     } catch {
-      // No body or invalid JSON — sync all
+      // No body or invalid JSON
     }
 
     let serviceAccountKeyStr = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
@@ -620,16 +644,24 @@ serve(async (req) => {
       }
     }
 
-    // Single declaration of supabase client (bug fix: was declared twice before)
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // ── Round-robin: pick ONE mailbox (the one with oldest last_run_at) ──
     let mbQuery = supabase
       .from("team_mailboxes")
       .select("*")
-      .eq("sync_enabled", true);
+      .eq("sync_enabled", true)
+      .order("last_run_at", { ascending: true, nullsFirst: true })
+      .limit(1);
 
     if (requestedMailboxId) {
-      mbQuery = mbQuery.eq("id", requestedMailboxId);
+      // If a specific mailbox was requested, override round-robin
+      mbQuery = supabase
+        .from("team_mailboxes")
+        .select("*")
+        .eq("sync_enabled", true)
+        .eq("id", requestedMailboxId)
+        .limit(1);
     }
 
     const { data: mailboxes, error: mbError } = await mbQuery;
@@ -641,51 +673,121 @@ serve(async (req) => {
       });
     }
 
-    const results: any[] = [];
+    const mailbox = mailboxes[0];
+    console.log(`Processing mailbox: ${mailbox.email} (sync_mode: ${mailbox.sync_mode})`);
 
-    for (const mailbox of mailboxes) {
-      try {
-        const accessToken = await getAccessToken(serviceAccountKey, mailbox.email);
-        let synced = 0;
-        let newHistoryId: string | null = null;
+    // Mark last_run_at immediately
+    await supabase
+      .from("team_mailboxes")
+      .update({ last_run_at: new Date().toISOString() })
+      .eq("id", mailbox.id);
 
-        if (mailbox.history_id) {
-          // Incremental sync using history.list
-          console.log(`Incremental sync for ${mailbox.email} from historyId ${mailbox.history_id}`);
-          const result = await incrementalSync(accessToken, mailbox, supabase, String(mailbox.history_id));
+    try {
+      const accessToken = await getAccessToken(serviceAccountKey, mailbox.email);
+      let synced = 0;
+      let action = "";
 
-          if (result.needsFullScan) {
-            // historyId expired, fall back to full scan
-            console.log(`Full scan fallback for ${mailbox.email}`);
-            const fullResult = await fullScan(accessToken, mailbox, supabase);
-            synced = fullResult.synced;
-            newHistoryId = fullResult.historyId;
-          } else {
-            synced = result.synced;
-            newHistoryId = result.historyId;
-          }
+      if (mailbox.sync_mode === "incremental" && mailbox.history_id) {
+        // ── Incremental sync ──
+        console.log(`Incremental sync for ${mailbox.email} from historyId ${mailbox.history_id}`);
+        const result = await incrementalSync(accessToken, mailbox, supabase, String(mailbox.history_id));
+
+        if (result.needsFullScan) {
+          // History expired — reset to full_scan mode
+          console.log(`History expired for ${mailbox.email}, switching to full_scan mode`);
+          await supabase
+            .from("team_mailboxes")
+            .update({
+              sync_mode: "full_scan",
+              history_id: null,
+              full_scan_page_token: null,
+            })
+            .eq("id", mailbox.id);
+          action = "history_expired_reset";
         } else {
-          // First sync: full scan
-          console.log(`Full scan for ${mailbox.email} (no history_id)`);
-          const fullResult = await fullScan(accessToken, mailbox, supabase);
-          synced = fullResult.synced;
-          newHistoryId = fullResult.historyId;
+          synced = result.synced;
+          // Update history_id and mark successful
+          const updatePayload: any = {
+            last_successful_sync_at: new Date().toISOString(),
+            last_error_at: null,
+            last_error_message: null,
+          };
+          if (result.historyId) {
+            updatePayload.history_id = parseInt(result.historyId, 10);
+          }
+          await supabase
+            .from("team_mailboxes")
+            .update(updatePayload)
+            .eq("id", mailbox.id);
+          action = "incremental";
         }
+      } else {
+        // ── Full scan (one page at a time) ──
+        console.log(`Full scan for ${mailbox.email} (page_token: ${mailbox.full_scan_page_token || "START"})`);
+        const result = await fullScanOnePage(accessToken, mailbox, supabase);
+        synced = result.synced;
 
-        // Update last_sync_at and history_id
-        const updatePayload: any = { last_sync_at: new Date().toISOString() };
-        if (newHistoryId) updatePayload.history_id = parseInt(newHistoryId, 10);
-        await supabase
-          .from("team_mailboxes")
-          .update(updatePayload)
-          .eq("id", mailbox.id);
+        if (result.done) {
+          // Full scan complete — get historyId and switch to incremental
+          let historyId: string | null = null;
+          try {
+            const profileRes = await fetch(
+              "https://gmail.googleapis.com/gmail/v1/users/me/profile",
+              { headers: { Authorization: `Bearer ${accessToken}` } }
+            );
+            if (profileRes.ok) {
+              const profile = await profileRes.json();
+              historyId = profile.historyId || null;
+            }
+          } catch (e) {
+            console.error("Failed to get Gmail profile historyId:", e);
+          }
 
-        results.push({ email: mailbox.email, synced, incremental: !!mailbox.history_id });
+          const updatePayload: any = {
+            sync_mode: "incremental",
+            full_scan_page_token: null,
+            last_successful_sync_at: new Date().toISOString(),
+            last_error_at: null,
+            last_error_message: null,
+          };
+          if (historyId) {
+            updatePayload.history_id = parseInt(historyId, 10);
+          }
+          await supabase
+            .from("team_mailboxes")
+            .update(updatePayload)
+            .eq("id", mailbox.id);
 
-        // Trigger AI analysis
+          action = "full_scan_complete";
+          console.log(`Full scan complete for ${mailbox.email}, switching to incremental (historyId: ${historyId})`);
+        } else {
+          // More pages to process — save cursor for next run
+          await supabase
+            .from("team_mailboxes")
+            .update({
+              full_scan_page_token: result.nextPageToken,
+            })
+            .eq("id", mailbox.id);
+          action = `full_scan_page`;
+        }
+      }
+
+      const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.log(`gmail-sync done: ${mailbox.email} — ${action}, ${synced} threads, ${duration}s`);
+
+      // Log to sync_journal
+      await logSyncRun(
+        supabase,
+        mailbox.id,
+        action,
+        `${synced} threads`,
+        `duration: ${duration}s, success`,
+      );
+
+      // Trigger AI analysis if we synced anything
+      if (synced > 0) {
         try {
-          const analyzeUrl = `${supabaseUrl}/functions/v1/ai-analyze-email`;
-          await fetch(analyzeUrl, {
+          await fetch(`${supabaseUrl}/functions/v1/ai-analyze-email`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -696,17 +798,41 @@ serve(async (req) => {
         } catch (aiErr) {
           console.error("AI analysis trigger failed:", aiErr);
         }
-      } catch (err) {
-        console.error(`Error syncing ${mailbox.email}:`, err);
-        results.push({ email: mailbox.email, error: String(err) });
       }
-    }
 
-    return new Response(JSON.stringify({ results }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+      return new Response(JSON.stringify({ email: mailbox.email, synced, action }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    } catch (err) {
+      const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+      const errorMsg = String(err);
+      console.error(`Error syncing ${mailbox.email} (${duration}s):`, err);
+
+      // Record the error on the mailbox
+      await supabase
+        .from("team_mailboxes")
+        .update({
+          last_error_at: new Date().toISOString(),
+          last_error_message: errorMsg.substring(0, 500),
+        })
+        .eq("id", mailbox.id);
+
+      // Log error to sync_journal
+      await logSyncRun(
+        supabase,
+        mailbox.id,
+        "error",
+        errorMsg.substring(0, 200),
+        `duration: ${duration}s, error`,
+      );
+
+      return new Response(JSON.stringify({ email: mailbox.email, error: errorMsg }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
   } catch (error) {
-    console.error("gmail-sync error:", error);
+    console.error("gmail-sync fatal error:", error);
     return new Response(JSON.stringify({ error: String(error) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

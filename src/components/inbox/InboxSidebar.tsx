@@ -48,6 +48,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { useComposeWindow } from "@/hooks/useComposeWindow";
+import { SyncHealthIndicator } from "@/components/inbox/SyncHealthIndicator";
 
 const toolItems = [
   { title: "Campagnes", url: "/campaigns", icon: Megaphone },
@@ -85,7 +86,7 @@ export function InboxSidebar() {
   const [scheduledEmails, setScheduledEmails] = useState<MailboxScopedEmail[]>([]);
   const [waUnread, setWaUnread] = useState(0);
   const [tags, setTags] = useState<{ id: string; name: string; color: string }[]>([]);
-  const [mailboxes, setMailboxes] = useState<{ id: string; email: string; label: string | null }[]>([]);
+  const [mailboxes, setMailboxes] = useState<{ id: string; email: string; label: string | null; last_successful_sync_at: string | null; last_error_at: string | null; last_error_message: string | null; sync_mode: string | null }[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -96,7 +97,7 @@ export function InboxSidebar() {
         supabase.rpc("get_actionable_count", { _mailbox_id: activeMailbox || undefined }),
         supabase.from("drafts").select("id, from_email").is("conversation_id", null).eq("created_by", user.id),
         supabase.from("scheduled_emails").select("id, from_email").eq("status", "pending"),
-        supabase.from("team_mailboxes").select("id, email, label").order("email"),
+        supabase.from("team_mailboxes").select("id, email, label, last_successful_sync_at, last_error_at, last_error_message, sync_mode").order("email"),
         supabase.from("tags").select("id, name, color").order("name"),
         supabase.from("whatsapp_conversations").select("id", { count: "exact", head: true }).eq("is_read", false).eq("status", "open"),
       ]);
@@ -220,6 +221,14 @@ export function InboxSidebar() {
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-2 w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-[13px] hover:bg-accent/50 transition-colors outline-none">
                   <Inbox className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  {activeMailboxData && (
+                    <SyncHealthIndicator
+                      lastSuccessfulSyncAt={activeMailboxData.last_successful_sync_at}
+                      lastErrorAt={activeMailboxData.last_error_at}
+                      lastErrorMessage={activeMailboxData.last_error_message}
+                      syncMode={activeMailboxData.sync_mode}
+                    />
+                  )}
                   <span className="flex-1 text-left truncate font-medium">
                     {activeMailboxLabel || "Toutes les boîtes"}
                   </span>
