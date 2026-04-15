@@ -233,14 +233,19 @@ export function FloatingCompose() {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      await deleteDraft();
+      // Success — mark draft as sent
+      await setDraftStatus("sent");
       toast.success("Email envoyé !");
     } catch (err: any) {
+      // Failure — mark draft as send_failed so it's recoverable
+      try {
+        await setDraftStatus("send_failed", err.message || String(err));
+      } catch {}
       toast.error("Erreur : " + (err.message || String(err)));
     } finally {
       setSending(false);
     }
-  }, []);
+  }, [setDraftStatus]);
 
   const handleSchedule = async () => {
     if (!to || !subject || !body || !fromEmail || !scheduleDate) return;
