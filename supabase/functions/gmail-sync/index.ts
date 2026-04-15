@@ -509,7 +509,11 @@ async function syncThread(
         const bytes = new Uint8Array(binary.length);
         for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
 
-        const storagePath = `${conversationId}/${messageId}/${att.filename}`;
+        // Sanitize filename for storage: remove accented chars, spaces, special chars
+        const safeFilename = att.filename
+          .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-zA-Z0-9._-]/g, "_");
+        const storagePath = `${conversationId}/${messageId}/${safeFilename}`;
         const { error: uploadErr } = await supabase.storage
           .from("attachments")
           .upload(storagePath, bytes, {
