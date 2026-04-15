@@ -631,8 +631,8 @@ const Settings = () => {
                               )}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              {mailbox.last_sync_at
-                                ? `Dernière sync : ${new Date(mailbox.last_sync_at).toLocaleString("fr-FR")}`
+                              {mailbox.last_successful_sync_at
+                                ? `Dernière sync : ${new Date(mailbox.last_successful_sync_at).toLocaleString("fr-FR")}`
                                 : "Jamais synchronisé"}
                             </p>
                           </div>
