@@ -119,126 +119,84 @@ export function useInboxList({ filter, mailboxId, userId, activeState }: UseInbo
         return;
       }
 
-      // ── Standard inbox / archived / closed etc. ──
-      let query = supabase
-        .from("conversations")
-        .select("*")
-        .eq("state", activeState as any)
-        .order("last_message_at", { ascending: false });
+      // ── Standard inbox views: use inbox_list RPC ──
+      const isStandardInbox = !filter || filter === "mine" || filter === "unassigned";
+      const isSpecialState = filter && ["archived", "trash", "spam", "closed"].includes(filter);
 
-      if (filter === "closed") {
-        query = query.eq("status", "closed");
-      } else if (filter === "mine") {
-        query = query.eq("status", "open").eq("assigned_to", userId ?? "");
-      } else if (filter === "unassigned") {
-        query = query.eq("status", "open").is("assigned_to", null);
-      } else if (filter !== "archived" && filter !== "trash" && filter !== "spam") {
-        query = query.eq("status", "open");
-      }
+      if (isStandardInbox || isSpecialState) {
+        const rpcParams: Record<string, any> = {
+          p_limit: 200,
+          p_offset: 0,
+        };
 
-      if (mailboxId) query = query.eq("mailbox_id", mailboxId);
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.error("Failed to fetch conversations:", error);
-        toast.error("Erreur lors du chargement des conversations");
-      } else {
-        const convIds = (data || []).map((c: any) => c.id);
-        let draftConvIds = new Set<string>();
-        if (convIds.length > 0 && userId) {
-          const { data: draftData } = await supabase
-            .from("drafts")
-            .select("conversation_id")
-            .in("conversation_id", convIds)
-            .eq("created_by", userId);
-          if (draftData) {
-            draftConvIds = new Set(draftData.map((d: any) => d.conversation_id).filter(Boolean));
+        if (isSpecialState) {
+          if (filter === "closed") {
+            rpcParams.p_state = "inbox";
+            rpcParams.p_status = "closed";
+          } else {
+            rpcParams.p_state = filter;
+          }
+        } else {
+          rpcParams.p_state = "inbox";
+          if (filter === "mine" && userId) {
+            rpcParams.p_status = "open";
+          } else if (filter === "unassigned") {
+            rpcParams.p_status = "open";
+          } else {
+            rpcParams.p_status = "open";
           }
         }
 
-        let mailboxEmails = new Set<string>();
-        const { data: mailboxes } = await supabase.from("team_mailboxes").select("email");
-        if (mailboxes) {
-          mailboxEmails = new Set(mailboxes.map((m: any) => m.email.toLowerCase()));
-        }
+        if (mailboxId) rpcParams.p_mailbox_id = mailboxId;
 
-        const isInboxView = !filter || filter === "mine" || filter === "unassigned";
-        const filteredData = isInboxView
-          ? (data || []).filter((c: any) => !c.from_email || !mailboxEmails.has(c.from_email.toLowerCase()))
-          : (data || []);
+        const { data, error } = await supabase.rpc("inbox_list", rpcParams);
 
-        const outboundConvIds = filteredData
-          .filter((c: any) => c.from_email && mailboxEmails.has(c.from_email.toLowerCase()))
-          .map((c: any) => c.id);
+        if (error) {
+          console.error("Failed to fetch inbox:", error);
+          toast.error("Erreur lors du chargement des conversations");
+        } else {
+          let rows = data || [];
 
-        const { toEmailMap, toNameMap } = outboundConvIds.length > 0
-          ? await resolveOutboundRecipients(outboundConvIds)
-          : { toEmailMap: new Map<string, string>(), toNameMap: new Map<string, string>() };
-
-        setConversations(
-          filteredData.map((c: any) => {
-            const isSent = c.from_email && mailboxEmails.has(c.from_email.toLowerCase());
-            return {
-              id: c.id, seq_number: c.seq_number, subject: c.subject, snippet: c.snippet,
-              from_email: c.from_email, from_name: c.from_name,
-              to_email: isSent ? (toEmailMap.get(c.id) || null) : undefined,
-              to_name: isSent ? (toNameMap.get(c.id) || null) : undefined,
-              status: c.status as "open" | "closed",
-              assigned_to: c.assigned_to, is_read: c.is_read,
-              last_message_at: c.last_message_at, tags: [],
-              priority: c.priority, is_noise: c.is_noise,
-              ai_summary: c.ai_summary, category: c.category, entities: c.entities,
-              has_draft: draftConvIds.has(c.id),
-              is_sent: isSent || false,
-            };
-          })
-        );
-
-        // Response times
-        if (convIds.length > 0) {
-          const { data: allMsgs } = await supabase
-            .from("messages")
-            .select("conversation_id, is_outbound, sent_at")
-            .in("conversation_id", convIds)
-            .order("sent_at", { ascending: true });
-          if (allMsgs) {
-            const rtMap = new Map<string, number>();
-            const needsReplySet = new Set<string>();
-            const byConvo = new Map<string, typeof allMsgs>();
-            for (const m of allMsgs) {
-              const list = byConvo.get(m.conversation_id) || [];
-              list.push(m);
-              byConvo.set(m.conversation_id, list);
-            }
-            for (const [cid, msgs] of byConvo) {
-              if (msgs.length > 0 && !msgs[msgs.length - 1].is_outbound) {
-                needsReplySet.add(cid);
-              }
-              const times: number[] = [];
-              for (let i = 0; i < msgs.length; i++) {
-                if (!msgs[i].is_outbound) {
-                  for (let j = i + 1; j < msgs.length; j++) {
-                    if (msgs[j].is_outbound) {
-                      const diff = (new Date(msgs[j].sent_at).getTime() - new Date(msgs[i].sent_at).getTime()) / 60000;
-                      if (diff > 0 && diff < 1440) times.push(diff);
-                      break;
-                    }
-                  }
-                }
-              }
-              if (times.length > 0) {
-                rtMap.set(cid, times.reduce((a, b) => a + b, 0) / times.length);
-              }
-            }
-            setResponseTimes(rtMap);
-            setConversations(prev => prev.map(c => ({
-              ...c,
-              needs_reply: needsReplySet.has(c.id),
-            })));
+          // Apply client-side filters the RPC doesn't handle
+          if (filter === "mine" && userId) {
+            rows = rows.filter((r: any) => r.assigned_to === userId);
+          } else if (filter === "unassigned") {
+            rows = rows.filter((r: any) => !r.assigned_to);
           }
+
+          setConversations(
+            rows.map((r: any) => ({
+              id: r.id,
+              seq_number: r.seq_number,
+              subject: r.subject,
+              snippet: r.snippet,
+              from_email: r.from_email,
+              from_name: r.from_name,
+              status: r.status as "open" | "closed",
+              state: r.state,
+              assigned_to: r.assigned_to,
+              assignee_name: r.assignee_name,
+              is_read: r.is_read,
+              last_message_at: r.last_message_at,
+              tags: (r.tag_ids || []).map((id: string, i: number) => ({
+                id,
+                name: (r.tag_names || [])[i] || "",
+                color: (r.tag_colors || [])[i] || "#6366f1",
+              })),
+              priority: r.priority,
+              is_noise: r.is_noise,
+              ai_summary: r.ai_summary,
+              category: r.category,
+              has_draft: r.has_draft,
+              needs_reply: r.needs_reply,
+            }))
+          );
         }
+        setLoading(false);
+        return;
       }
+
+      // Fallback (shouldn't hit)
       setLoading(false);
     };
 
