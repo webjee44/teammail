@@ -40,6 +40,7 @@ export function isReadActionable(c: InboxConversation): boolean {
 }
 
 export type InboxCounts = {
+  all: number;
   actionable: number;
   unread: number;
   readActionable: number;
@@ -71,5 +72,7 @@ export function computeInboxCounts(conversations: InboxConversation[]): InboxCou
     else readActionable++;
   }
 
-  return { actionable, unread, readActionable, replied, noise };
+  const all = actionable + replied + noise;
+
+  return { all, actionable, unread, readActionable, replied, noise };
 }
