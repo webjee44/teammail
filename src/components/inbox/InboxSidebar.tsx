@@ -48,6 +48,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { useComposeWindow } from "@/hooks/useComposeWindow";
+import { SyncHealthIndicator } from "@/components/inbox/SyncHealthIndicator";
 
 const toolItems = [
   { title: "Campagnes", url: "/campaigns", icon: Megaphone },
