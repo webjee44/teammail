@@ -462,6 +462,7 @@ export type Database = {
           seq_number: number
           snippet: string | null
           snoozed_until: string | null
+          state: Database["public"]["Enums"]["conversation_state"]
           status: Database["public"]["Enums"]["conversation_status"]
           subject: string
           team_id: string
@@ -486,6 +487,7 @@ export type Database = {
           seq_number: number
           snippet?: string | null
           snoozed_until?: string | null
+          state?: Database["public"]["Enums"]["conversation_state"]
           status?: Database["public"]["Enums"]["conversation_status"]
           subject?: string
           team_id: string
@@ -510,6 +512,7 @@ export type Database = {
           seq_number?: number
           snippet?: string | null
           snoozed_until?: string | null
+          state?: Database["public"]["Enums"]["conversation_state"]
           status?: Database["public"]["Enums"]["conversation_status"]
           subject?: string
           team_id?: string
@@ -1355,6 +1358,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "member"
+      conversation_state: "inbox" | "archived" | "trash" | "spam"
       conversation_status: "open" | "snoozed" | "closed"
     }
     CompositeTypes: {
@@ -1484,6 +1488,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "member"],
+      conversation_state: ["inbox", "archived", "trash", "spam"],
       conversation_status: ["open", "snoozed", "closed"],
     },
   },
