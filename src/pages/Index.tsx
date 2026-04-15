@@ -83,17 +83,20 @@ const Index = () => {
     searchResults, mailboxId, user, messages, fetchDetail, refetch,
   });
 
-  // Apply active filter
-  const filteredConversations = conversations.filter((c) => {
-    switch (activeFilter) {
-      case "all": return c.status === "open";
-      case "actionable": return c.status === "open" && !c.is_noise && c.needs_reply !== false;
-      case "unread": return c.status === "open" && !c.is_noise && c.needs_reply !== false && !c.is_read;
-      case "replied": return c.status === "open" && !c.is_noise && c.needs_reply === false;
-      case "noise": return c.is_noise;
-      default: return true;
-    }
-  });
+  // Apply active filter — skip sub-filtering for special views
+  const skipSubFilter = !!filter && ["sent", "drafts", "archived", "trash", "spam", "closed"].includes(filter);
+  const filteredConversations = skipSubFilter
+    ? conversations
+    : conversations.filter((c) => {
+        switch (activeFilter) {
+          case "all": return c.status === "open";
+          case "actionable": return c.status === "open" && !c.is_noise && c.needs_reply !== false;
+          case "unread": return c.status === "open" && !c.is_noise && c.needs_reply !== false && !c.is_read;
+          case "replied": return c.status === "open" && !c.is_noise && c.needs_reply === false;
+          case "noise": return c.is_noise;
+          default: return true;
+        }
+      });
 
   const { bulkSelected, handleBulkToggle, handleBulkSelectAll, handleBulkDeselectAll } = useBulkActions(filteredConversations);
 
