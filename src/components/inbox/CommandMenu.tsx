@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { CommandDialog, CommandInput, CommandList, CommandGroup, CommandItem, CommandEmpty } from "@/components/ui/command";
-import { Mail, MessageSquare, Phone } from "lucide-react";
+import { Mail, MessageSquare, Phone, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 type SearchResult = {
@@ -10,6 +10,13 @@ type SearchResult = {
   conversation_id: string;
   label: string;
   subtitle: string;
+};
+
+type ContactResult = {
+  id: string;
+  name: string | null;
+  email: string;
+  company: string | null;
 };
 
 type Props = {
@@ -21,6 +28,7 @@ type Props = {
 export function CommandMenu({ open, onOpenChange, onSelect }: Props) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [contactResults, setContactResults] = useState<ContactResult[]>([]);
   const [waResults, setWaResults] = useState<{ id: string; phone_number: string; contact_name: string | null; last_message: string | null }[]>([]);
   const [searching, setSearching] = useState(false);
   const navigate = useNavigate();
@@ -28,13 +36,20 @@ export function CommandMenu({ open, onOpenChange, onSelect }: Props) {
   const search = useCallback(async (q: string) => {
     if (q.trim().length < 2) {
       setResults([]);
+      setContactResults([]);
       setWaResults([]);
       return;
     }
     setSearching(true);
 
-    const [inboxRes, waRes] = await Promise.all([
+    const [inboxRes, contactsRes, waRes] = await Promise.all([
       supabase.rpc("search_inbox", { p_query: q.trim(), p_limit: 20 }),
+      supabase
+        .from("contacts")
+        .select("id, name, email, company")
+        .or(`name.ilike.%${q.trim()}%,email.ilike.%${q.trim()}%,company.ilike.%${q.trim()}%`)
+        .order("updated_at", { ascending: false })
+        .limit(10),
       supabase
         .from("whatsapp_conversations")
         .select("id, phone_number, contact_name, last_message")
@@ -44,6 +59,7 @@ export function CommandMenu({ open, onOpenChange, onSelect }: Props) {
     ]);
 
     if (!inboxRes.error && inboxRes.data) setResults(inboxRes.data as SearchResult[]);
+    if (!contactsRes.error && contactsRes.data) setContactResults(contactsRes.data);
     if (!waRes.error && waRes.data) setWaResults(waRes.data);
 
     setSearching(false);
@@ -58,6 +74,7 @@ export function CommandMenu({ open, onOpenChange, onSelect }: Props) {
     if (!open) {
       setQuery("");
       setResults([]);
+      setContactResults([]);
       setWaResults([]);
     }
   }, [open]);
@@ -70,6 +87,11 @@ export function CommandMenu({ open, onOpenChange, onSelect }: Props) {
     onOpenChange(false);
   };
 
+  const handleSelectContact = (contactId: string) => {
+    onOpenChange(false);
+    navigate(`/contacts?highlight=${contactId}`);
+  };
+
   const handleSelectWA = (waConvId: string) => {
     onOpenChange(false);
     navigate(`/whatsapp?id=${waConvId}`);
@@ -78,7 +100,7 @@ export function CommandMenu({ open, onOpenChange, onSelect }: Props) {
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange} shouldFilter={false}>
       <CommandInput
-        placeholder="Rechercher mails et WhatsApp…"
+        placeholder="Rechercher partout…"
         value={query}
         onValueChange={setQuery}
       />
@@ -117,6 +139,26 @@ export function CommandMenu({ open, onOpenChange, onSelect }: Props) {
                 <div className="flex flex-col min-w-0">
                   <span className="text-sm truncate">{r.label}</span>
                   <span className="text-xs text-muted-foreground truncate">{r.subtitle}</span>
+                </div>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
+
+        {contactResults.length > 0 && (
+          <CommandGroup heading="Contacts">
+            {contactResults.map((c) => (
+              <CommandItem
+                key={c.id}
+                value={`contact-${c.id}-${c.name || c.email}`}
+                onSelect={() => handleSelectContact(c.id)}
+              >
+                <User className="mr-2 h-4 w-4 text-muted-foreground shrink-0" />
+                <div className="flex flex-col min-w-0">
+                  <span className="text-sm truncate">{c.name || c.email}</span>
+                  <span className="text-xs text-muted-foreground truncate">
+                    {c.email}{c.company ? ` · ${c.company}` : ""}
+                  </span>
                 </div>
               </CommandItem>
             ))}

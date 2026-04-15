@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ConversationList, Conversation, InboxFilter } from "@/components/inbox/ConversationList";
@@ -17,7 +17,7 @@ import { useInboxList } from "@/hooks/useInboxList";
 import { useConversationDetail } from "@/hooks/useConversationDetail";
 import { useConversationRealtime } from "@/hooks/useConversationRealtime";
 import { useBulkActions } from "@/hooks/useBulkActions";
-import { useInboxSearch } from "@/hooks/useInboxSearch";
+
 import { NotificationBell } from "@/components/inbox/NotificationBell";
 
 
@@ -27,7 +27,7 @@ const Index = () => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<InboxFilter>("actionable");
   const [commandOpen, setCommandOpen] = useState(false);
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  
   const [searchParams, setSearchParams] = useSearchParams();
   const filter = searchParams.get("filter");
   const mailboxId = searchParams.get("mailbox");
@@ -70,7 +70,7 @@ const Index = () => {
     handleComment, handleEditComment, handleDeleteComment,
   } = useConversationDetail(selectedId, user?.id);
 
-  const { searchQuery, setSearchQuery, searchResults, searchLoading, handleSearch, clearSearch } = useInboxSearch();
+  
 
   const {
     handleArchive, handleStatusChange, handleReply,
@@ -79,7 +79,7 @@ const Index = () => {
     bulkLoading,
   } = useInboxMutations({
     conversations, setConversations, selectedId, setSelectedId,
-    searchResults, mailboxId, user, messages, fetchDetail, refetch,
+    searchResults: null, mailboxId, user, messages, fetchDetail, refetch,
   });
 
   // Apply active filter — skip sub-filtering for special views
@@ -146,7 +146,7 @@ const Index = () => {
   }, [openCompose]);
 
   const selectedConv = selectedId
-    ? (conversations.find((c) => c.id === selectedId) ?? searchResults?.find((c) => c.id === selectedId) ?? null)
+    ? (conversations.find((c) => c.id === selectedId) ?? null)
     : null;
 
   const selectedDetail = selectedConv
@@ -166,7 +166,7 @@ const Index = () => {
     noise: inboxCounts.noise,
   };
 
-  const displayedConversations = searchResults !== null ? searchResults : filteredConversations;
+  const displayedConversations = filteredConversations;
   const totalCount = displayedConversations.length;
   const isInboxView = !filter || filter === "mine" || filter === "unassigned";
 
@@ -188,40 +188,19 @@ const Index = () => {
         <div className="h-12 flex items-center px-3 border-b border-border gap-2 shrink-0">
           <SidebarTrigger />
           <h2 className="text-sm font-semibold text-foreground">{headerTitle}</h2>
-          <div className="flex-1 max-w-xs flex items-center gap-2 h-8 px-3 rounded-lg bg-muted/50 border border-border/50 focus-within:border-primary focus-within:ring-1 focus-within:ring-ring transition-colors text-sm">
+          <button
+            onClick={() => setCommandOpen(true)}
+            className="flex-1 max-w-xs flex items-center gap-2 h-8 px-3 rounded-lg bg-muted/50 border border-border/50 hover:border-primary/50 hover:bg-muted transition-colors text-sm cursor-pointer"
+          >
             <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-            <input
-              ref={searchInputRef}
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  handleSearch(searchQuery);
-                }
-              }}
-              placeholder="Rechercher…"
-              className="flex-1 bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground text-sm"
-            />
-            {searchResults !== null ? (
-              <button onClick={clearSearch} className="shrink-0 text-muted-foreground hover:text-foreground">
-                <X className="h-3.5 w-3.5" />
-              </button>
-            ) : (
-              <kbd className="ml-auto pointer-events-none hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-background px-1.5 font-mono text-[10px] font-medium text-muted-foreground shrink-0">
-                ⌘K
-              </kbd>
-            )}
-          </div>
+            <span className="flex-1 text-left text-muted-foreground">Rechercher partout…</span>
+            <kbd className="ml-auto pointer-events-none hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-background px-1.5 font-mono text-[10px] font-medium text-muted-foreground shrink-0">
+              ⌘K
+            </kbd>
+          </button>
           <div className="flex items-center gap-1.5 shrink-0">
             <NotificationBell onSelectConversation={(id) => { setSelectedId(id); }} />
-            {searchResults !== null && (
-              <span className="text-xs font-medium text-primary">
-                Recherche : « {searchQuery} »
-              </span>
-            )}
-            {searchResults === null && isInboxView && filterCounts.actionable > 0 && (
+            {isInboxView && filterCounts.actionable > 0 && (
               <span className="text-xs font-medium text-primary">
                 {filterCounts.actionable} à traiter
               </span>
@@ -257,11 +236,11 @@ const Index = () => {
             conversations={displayedConversations}
             selectedId={selectedId}
             onSelect={handleSelectConversation}
-            loading={searchLoading || loading}
+            loading={loading}
             activeFilter={activeFilter}
-            onFilterChange={(f) => { clearSearch(); setActiveFilter(f); }}
+            onFilterChange={(f) => { setActiveFilter(f); }}
             filterCounts={filterCounts}
-            showFilters={isInboxView && searchResults === null}
+            showFilters={isInboxView}
             bulkSelected={bulkSelected}
             onBulkToggle={handleBulkToggle}
             onBulkSelectAll={handleBulkSelectAll}
