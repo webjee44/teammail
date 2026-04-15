@@ -25,7 +25,7 @@ const Index = () => {
   const navigate = useNavigate();
   const { openCompose } = useComposeWindow();
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [activeFilter, setActiveFilter] = useState<InboxFilter>("all");
+  const [activeFilter, setActiveFilter] = useState<InboxFilter>("actionable");
   const [commandOpen, setCommandOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [searchParams, setSearchParams] = useSearchParams();
