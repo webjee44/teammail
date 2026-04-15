@@ -67,6 +67,13 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
     setDraftInitialized(true);
   }, [draftLoading, draft, draftInitialized]);
 
+  // Flush draft to DB when conversation changes or component unmounts
+  useEffect(() => {
+    return () => {
+      flushDraft();
+    };
+  }, [conversation.id, flushDraft]);
+
   useEffect(() => {
     if (!draftInitialized) return;
     updateDraft({ body: replyHtml });
