@@ -174,10 +174,12 @@ async function fullScan(
   let synced = 0;
   let pageToken: string | undefined;
   let latestHistoryId: string | null = null;
+  let pagesProcessed = 0;
+  const MAX_PAGES = 3; // Limit to avoid edge function timeout
 
   do {
     const url = new URL("https://gmail.googleapis.com/gmail/v1/users/me/threads");
-    url.searchParams.set("maxResults", "50");
+    url.searchParams.set("maxResults", "20");
     url.searchParams.set("labelIds", "INBOX");
     if (pageToken) url.searchParams.set("pageToken", pageToken);
 
@@ -199,7 +201,10 @@ async function fullScan(
       const threadSynced = await syncThread(accessToken, thread.id, mailbox, supabase);
       if (threadSynced) synced++;
     }
-  } while (pageToken);
+
+    pagesProcessed++;
+    console.log(`Full scan ${mailbox.email}: page ${pagesProcessed}, synced ${synced} threads so far`);
+  } while (pageToken && pagesProcessed < MAX_PAGES);
 
   // Get current historyId from profile
   try {
@@ -509,7 +514,11 @@ async function syncThread(
         const bytes = new Uint8Array(binary.length);
         for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
 
-        const storagePath = `${conversationId}/${messageId}/${att.filename}`;
+        // Sanitize filename for storage: remove accented chars, spaces, special chars
+        const safeFilename = att.filename
+          .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-zA-Z0-9._-]/g, "_");
+        const storagePath = `${conversationId}/${messageId}/${safeFilename}`;
         const { error: uploadErr } = await supabase.storage
           .from("attachments")
           .upload(storagePath, bytes, {
@@ -541,6 +550,8 @@ async function syncThread(
 // ─── Main handler ─────────────────────────────────────────────────
 
 serve(async (req) => {
+  console.log(`gmail-sync invoked: ${req.method} at ${new Date().toISOString()}`);
+
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -548,18 +559,41 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
+
+    // Auth: accept service_role key, anon key (for pg_cron), or valid user JWT
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
+      console.error("gmail-sync: No Authorization header");
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     const token = authHeader.replace("Bearer ", "");
-    if (token !== supabaseServiceKey) {
-      const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
+
+    // Check if token is a Supabase anon JWT (role=anon) for pg_cron calls
+    let isCronCall = false;
+    try {
+      const payloadB64 = token.split(".")[1];
+      if (payloadB64) {
+        const payload = JSON.parse(atob(payloadB64));
+        if (payload.role === "anon" && payload.iss === "supabase") {
+          isCronCall = true;
+        }
+      }
+    } catch { /* not a JWT */ }
+
+    if (token === supabaseServiceKey) {
+      console.log("gmail-sync: Authenticated with service role key");
+    } else if (isCronCall) {
+      // pg_cron calls with anon key — allowed for internal cron scheduling
+      console.log("gmail-sync: Authenticated via cron (anon key)");
+    } else {
       const authClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
       const { data: authData, error: authErr } = await authClient.auth.getUser(token);
       if (authErr || !authData?.user) {
+        console.error("gmail-sync: Auth failed -", authErr?.message || "no user");
         return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
+      console.log(`gmail-sync: Authenticated as user ${authData.user.email}`);
     }
 
     let requestedMailboxId: string | null = null;
