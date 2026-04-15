@@ -1,77 +1,106 @@
 
 
-# Plan : Corrections P1.1–P1.3 + nettoyage UI
+# Plan : Sécurisation complète des brouillons
 
-3 corrections ciblées issues du retour CTO, plus le fix du libellé "delete" trompeur.
+## Contexte
 
----
+Aujourd'hui `useDraft` sauvegarde en DB avec un debounce de 1500ms, sans couche locale. Un crash, un démontage ou une coupure réseau = perte. Le clic "Envoyer" supprime le brouillon avant confirmation Gmail. Aucune machine d'état formelle.
 
-## P1.1 — gmail-archive : empêcher le drift silencieux
+## Architecture cible
 
-**Fichier** : `supabase/functions/gmail-archive/index.ts`
+```text
+Frappe clavier
+  ├─► setState React (instantané)
+  ├─► localStorage snapshot (instantané, clé = "draft:<id>")
+  └─► debounce 500ms ─► upsert DB (drafts table)
 
-**Problème** : Si l'appel Gmail échoue (lignes 158-163), la fonction continue et met quand même `state = 'archived'` en base. Drift silencieux.
+Clic Envoyer
+  ├─► flush immédiat DB (annule debounce, force upsert)
+  ├─► UPDATE drafts SET status = 'send_pending'
+  ├─► ferme compose, ouvre UndoSendDialog
+  │
+  ├── Annuler pendant countdown ──► UPDATE status = 'draft', rouvre compose
+  │
+  └── Countdown expire ──► gmail-send
+        ├─ succès ──► UPDATE status = 'sent', supprime localStorage
+        └─ échec  ──► UPDATE status = 'send_failed' + error_message
+```
 
-**Correction** :
-- Si l'archive Gmail échoue (`!archiveRes.ok` ou exception), ne PAS modifier le state local
-- À la place, journaliser dans `sync_journal` avec `drift_type = 'archive_failed'`
-- Retourner une erreur 502 au client pour que l'UI puisse notifier l'utilisateur
-- Seul cas où on archive localement sans Gmail : quand il n'y a pas de `gmail_thread_id` (conversation purement locale)
+## Étapes d'implémentation
 
----
+### 1. Migration DB : ajouter `status` et `error_message` aux drafts
 
-## P1.2 — Realtime cohérent avec toutes les vues
+La table `drafts` a déjà `status` (default `'draft'`) et `error_message` depuis une migration précédente. Vérifier que c'est bien en place, sinon ajouter :
+- `status text NOT NULL DEFAULT 'draft'` — valeurs : `draft`, `send_pending`, `sent`, `send_failed`
+- `error_message text` — message d'erreur si `send_failed`
+- Index sur `(created_by, status)` pour les requêtes de listing
 
-**Fichier** : `src/hooks/useConversationRealtime.ts`
+### 2. Nouveau hook `useLocalDraft` (localStorage)
 
-**Problème** : Le handler INSERT/UPDATE ne filtre que sur `state`, pas sur `mailboxId`, `filter` (mine/unassigned/closed), ni `status`.
+Fichier : `src/hooks/useLocalDraft.ts`
 
-**Correction** :
-- Ajouter `mailboxId` aux params du hook
-- Sur INSERT : vérifier `state` ET `mailboxId` ET les règles du filtre actif (mine → `assigned_to === userId`, unassigned → `assigned_to === null`, closed → `status === 'closed'`)
-- Sur UPDATE : même logique — si la conversation ne correspond plus à la vue, la retirer ; si elle y entre (ex: `state` revient à `inbox`), ne pas l'insérer automatiquement (laisser le prochain refetch s'en charger, car on n'a pas toutes les données enrichies en realtime)
-- Mettre à jour les deps du `useEffect` pour inclure `mailboxId`
+- `saveLocal(draftKey, data)` — écrit dans `localStorage` sous clé `draft:<draftId|"new">`
+- `loadLocal(draftKey)` — lit le snapshot local
+- `clearLocal(draftKey)` — supprime l'entrée
+- `listOrphanDrafts()` — liste les drafts locaux sans équivalent serveur (pour recovery au démarrage)
+- Sérialisation JSON, taille limitée à ~500KB par draft
 
----
+### 3. Refactor `useDraft` 
 
-## P1.3 — syncThread : forcer `state = 'inbox'` lors du full scan
+Fichier : `src/hooks/useDraft.ts`
 
-**Fichier** : `supabase/functions/gmail-sync/index.ts`
+- Réduire le debounce de 1500ms à 500ms
+- Appeler `saveLocal()` à chaque `updateDraft()` (synchrone, avant le debounce)
+- Ajouter `flushDraft()` : annule le timer, exécute immédiatement le save serveur, retourne une Promise
+- Ajouter `setDraftStatus(status, errorMessage?)` : UPDATE en base
+- Au chargement, vérifier d'abord localStorage pour récupérer un snapshot plus récent que la DB
+- Ne plus appeler `deleteDraft()` nulle part — remplacer par `setDraftStatus('sent')`
 
-**Problème** : Lignes 356-364 — quand une conversation existante est revue dans un scan INBOX, le `UPDATE` ne touche pas `state`. Une conversation anciennement archivée reste `archived` même si Gmail la montre dans INBOX.
+### 4. Refactor `FloatingCompose` — flux d'envoi
 
-**Correction** :
-- Ajouter `state: 'inbox'` dans les deux blocs d'update existants (lignes 358 et 377) lors d'un full scan INBOX
-- Cela garantit qu'un full scan réconcilie l'état local avec Gmail
+Fichier : `src/components/inbox/FloatingCompose.tsx`
 
----
+**handleSend :**
+1. `await flushDraft()` — garantit que le brouillon est sauvé en DB
+2. `await setDraftStatus('send_pending')` — transition d'état
+3. `closeCompose()` + ouvrir `UndoSendDialog`
 
-## P1.4 — Renommer "delete" → "archive" dans l'UI
+**handleUndoCancel :**
+1. `await setDraftStatus('draft')` — retour en brouillon
+2. Rouvrir le compose avec `openCompose({ draftId })` pour restaurer le contenu
 
-**Fichier** : `src/pages/Index.tsx`
+**handleUndoExpire :**
+1. Appel `gmail-send`
+2. Succès → `setDraftStatus('sent')` + `clearLocal()`
+3. Échec → `setDraftStatus('send_failed', error.message)` + toast d'erreur
 
-**Problème** : `ConversationDetail` reçoit `onDelete={handleArchive}`. Le libellé est trompeur.
+**Flush sur fermeture :**
+- `closeCompose` déclenche `flushDraft()` (via `useEffect` cleanup ou interception du bouton X)
+- `beforeunload` event → `flushDraft()` via `navigator.sendBeacon` ou sync localStorage
 
-**Correction** :
-- Vérifier la prop dans `ConversationDetail` et la renommer en `onArchive` si elle existe
-- Vérifier le texte/icône visible dans l'UI du bouton pour qu'il affiche "Archiver" et non "Supprimer"
+### 5. Filtrage des brouillons dans la sidebar
 
----
+La vue "Brouillons" de `inbox_list` (fonction DB) utilise `EXISTS(SELECT 1 FROM drafts d WHERE d.conversation_id = c.id)`. Pour la liste dédiée des brouillons standalone, filtrer sur `status = 'draft'` uniquement (exclure `sent`, `send_pending`).
+
+### 6. Tests
+
+- Test unitaire `useDraft` : vérifier que `flushDraft` force un save immédiat
+- Test unitaire `useDraft` : vérifier que `setDraftStatus` fait l'UPDATE correct
+- Test unitaire `useLocalDraft` : vérifier write/read/clear localStorage
+- Test existant à adapter : le test "supprime un draft recréé" doit vérifier `status = 'sent'` au lieu de `delete`
 
 ## Fichiers modifiés
 
 | Fichier | Changement |
 |---------|-----------|
-| `supabase/functions/gmail-archive/index.ts` | Fail si Gmail échoue, journaliser dans sync_journal |
-| `src/hooks/useConversationRealtime.ts` | Filtrage complet (mailboxId, filter, status, assigned_to) |
-| `supabase/functions/gmail-sync/index.ts` | `state: 'inbox'` dans syncThread pour les conversations existantes |
-| `src/pages/Index.tsx` | Renommer onDelete → onArchive |
-| `src/components/inbox/ConversationDetail.tsx` | Adapter la prop et le libellé du bouton |
+| Migration SQL | Vérifier/ajouter `status` + `error_message` + index |
+| `src/hooks/useLocalDraft.ts` | Nouveau — couche localStorage |
+| `src/hooks/useDraft.ts` | Debounce 500ms, `flushDraft()`, `setDraftStatus()`, intégration localStorage |
+| `src/components/inbox/FloatingCompose.tsx` | Flux send_pending, flush avant envoi, recovery sur annulation |
+| `src/hooks/__tests__/useDraft.test.tsx` | Adapter les tests existants + nouveaux tests |
+| `src/hooks/__tests__/useLocalDraft.test.ts` | Nouveau — tests localStorage |
 
-## Ordre d'exécution
+## Pas de nouvelle dépendance
 
-1. gmail-archive (drift prevention)
-2. gmail-sync (state reconciliation in full scan)
-3. useConversationRealtime (view-aware filtering)
-4. UI rename delete → archive
+Tout repose sur `localStorage` natif (pas d'IndexedDB pour simplifier). Suffisant pour les tailles de draft email.
 
