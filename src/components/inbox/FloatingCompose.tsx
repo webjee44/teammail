@@ -26,7 +26,7 @@ import { clearLocal } from "@/hooks/useLocalDraft";
 export function FloatingCompose() {
   const { state, closeCompose, toggleMinimize } = useComposeWindow();
   const navigate = useNavigate();
-  const { draft, updateDraft, deleteDraft, loading: draftLoading, resetDraft } = useDraft({ draftId: state.draftId });
+  const { draft, updateDraft, deleteDraft, flushDraft, setDraftStatus, loading: draftLoading, savedDraftId, resetDraft } = useDraft({ draftId: state.draftId });
 
   const [to, setTo] = useState("");
   const [subject, setSubject] = useState("");
