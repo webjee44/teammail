@@ -564,9 +564,21 @@ serve(async (req) => {
     }
     const token = authHeader.replace("Bearer ", "");
 
+    // Check if token is a Supabase anon JWT (role=anon) for pg_cron calls
+    let isCronCall = false;
+    try {
+      const payloadB64 = token.split(".")[1];
+      if (payloadB64) {
+        const payload = JSON.parse(atob(payloadB64));
+        if (payload.role === "anon" && payload.iss === "supabase") {
+          isCronCall = true;
+        }
+      }
+    } catch { /* not a JWT */ }
+
     if (token === supabaseServiceKey) {
       console.log("gmail-sync: Authenticated with service role key");
-    } else if (token === anonKey) {
+    } else if (isCronCall) {
       // pg_cron calls with anon key — allowed for internal cron scheduling
       console.log("gmail-sync: Authenticated via cron (anon key)");
     } else {
