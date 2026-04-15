@@ -688,7 +688,7 @@ const Index = () => {
   }, []);
 
   const handleReply = async (id: string, body: string, attachedFiles?: FileToUpload[]) => {
-    const conv = conversations.find((c) => c.id === id);
+    const conv = conversations.find((c) => c.id === id) ?? searchResults?.find((c) => c.id === id);
     if (!conv?.from_email) return;
 
     const { data: mailboxes } = await supabase
