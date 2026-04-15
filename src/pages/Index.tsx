@@ -49,7 +49,7 @@ const Index = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<"actionable" | "unread" | "replied" | "noise">("actionable");
+  const [activeFilter, setActiveFilter] = useState<InboxFilter>("all");
   const [commandOpen, setCommandOpen] = useState(false);
   const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
@@ -880,6 +880,7 @@ const Index = () => {
   })));
 
   const filterCounts = {
+    all: inboxCounts.all,
     actionable: inboxCounts.actionable,
     unread: inboxCounts.unread,
     replied: inboxCounts.replied,
@@ -889,6 +890,8 @@ const Index = () => {
   // Apply active filter
   const filteredConversations = conversations.filter((c) => {
     switch (activeFilter) {
+      case "all":
+        return c.status === "open";
       case "actionable":
         return c.status === "open" && !c.is_noise && c.needs_reply !== false;
       case "unread":

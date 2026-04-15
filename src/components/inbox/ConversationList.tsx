@@ -38,9 +38,10 @@ export type Conversation = {
   is_sent?: boolean;
 };
 
-export type InboxFilter = "actionable" | "unread" | "replied" | "noise";
+export type InboxFilter = "all" | "actionable" | "unread" | "replied" | "noise";
 
 type FilterCounts = {
+  all: number;
   actionable: number;
   unread: number;
   replied: number;
@@ -79,6 +80,7 @@ const categoryLabels: Record<string, string> = {
 };
 
 const filterConfig: { key: InboxFilter; label: string }[] = [
+  { key: "all", label: "Tous" },
   { key: "actionable", label: "À traiter" },
   { key: "unread", label: "Non lus" },
   { key: "replied", label: "Déjà répondus" },

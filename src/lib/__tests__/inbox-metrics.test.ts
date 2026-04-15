@@ -67,6 +67,7 @@ describe("computeInboxCounts", () => {
 
     const counts = computeInboxCounts(convs);
 
+    expect(counts.all).toBe(4);
     expect(counts.actionable).toBe(2);
     expect(counts.unread).toBe(1);
     expect(counts.readActionable).toBe(1);
@@ -75,6 +76,8 @@ describe("computeInboxCounts", () => {
 
     // actionable = unread + readActionable
     expect(counts.actionable).toBe(counts.unread + counts.readActionable);
+    // all = actionable + replied + noise
+    expect(counts.all).toBe(counts.actionable + counts.replied + counts.noise);
   });
 
   it("empty list returns zeroes", () => {
