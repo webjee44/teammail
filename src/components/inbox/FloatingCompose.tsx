@@ -270,7 +270,10 @@ export function FloatingCompose() {
     }
   };
 
-  if (!state.isOpen) return null;
+  // Render UndoSendDialog BEFORE the early return so it stays mounted after closeCompose
+  const undoDialog = <UndoSendDialog open={undoSendOpen} onCancel={handleUndoCancel} onExpire={handleUndoExpire} />;
+
+  if (!state.isOpen) return undoDialog;
 
   const isFormValid = to && subject && body && fromEmail;
 
