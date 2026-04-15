@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   Inbox,
@@ -88,31 +88,56 @@ export function InboxSidebar() {
   const [tags, setTags] = useState<{ id: string; name: string; color: string }[]>([]);
   const [mailboxes, setMailboxes] = useState<{ id: string; email: string; label: string | null; last_successful_sync_at: string | null; last_error_at: string | null; last_error_message: string | null; sync_mode: string | null }[]>([]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!user) return;
+  const fetchSidebarData = useCallback(async () => {
+    if (!user) return;
 
-      const [convRes, actionableRes, draftRes, schedRes, mbRes, tagRes, waRes] = await Promise.all([
-        supabase.from("conversations").select("id, status, assigned_to, mailbox_id, is_noise"),
-        supabase.rpc("get_actionable_count", { _mailbox_id: activeMailbox || undefined }),
-        supabase.from("drafts").select("id, from_email").is("conversation_id", null).eq("created_by", user.id),
-        supabase.from("scheduled_emails").select("id, from_email").eq("status", "pending"),
-        supabase.from("team_mailboxes").select("id, email, label, last_successful_sync_at, last_error_at, last_error_message, sync_mode").order("email"),
-        supabase.from("tags").select("id, name, color").order("name"),
-        supabase.from("whatsapp_conversations").select("id", { count: "exact", head: true }).eq("is_read", false).eq("status", "open"),
-      ]);
+    const [convRes, actionableRes, draftRes, schedRes, mbRes, tagRes, waRes] = await Promise.all([
+      supabase.from("conversations").select("id, status, assigned_to, mailbox_id, is_noise"),
+      supabase.rpc("get_actionable_count", { _mailbox_id: activeMailbox || undefined }),
+      supabase.from("drafts").select("id, from_email").is("conversation_id", null).eq("created_by", user.id),
+      supabase.from("scheduled_emails").select("id, from_email").eq("status", "pending"),
+      supabase.from("team_mailboxes").select("id, email, label, last_successful_sync_at, last_error_at, last_error_message, sync_mode").order("email"),
+      supabase.from("tags").select("id, name, color").order("name"),
+      supabase.from("whatsapp_conversations").select("id", { count: "exact", head: true }).eq("is_read", false).eq("status", "open"),
+    ]);
 
-      if (convRes.data) setConversations(convRes.data);
-      setActionableCount(typeof actionableRes.data === "number" ? actionableRes.data : 0);
-      if (draftRes.data) setDrafts(draftRes.data);
-      if (schedRes.data) setScheduledEmails(schedRes.data);
-      if (mbRes.data) setMailboxes(mbRes.data);
-      if (tagRes.data) setTags(tagRes.data);
-      setWaUnread(waRes.count || 0);
-    };
-
-    fetchData();
+    if (convRes.data) setConversations(convRes.data);
+    setActionableCount(typeof actionableRes.data === "number" ? actionableRes.data : 0);
+    if (draftRes.data) setDrafts(draftRes.data);
+    if (schedRes.data) setScheduledEmails(schedRes.data);
+    if (mbRes.data) setMailboxes(mbRes.data);
+    if (tagRes.data) setTags(tagRes.data);
+    setWaUnread(waRes.count || 0);
   }, [user, activeMailbox]);
+
+  // Initial fetch
+  useEffect(() => {
+    fetchSidebarData();
+  }, [fetchSidebarData]);
+
+  // Realtime: re-fetch counts when conversations change
+  useEffect(() => {
+    const channel = supabase
+      .channel('rt-sidebar-counts')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'conversations' },
+        () => { fetchSidebarData(); }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'drafts' },
+        () => { fetchSidebarData(); }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'whatsapp_conversations' },
+        () => { fetchSidebarData(); }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchSidebarData]);
 
   const activeMailboxData = useMemo(
     () => mailboxes.find((mailbox) => mailbox.id === activeMailbox) || null,
