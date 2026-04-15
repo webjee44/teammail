@@ -1,24 +1,27 @@
 
 
-# Plan : Corriger les pièces jointes dupliquées
+# Plan : Ajouter un filtre "Tous" dans la boîte de réception
 
 ## Problème
-Chaque synchronisation Gmail re-télécharge et ré-insère les pièces jointes même pour les messages déjà existants. Résultat : 66-72 doublons par fichier dans cette conversation.
+Il n'existe pas de filtre pour voir toutes les conversations ouvertes. L'utilisateur doit basculer entre "À traiter", "Non lus", "Déjà répondus" et "Ignorés" pour avoir une vue complète.
 
 ## Solution
 
-### 1. Corriger `gmail-sync` — ne pas re-traiter les attachments des messages existants
-Dans `supabase/functions/gmail-sync/index.ts`, ligne 439 : ajouter un `if (!existingMsg)` autour du bloc d'attachments (lignes 439-481), ou à minima vérifier si l'attachment existe déjà avant d'insérer.
+Ajouter un filtre "Tous" (`all`) comme premier choix dans les chips de filtre. Il affichera toutes les conversations ouvertes (actionable + replied + noise).
 
-Approche retenue : déplacer le bloc attachments à l'intérieur du `else` (nouveau message uniquement), car les pièces jointes d'un message Gmail ne changent jamais.
+### Fichiers modifiés
 
-### 2. Nettoyer les doublons existants en base
-Migration SQL pour supprimer les lignes dupliquées dans `attachments`, en ne gardant qu'une seule ligne par combinaison `(message_id, storage_path)`.
+**1. `src/components/inbox/ConversationList.tsx`**
+- Ajouter `"all"` au type `InboxFilter`
+- Ajouter `all: number` dans `FilterCounts`
+- Ajouter le chip `{ key: "all", label: "Tous" }` en premier dans `filterConfig`
 
-### 3. Ajouter une contrainte UNIQUE
-Ajouter un index unique `(message_id, storage_path)` pour empêcher les doublons futurs.
+**2. `src/lib/inbox-metrics.ts`**
+- Ajouter `all` dans `InboxCounts` (= actionable + replied + noise)
+- Calculer `all` dans `computeInboxCounts`
 
-## Fichiers modifiés
-- `supabase/functions/gmail-sync/index.ts` — conditionner l'insertion des attachments aux nouveaux messages
-- Migration SQL — nettoyage des doublons + contrainte UNIQUE
+**3. `src/pages/Index.tsx`**
+- Changer le filtre par défaut de `"actionable"` à `"all"`
+- Ajouter le cas `"all"` dans le switch du filtre : `return c.status === "open"`
+- Ajouter `all` dans `filterCounts`
 
