@@ -141,9 +141,14 @@ export function MessageList({ messages, comments, conversationSubject, currentUs
                     <span className="text-sm font-medium text-foreground">
                       {msg.from_name || msg.from_email}
                     </span>
-                    {msg.is_outbound && msg.to_email && (
+                    {msg.to_email && (
                       <span className="text-xs text-muted-foreground truncate">
-                        → {msg.to_email}
+                        À : {msg.to_email}
+                      </span>
+                    )}
+                    {msg.cc && (
+                      <span className="text-xs text-muted-foreground truncate">
+                        Cc : {msg.cc}
                       </span>
                     )}
                   </div>
