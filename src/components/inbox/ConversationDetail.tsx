@@ -38,6 +38,7 @@ function collectThreadEmails(messages: NonNullable<ConversationDetailProps["conv
 
 export function ConversationDetail({ conversation, currentUserId, onStatusChange, onReply, onComment, onEditComment, onDeleteComment, onArchive }: ConversationDetailProps) {
   const [activeTab, setActiveTab] = useState("reply");
+  const [replyAllCc, setReplyAllCc] = useState<string[] | null>(null);
   const { openCompose } = useComposeWindow();
 
   if (!conversation) {
@@ -78,7 +79,7 @@ export function ConversationDetail({ conversation, currentUserId, onStatusChange
     openCompose({ subject: fwdSubject, body: fwdBody, attachments: attachments.length > 0 ? attachments : undefined });
   };
 
-  const handleReplyAll = async () => {
+  const handleReplyAll = useCallback(async () => {
     // Get our mailbox emails to exclude them from CC
     const { data: mailboxes } = await supabase
       .from("team_mailboxes")
@@ -100,27 +101,13 @@ export function ConversationDetail({ conversation, currentUserId, onStatusChange
     allEmails.delete(primaryTo);
     const ccList = Array.from(allEmails);
 
-    const subject = conversation.subject.replace(/^Re:\s*/i, "");
-    const replySubject = `Re: ${subject}`;
-
-    // Get threading info
-    const { data: convRow } = await supabase
-      .from("conversations")
-      .select("gmail_thread_id")
-      .eq("id", conversation.id)
-      .maybeSingle();
-
-    const lastMsg = conversation.messages[conversation.messages.length - 1];
-
-    openCompose({
-      to: primaryTo,
-      subject: replySubject,
-      cc: ccList.length > 0 ? ccList : undefined,
-      threadId: convRow?.gmail_thread_id || undefined,
-      inReplyTo: (lastMsg as any)?.gmail_message_id || undefined,
-      conversationId: conversation.id,
-    });
-  };
+    // Set CC in ReplyArea and switch to reply tab
+    setReplyAllCc(ccList);
+    setActiveTab("reply");
+    setTimeout(() => {
+      document.querySelector("[data-reply-area]")?.scrollIntoView({ behavior: "smooth" });
+    }, 50);
+  }, [conversation]);
 
   return (
     <div className="flex flex-col h-full">
