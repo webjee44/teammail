@@ -63,7 +63,15 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
   const [cc, setCc] = useState<string[]>([]);
   const [bcc, setBcc] = useState<string[]>([]);
 
+  // Apply reply-all CC when triggered from parent
   useEffect(() => {
+    if (replyAllCc && replyAllCc.length >= 0) {
+      setCc(replyAllCc);
+      onReplyAllCcConsumed?.();
+    }
+  }, [replyAllCc, onReplyAllCcConsumed]);
+
+
     if (draftLoading || draftInitialized) return;
     if (draft.body) setReplyHtml(draft.body);
     setDraftInitialized(true);
