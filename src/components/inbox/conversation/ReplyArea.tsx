@@ -40,9 +40,11 @@ type Props = {
   onComment?: (id: string, body: string) => void;
   onForward?: () => void;
   onReplyAll?: () => void;
+  replyAllCc?: string[] | null;
+  onReplyAllCcConsumed?: () => void;
 };
 
-export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply, onComment, onForward, onReplyAll }: Props) {
+export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply, onComment, onForward, onReplyAll, replyAllCc, onReplyAllCcConsumed }: Props) {
   const navigate = useNavigate();
   const { draft, updateDraft, deleteDraft, flushDraft, loading: draftLoading } = useDraft({ conversationId: conversation.id });
   const [replyHtml, setReplyHtml] = useState("");
@@ -60,6 +62,14 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
   const [draftInitialized, setDraftInitialized] = useState(false);
   const [cc, setCc] = useState<string[]>([]);
   const [bcc, setBcc] = useState<string[]>([]);
+
+  // Apply reply-all CC when triggered from parent
+  useEffect(() => {
+    if (replyAllCc && replyAllCc.length >= 0) {
+      setCc(replyAllCc);
+      onReplyAllCcConsumed?.();
+    }
+  }, [replyAllCc, onReplyAllCcConsumed]);
 
   useEffect(() => {
     if (draftLoading || draftInitialized) return;

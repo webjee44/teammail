@@ -38,7 +38,39 @@ function collectThreadEmails(messages: NonNullable<ConversationDetailProps["conv
 
 export function ConversationDetail({ conversation, currentUserId, onStatusChange, onReply, onComment, onEditComment, onDeleteComment, onArchive }: ConversationDetailProps) {
   const [activeTab, setActiveTab] = useState("reply");
+  const [replyAllCc, setReplyAllCc] = useState<string[] | null>(null);
   const { openCompose } = useComposeWindow();
+
+  const handleReplyAll = useCallback(async () => {
+    if (!conversation) return;
+    // Get our mailbox emails to exclude them from CC
+    const { data: mailboxes } = await supabase
+      .from("team_mailboxes")
+      .select("email")
+      .eq("sync_enabled", true);
+    const ourEmails = new Set((mailboxes || []).map((m: any) => m.email.toLowerCase()));
+
+    // Collect all emails from the thread
+    const allEmails = collectThreadEmails(conversation.messages);
+
+    // Remove our own mailbox emails
+    for (const e of ourEmails) allEmails.delete(e);
+
+    // The primary recipient is the original sender
+    const lastInbound = [...conversation.messages].reverse().find((m) => !m.is_outbound);
+    const primaryTo = lastInbound?.from_email?.toLowerCase() || conversation.from_email?.toLowerCase() || "";
+
+    // Everyone else goes to CC
+    allEmails.delete(primaryTo);
+    const ccList = Array.from(allEmails);
+
+    // Set CC in ReplyArea and switch to reply tab
+    setReplyAllCc(ccList);
+    setActiveTab("reply");
+    setTimeout(() => {
+      document.querySelector("[data-reply-area]")?.scrollIntoView({ behavior: "smooth" });
+    }, 50);
+  }, [conversation]);
 
   if (!conversation) {
     return (
@@ -78,49 +110,6 @@ export function ConversationDetail({ conversation, currentUserId, onStatusChange
     openCompose({ subject: fwdSubject, body: fwdBody, attachments: attachments.length > 0 ? attachments : undefined });
   };
 
-  const handleReplyAll = async () => {
-    // Get our mailbox emails to exclude them from CC
-    const { data: mailboxes } = await supabase
-      .from("team_mailboxes")
-      .select("email")
-      .eq("sync_enabled", true);
-    const ourEmails = new Set((mailboxes || []).map((m: any) => m.email.toLowerCase()));
-
-    // Collect all emails from the thread
-    const allEmails = collectThreadEmails(conversation.messages);
-
-    // Remove our own mailbox emails
-    for (const e of ourEmails) allEmails.delete(e);
-
-    // The primary recipient is the original sender
-    const lastInbound = [...conversation.messages].reverse().find((m) => !m.is_outbound);
-    const primaryTo = lastInbound?.from_email?.toLowerCase() || conversation.from_email?.toLowerCase() || "";
-
-    // Everyone else goes to CC
-    allEmails.delete(primaryTo);
-    const ccList = Array.from(allEmails);
-
-    const subject = conversation.subject.replace(/^Re:\s*/i, "");
-    const replySubject = `Re: ${subject}`;
-
-    // Get threading info
-    const { data: convRow } = await supabase
-      .from("conversations")
-      .select("gmail_thread_id")
-      .eq("id", conversation.id)
-      .maybeSingle();
-
-    const lastMsg = conversation.messages[conversation.messages.length - 1];
-
-    openCompose({
-      to: primaryTo,
-      subject: replySubject,
-      cc: ccList.length > 0 ? ccList : undefined,
-      threadId: convRow?.gmail_thread_id || undefined,
-      inReplyTo: (lastMsg as any)?.gmail_message_id || undefined,
-      conversationId: conversation.id,
-    });
-  };
 
   return (
     <div className="flex flex-col h-full">
@@ -151,6 +140,8 @@ export function ConversationDetail({ conversation, currentUserId, onStatusChange
         onComment={onComment}
         onForward={handleForward}
         onReplyAll={handleReplyAll}
+        replyAllCc={replyAllCc}
+        onReplyAllCcConsumed={() => setReplyAllCc(null)}
       />
     </div>
   );
