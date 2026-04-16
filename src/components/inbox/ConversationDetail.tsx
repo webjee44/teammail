@@ -41,6 +41,37 @@ export function ConversationDetail({ conversation, currentUserId, onStatusChange
   const [replyAllCc, setReplyAllCc] = useState<string[] | null>(null);
   const { openCompose } = useComposeWindow();
 
+  const handleReplyAll = useCallback(async () => {
+    if (!conversation) return;
+    // Get our mailbox emails to exclude them from CC
+    const { data: mailboxes } = await supabase
+      .from("team_mailboxes")
+      .select("email")
+      .eq("sync_enabled", true);
+    const ourEmails = new Set((mailboxes || []).map((m: any) => m.email.toLowerCase()));
+
+    // Collect all emails from the thread
+    const allEmails = collectThreadEmails(conversation.messages);
+
+    // Remove our own mailbox emails
+    for (const e of ourEmails) allEmails.delete(e);
+
+    // The primary recipient is the original sender
+    const lastInbound = [...conversation.messages].reverse().find((m) => !m.is_outbound);
+    const primaryTo = lastInbound?.from_email?.toLowerCase() || conversation.from_email?.toLowerCase() || "";
+
+    // Everyone else goes to CC
+    allEmails.delete(primaryTo);
+    const ccList = Array.from(allEmails);
+
+    // Set CC in ReplyArea and switch to reply tab
+    setReplyAllCc(ccList);
+    setActiveTab("reply");
+    setTimeout(() => {
+      document.querySelector("[data-reply-area]")?.scrollIntoView({ behavior: "smooth" });
+    }, 50);
+  }, [conversation]);
+
   if (!conversation) {
     return (
       <div className="flex-1 flex items-center justify-center text-muted-foreground">
