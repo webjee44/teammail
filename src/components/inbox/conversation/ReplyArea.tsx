@@ -71,7 +71,7 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
     }
   }, [replyAllCc, onReplyAllCcConsumed]);
 
-
+  useEffect(() => {
     if (draftLoading || draftInitialized) return;
     if (draft.body) setReplyHtml(draft.body);
     setDraftInitialized(true);
