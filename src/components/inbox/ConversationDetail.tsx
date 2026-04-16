@@ -140,6 +140,8 @@ export function ConversationDetail({ conversation, currentUserId, onStatusChange
         onComment={onComment}
         onForward={handleForward}
         onReplyAll={handleReplyAll}
+        replyAllCc={replyAllCc}
+        onReplyAllCcConsumed={() => setReplyAllCc(null)}
       />
     </div>
   );
