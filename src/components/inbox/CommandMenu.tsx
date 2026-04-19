@@ -32,43 +32,90 @@ export function CommandMenu({ open, onOpenChange, onSelect }: Props) {
   const [waResults, setWaResults] = useState<{ id: string; phone_number: string; contact_name: string | null; last_message: string | null }[]>([]);
   const [searching, setSearching] = useState(false);
   const navigate = useNavigate();
+  const reqIdRef = useRef(0);
+  const cacheRef = useRef<Map<string, { inbox: SearchResult[]; contacts: ContactResult[]; wa: any[] }>>(new Map());
 
-  const search = useCallback(async (q: string) => {
-    if (q.trim().length < 2) {
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) {
       setResults([]);
       setContactResults([]);
       setWaResults([]);
+      setSearching(false);
       return;
     }
+
+    // Cache hit → instantané
+    const cached = cacheRef.current.get(q);
+    if (cached) {
+      setResults(cached.inbox);
+      setContactResults(cached.contacts);
+      setWaResults(cached.wa);
+      setSearching(false);
+      return;
+    }
+
+    const myId = ++reqIdRef.current;
     setSearching(true);
 
-    const [inboxRes, contactsRes, waRes] = await Promise.all([
-      supabase.rpc("search_inbox", { p_query: q.trim(), p_limit: 20 }),
+    const timer = setTimeout(() => {
+      const like = `%${q}%`;
+
+      // Stream chaque réponse dès qu'elle arrive (au lieu d'attendre Promise.all)
+      const tmp: { inbox: SearchResult[]; contacts: ContactResult[]; wa: any[] } = {
+        inbox: [], contacts: [], wa: [],
+      };
+      let pending = 3;
+      const done = () => {
+        if (--pending === 0 && reqIdRef.current === myId) {
+          cacheRef.current.set(q, tmp);
+          if (cacheRef.current.size > 50) {
+            const firstKey = cacheRef.current.keys().next().value;
+            if (firstKey) cacheRef.current.delete(firstKey);
+          }
+          setSearching(false);
+        }
+      };
+
+      supabase.rpc("search_inbox", { p_query: q, p_limit: 12 }).then((r) => {
+        if (reqIdRef.current === myId && !r.error && r.data) {
+          tmp.inbox = r.data as SearchResult[];
+          setResults(tmp.inbox);
+        }
+        done();
+      });
+
       supabase
         .from("contacts")
         .select("id, name, email, company")
-        .or(`name.ilike.%${q.trim()}%,email.ilike.%${q.trim()}%,company.ilike.%${q.trim()}%`)
+        .or(`name.ilike.${like},email.ilike.${like},company.ilike.${like}`)
         .order("updated_at", { ascending: false })
-        .limit(10),
+        .limit(8)
+        .then((r) => {
+          if (reqIdRef.current === myId && !r.error && r.data) {
+            tmp.contacts = r.data;
+            setContactResults(tmp.contacts);
+          }
+          done();
+        });
+
       supabase
         .from("whatsapp_conversations")
         .select("id, phone_number, contact_name, last_message")
-        .or(`contact_name.ilike.%${q.trim()}%,phone_number.ilike.%${q.trim()}%,last_message.ilike.%${q.trim()}%`)
+        .or(`contact_name.ilike.${like},phone_number.ilike.${like},last_message.ilike.${like}`)
         .order("last_message_at", { ascending: false })
-        .limit(10),
-    ]);
+        .limit(8)
+        .then((r) => {
+          if (reqIdRef.current === myId && !r.error && r.data) {
+            tmp.wa = r.data;
+            setWaResults(tmp.wa);
+          }
+          done();
+        });
+    }, 120);
 
-    if (!inboxRes.error && inboxRes.data) setResults(inboxRes.data as SearchResult[]);
-    if (!contactsRes.error && contactsRes.data) setContactResults(contactsRes.data);
-    if (!waRes.error && waRes.data) setWaResults(waRes.data);
-
-    setSearching(false);
-  }, []);
-
-  useEffect(() => {
-    const timer = setTimeout(() => search(query), 200);
     return () => clearTimeout(timer);
-  }, [query, search]);
+  }, [query]);
 
   useEffect(() => {
     if (!open) {
