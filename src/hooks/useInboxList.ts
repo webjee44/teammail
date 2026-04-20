@@ -77,31 +77,42 @@ export function useInboxList({ filter, mailboxId, userId, activeState }: UseInbo
 
       // ── Sent ──
       if (filter === "sent") {
-        const { data: sentConvs } = await supabase.rpc("get_sent_conversation_ids");
-        const sentConvIds = (sentConvs || []).map((r: any) => r.conversation_id);
-        if (sentConvIds.length === 0) {
-          setConversations([]);
-          setLoading(false);
-          return;
-        }
-
-        let convQuery = supabase
+        let sentQuery = supabase
           .from("conversations")
-          .select("*")
-          .in("id", sentConvIds)
-          .order("last_message_at", { ascending: false });
+          .select(`
+            id,
+            seq_number,
+            subject,
+            snippet,
+            from_email,
+            from_name,
+            status,
+            assigned_to,
+            is_read,
+            last_message_at,
+            priority,
+            is_noise,
+            ai_summary,
+            category,
+            entities,
+            messages!inner(id)
+          `)
+          .eq("messages.is_outbound", true)
+          .order("last_message_at", { ascending: false })
+          .limit(200);
 
-        if (mailboxId) convQuery = convQuery.eq("mailbox_id", mailboxId);
+        if (mailboxId) sentQuery = sentQuery.eq("mailbox_id", mailboxId);
 
-        const { data, error } = await convQuery;
+        const { data, error } = await sentQuery;
         if (error) {
           console.error("Failed to fetch sent conversations:", error);
           toast.error("Erreur lors du chargement des conversations envoyées");
         } else {
-          const ids = (data || []).map((c: any) => c.id);
+          const rows = Array.from(new Map((data || []).map((c: any) => [c.id, c])).values());
+          const ids = rows.map((c: any) => c.id);
           const { toEmailMap, toNameMap } = await resolveOutboundRecipients(ids);
           setConversations(
-            (data || []).map((c: any) => ({
+            rows.map((c: any) => ({
               id: c.id, seq_number: c.seq_number, subject: c.subject, snippet: c.snippet,
               from_email: c.from_email, from_name: c.from_name,
               to_email: toEmailMap.get(c.id) || null,
