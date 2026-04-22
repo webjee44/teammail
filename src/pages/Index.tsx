@@ -58,6 +58,13 @@ const Index = () => {
     : filter === "spam" ? "spam"
     : "inbox";
 
+  // Clear selection and any external conversation when scope changes,
+  // so a previously open conversation from another mailbox doesn't linger.
+  useEffect(() => {
+    setSelectedId(null);
+    setExternalConv(null);
+  }, [mailboxId, filter]);
+
   // ── Hooks ──
   const { conversations, setConversations, responseTimes, loading, refetch } = useInboxList({
     filter,
