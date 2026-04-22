@@ -262,6 +262,7 @@ const Index = () => {
             onEditComment={handleEditComment}
             onDeleteComment={handleDeleteComment}
             onArchive={handleArchive}
+            onClose={() => setSelectedId(null)}
           />
         </SheetContent>
       </Sheet>
