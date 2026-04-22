@@ -80,7 +80,7 @@ export function useInboxList({ filter, mailboxId, userId, activeState }: UseInbo
             draft_status: d.status,
           }))
         );
-        setLoading(false);
+        if (isCurrent()) setLoading(false);
         return;
       }
 
@@ -137,7 +137,7 @@ export function useInboxList({ filter, mailboxId, userId, activeState }: UseInbo
             }))
           );
         }
-        setLoading(false);
+        if (isCurrent()) setLoading(false);
         return;
       }
 
@@ -215,12 +215,12 @@ export function useInboxList({ filter, mailboxId, userId, activeState }: UseInbo
             }))
           );
         }
-        setLoading(false);
+        if (isCurrent()) setLoading(false);
         return;
       }
 
       // Fallback (shouldn't hit)
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     };
 
     refetchRef.current = fetchConversations;
