@@ -27,6 +27,7 @@ const Index = () => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<InboxFilter>("actionable");
   const [commandOpen, setCommandOpen] = useState(false);
+  const [externalConv, setExternalConv] = useState<Conversation | null>(null);
   
   const [searchParams, setSearchParams] = useSearchParams();
   const filter = searchParams.get("filter");
