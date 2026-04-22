@@ -61,7 +61,7 @@ export function useConversationRealtime({
   useEffect(() => {
     if (isSpecialView) return;
     const channel = supabase
-      .channel('rt-conversations')
+      .channel(`rt-conversations-${mailboxId ?? 'all'}-${activeState}-${filter ?? 'default'}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'conversations' },
