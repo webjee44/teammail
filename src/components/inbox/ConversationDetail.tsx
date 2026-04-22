@@ -7,6 +7,7 @@ import { useComposeWindow } from "@/hooks/useComposeWindow";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { toast } from "sonner";
 import type { ConversationDetailProps } from "./conversation/types";
 import { decodeHtml } from "./conversation/types";
 export type { ConversationDetailData } from "./conversation/types";
@@ -92,6 +93,7 @@ export function ConversationDetail({ conversation, currentUserId, onStatusChange
     const attachments: { name: string; file: File; base64: string }[] = [];
 
     if (lastMsg?.attachments && lastMsg.attachments.length > 0) {
+      toast.loading("Préparation du transfert…", { id: "forward-prep" });
       for (const att of lastMsg.attachments) {
         try {
           const { data } = await supabase.storage.from("attachments").download(att.storage_path);
@@ -105,6 +107,7 @@ export function ConversationDetail({ conversation, currentUserId, onStatusChange
           }
         } catch { /* skip failed attachment */ }
       }
+      toast.dismiss("forward-prep");
     }
 
     openCompose({ subject: fwdSubject, body: fwdBody, attachments: attachments.length > 0 ? attachments : undefined });
