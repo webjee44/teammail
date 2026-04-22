@@ -147,12 +147,29 @@ const Index = () => {
   }, [openCompose]);
 
   const selectedConv = selectedId
-    ? (conversations.find((c) => c.id === selectedId) ?? null)
+    ? (conversations.find((c) => c.id === selectedId) ?? externalConv ?? null)
     : null;
 
   const selectedDetail = selectedConv
     ? { ...selectedConv, messages, comments }
     : null;
+
+  // If selected conversation isn't in the current list (e.g. opened via global search),
+  // fetch it directly so the detail Sheet can render.
+  useEffect(() => {
+    if (!selectedId) { setExternalConv(null); return; }
+    if (conversations.find((c) => c.id === selectedId)) { setExternalConv(null); return; }
+    let cancelled = false;
+    supabase
+      .from("conversations")
+      .select("*")
+      .eq("id", selectedId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled && data) setExternalConv(data as unknown as Conversation);
+      });
+    return () => { cancelled = true; };
+  }, [selectedId, conversations]);
 
   const inboxCounts = computeInboxCounts(conversations.map(c => ({
     id: c.id, status: c.status, is_noise: c.is_noise ?? false,
