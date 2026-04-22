@@ -15,16 +15,22 @@ export function useInboxList({ filter, mailboxId, userId, activeState }: UseInbo
   const [responseTimes, setResponseTimes] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
   const refetchRef = useRef<() => void>(() => {});
+  const requestIdRef = useRef(0);
 
   const refetch = useCallback(() => refetchRef.current(), []);
 
   useEffect(() => {
+    // Bump request id and capture for this run; clear list immediately on scope change
+    const myRequestId = ++requestIdRef.current;
+    setConversations([]);
+    const isCurrent = () => requestIdRef.current === myRequestId;
+
     const fetchConversations = async () => {
       setLoading(true);
 
       // ── Drafts ──
       if (filter === "drafts") {
-        if (!userId) { setLoading(false); return; }
+        if (!userId) { if (isCurrent()) setLoading(false); return; }
         const { data: drafts } = await supabase
           .from("drafts")
           .select("*")
@@ -32,6 +38,7 @@ export function useInboxList({ filter, mailboxId, userId, activeState }: UseInbo
           .eq("created_by", userId)
           .in("status", ["draft", "send_failed"])
           .order("updated_at", { ascending: false });
+        if (!isCurrent()) return;
 
         const draftEmails = new Set<string>();
         for (const d of drafts || []) {
@@ -43,11 +50,13 @@ export function useInboxList({ filter, mailboxId, userId, activeState }: UseInbo
             .from("contacts")
             .select("email, name")
             .in("email", Array.from(draftEmails));
+          if (!isCurrent()) return;
           if (contacts) {
             draftContactMap = new Map(contacts.map((c: any) => [c.email.toLowerCase(), c.name]));
           }
         }
 
+        if (!isCurrent()) return;
         setConversations(
           (drafts || []).map((d: any) => ({
             id: `draft-${d.id}`,
@@ -104,6 +113,7 @@ export function useInboxList({ filter, mailboxId, userId, activeState }: UseInbo
         if (mailboxId) sentQuery = sentQuery.eq("mailbox_id", mailboxId);
 
         const { data, error } = await sentQuery;
+        if (!isCurrent()) return;
         if (error) {
           console.error("Failed to fetch sent conversations:", error);
           toast.error("Erreur lors du chargement des conversations envoyées");
@@ -111,6 +121,7 @@ export function useInboxList({ filter, mailboxId, userId, activeState }: UseInbo
           const rows = Array.from(new Map((data || []).map((c: any) => [c.id, c])).values());
           const ids = rows.map((c: any) => c.id);
           const { toEmailMap, toNameMap } = await resolveOutboundRecipients(ids);
+          if (!isCurrent()) return;
           setConversations(
             rows.map((c: any) => ({
               id: c.id, seq_number: c.seq_number, subject: c.subject, snippet: c.snippet,
@@ -161,6 +172,7 @@ export function useInboxList({ filter, mailboxId, userId, activeState }: UseInbo
         if (mailboxId) rpcParams.p_mailbox_id = mailboxId;
 
         const { data, error } = await supabase.rpc("inbox_list", rpcParams);
+        if (!isCurrent()) return;
 
         if (error) {
           console.error("Failed to fetch inbox:", error);
@@ -212,7 +224,10 @@ export function useInboxList({ filter, mailboxId, userId, activeState }: UseInbo
     };
 
     refetchRef.current = fetchConversations;
-    fetchConversations();
+    fetchConversations().catch((e) => {
+      console.error("fetchConversations error", e);
+      if (isCurrent()) setLoading(false);
+    });
   }, [filter, mailboxId, userId, activeState]);
 
   return { conversations, setConversations, responseTimes, loading, refetch };
