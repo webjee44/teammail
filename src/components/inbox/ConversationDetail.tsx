@@ -37,7 +37,7 @@ function collectThreadEmails(messages: NonNullable<ConversationDetailProps["conv
   return emails;
 }
 
-export function ConversationDetail({ conversation, currentUserId, onStatusChange, onReply, onComment, onEditComment, onDeleteComment, onArchive }: ConversationDetailProps) {
+export function ConversationDetail({ conversation, currentUserId, onStatusChange, onReply, onComment, onEditComment, onDeleteComment, onArchive, onClose }: ConversationDetailProps) {
   const [activeTab, setActiveTab] = useState("reply");
   const [replyAllCc, setReplyAllCc] = useState<string[] | null>(null);
   const { openCompose } = useComposeWindow();
@@ -110,6 +110,8 @@ export function ConversationDetail({ conversation, currentUserId, onStatusChange
       toast.dismiss("forward-prep");
     }
 
+    // Close the conversation panel so the floating compose window is visible and interactive
+    onClose?.();
     openCompose({ subject: fwdSubject, body: fwdBody, attachments: attachments.length > 0 ? attachments : undefined });
   };
 
