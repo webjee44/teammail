@@ -1,0 +1,1 @@
+UPDATE campaigns SET status = 'draft' WHERE id = '93fe71ae-de99-4cae-b7bc-6ffc8f55abb3';
