@@ -120,6 +120,14 @@ export default function CampaignWizard() {
       if (!profile?.team_id) throw new Error("No team");
 
       if (data.id) {
+        // Check campaign status — never touch recipients of a non-draft campaign
+        const { data: existing } = await supabase
+          .from("campaigns")
+          .select("status")
+          .eq("id", data.id)
+          .maybeSingle();
+        const isDraft = !existing || existing.status === "draft";
+
         await supabase.from("campaigns").update({
           name: data.name,
           subject: data.subject,
@@ -128,17 +136,37 @@ export default function CampaignWizard() {
           total_recipients: data.recipients.length,
         }).eq("id", data.id);
 
-        await supabase.from("campaign_recipients").delete().eq("campaign_id", data.id);
-        if (data.recipients.length > 0) {
-          await supabase.from("campaign_recipients").insert(
-            data.recipients.map((r) => ({
-              campaign_id: data.id!,
-              contact_id: r.contact_id || null,
-              email: r.email,
-              name: r.name,
-              company: r.company,
-            }))
+        if (isDraft) {
+          // Only delete pending/stopped recipients — preserve sent/failed history
+          await supabase
+            .from("campaign_recipients")
+            .delete()
+            .eq("campaign_id", data.id)
+            .in("status", ["pending", "stopped"]);
+
+          // Reload existing emails to avoid duplicate inserts
+          const { data: existingRecips } = await supabase
+            .from("campaign_recipients")
+            .select("email")
+            .eq("campaign_id", data.id);
+          const existingEmails = new Set(
+            (existingRecips || []).map((r) => r.email.toLowerCase())
           );
+
+          const toInsert = data.recipients.filter(
+            (r) => !existingEmails.has(r.email.toLowerCase())
+          );
+          if (toInsert.length > 0) {
+            await supabase.from("campaign_recipients").insert(
+              toInsert.map((r) => ({
+                campaign_id: data.id!,
+                contact_id: r.contact_id || null,
+                email: r.email,
+                name: r.name,
+                company: r.company,
+              }))
+            );
+          }
         }
         setSaving(false);
         setLastSavedAt(new Date());
