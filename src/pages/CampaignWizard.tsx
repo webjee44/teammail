@@ -85,7 +85,7 @@ export default function CampaignWizard() {
     load();
   }, [searchParams]);
 
-  const saveDraft = async (): Promise<string | undefined> => {
+  const saveDraft = async (silent = false): Promise<string | undefined> => {
     if (!user) return undefined;
     setSaving(true);
     try {
@@ -118,7 +118,7 @@ export default function CampaignWizard() {
           );
         }
         setSaving(false);
-        toast({ title: "Brouillon sauvegardé" });
+        if (!silent) toast({ title: "Brouillon sauvegardé" });
         return data.id;
       } else {
         const { data: campaign, error } = await supabase
@@ -149,7 +149,7 @@ export default function CampaignWizard() {
         }
         setData((prev) => ({ ...prev, id: campaign.id }));
         setSaving(false);
-        toast({ title: "Brouillon sauvegardé" });
+        if (!silent) toast({ title: "Brouillon sauvegardé" });
         return campaign.id;
       }
     } catch (e: any) {
@@ -162,7 +162,7 @@ export default function CampaignWizard() {
   const sendCampaign = async () => {
     setSending(true);
     try {
-      const campaignId = data.id || await saveDraft();
+      const campaignId = data.id || await saveDraft(true);
       if (!campaignId) throw new Error("Impossible de sauvegarder la campagne");
 
       const { data: result, error } = await supabase.functions.invoke("send-campaign", {
