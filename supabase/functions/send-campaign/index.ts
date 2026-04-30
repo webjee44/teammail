@@ -128,7 +128,7 @@ serve(async (req) => {
     // Mark as sending
     await supabase.from("campaigns").update({ status: "sending" }).eq("id", campaign_id);
 
-    // Load recipients
+    // Load pending recipients
     const { data: recipients } = await supabase
       .from("campaign_recipients")
       .select("*")
@@ -142,11 +142,43 @@ serve(async (req) => {
       });
     }
 
-    let sentCount = 0;
-    let failedCount = 0;
+    // Build set of emails already sent for this campaign — strict idempotence
+    const { data: alreadySent } = await supabase
+      .from("campaign_recipients")
+      .select("email")
+      .eq("campaign_id", campaign_id)
+      .eq("status", "sent");
+    const sentEmails = new Set((alreadySent || []).map((r) => r.email.toLowerCase()));
 
-    for (let i = 0; i < recipients.length; i++) {
-      const r = recipients[i];
+    // Background worker — runs after we return the response, so no 150s timeout
+    const work = async () => {
+      let sentCount = 0;
+      let failedCount = 0;
+
+      for (let i = 0; i < recipients.length; i++) {
+        const r = recipients[i];
+
+        // Re-check campaign status every iteration — allow remote stop
+        const { data: cur } = await supabase
+          .from("campaigns")
+          .select("status")
+          .eq("id", campaign_id)
+          .single();
+        if (cur?.status !== "sending") {
+          console.log(`Campaign ${campaign_id} no longer sending (${cur?.status}) — stopping`);
+          break;
+        }
+
+        // Skip if this email was already sent in a previous run
+        if (sentEmails.has(r.email.toLowerCase())) {
+          await supabase
+            .from("campaign_recipients")
+            .update({ status: "skipped_duplicate" })
+            .eq("id", r.id);
+          continue;
+        }
+        sentEmails.add(r.email.toLowerCase());
+
       const personalizedSubject = replaceVariables(campaign.subject, r);
       let personalizedBody = replaceVariables(campaign.body_html, r);
 
@@ -200,30 +232,63 @@ serve(async (req) => {
           .eq("id", r.id);
       }
 
-      // Update campaign counts periodically
-      if ((i + 1) % 10 === 0 || i === recipients.length - 1) {
-        await supabase.from("campaigns").update({
-          sent_count: sentCount,
-          failed_count: failedCount,
-        }).eq("id", campaign_id);
+        // Update campaign counts periodically (cumulative across runs)
+        if ((i + 1) % 5 === 0 || i === recipients.length - 1) {
+          const { count: totalSent } = await supabase
+            .from("campaign_recipients")
+            .select("*", { count: "exact", head: true })
+            .eq("campaign_id", campaign_id)
+            .eq("status", "sent");
+          const { count: totalFailed } = await supabase
+            .from("campaign_recipients")
+            .select("*", { count: "exact", head: true })
+            .eq("campaign_id", campaign_id)
+            .eq("status", "failed");
+          await supabase.from("campaigns").update({
+            sent_count: totalSent || 0,
+            failed_count: totalFailed || 0,
+          }).eq("id", campaign_id);
+        }
+
+        // Delay between sends — randomized 4-8s
+        if (i < recipients.length - 1) {
+          const ms = 4000 + Math.floor(Math.random() * 4000);
+          await delay(ms);
+        }
       }
 
-      // Delay between sends — randomized 4-8s to look more natural and avoid spam filters
-      if (i < recipients.length - 1) {
-        const ms = 4000 + Math.floor(Math.random() * 4000);
-        await delay(ms);
-      }
-    }
+      // Final update — mark as sent if no more pending
+      const { count: stillPending } = await supabase
+        .from("campaign_recipients")
+        .select("*", { count: "exact", head: true })
+        .eq("campaign_id", campaign_id)
+        .eq("status", "pending");
+      const { count: totalSent } = await supabase
+        .from("campaign_recipients")
+        .select("*", { count: "exact", head: true })
+        .eq("campaign_id", campaign_id)
+        .eq("status", "sent");
+      const { count: totalFailed } = await supabase
+        .from("campaign_recipients")
+        .select("*", { count: "exact", head: true })
+        .eq("campaign_id", campaign_id)
+        .eq("status", "failed");
 
-    // Final update
-    await supabase.from("campaigns").update({
-      status: failedCount === recipients.length ? "failed" : "sent",
-      sent_count: sentCount,
-      failed_count: failedCount,
-    }).eq("id", campaign_id);
+      await supabase.from("campaigns").update({
+        status: (stillPending || 0) === 0 ? "sent" : "draft",
+        sent_count: totalSent || 0,
+        failed_count: totalFailed || 0,
+      }).eq("id", campaign_id);
+
+      console.log(`Campaign ${campaign_id} done — sent=${sentCount}, failed=${failedCount}`);
+    };
+
+    // Run in background — response returns immediately
+    // @ts-ignore — EdgeRuntime is available in Supabase Edge Functions
+    EdgeRuntime.waitUntil(work());
 
     return new Response(
-      JSON.stringify({ success: true, sent: sentCount, failed: failedCount }),
+      JSON.stringify({ success: true, queued: recipients.length, message: "Envoi en cours en arrière-plan" }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
