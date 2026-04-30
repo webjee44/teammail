@@ -194,9 +194,10 @@ serve(async (req) => {
         }).eq("id", campaign_id);
       }
 
-      // Delay between sends
+      // Delay between sends — randomized 4-8s to look more natural and avoid spam filters
       if (i < recipients.length - 1) {
-        await delay(1000);
+        const ms = 4000 + Math.floor(Math.random() * 4000);
+        await delay(ms);
       }
     }
 
