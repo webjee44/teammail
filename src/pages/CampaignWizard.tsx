@@ -215,9 +215,17 @@ export default function CampaignWizard() {
   // Auto-save: localStorage immediate + DB debounced (2s)
   useEffect(() => {
     if (!hydrated.current) return;
-    const hasContent =
+    // Save to DB only if the campaign already exists (editing) OR has meaningful content.
+    // Meaningful = a real name AND (recipients OR body) — prevents creating empty "Sans nom" drafts.
+    const hasMeaningfulContent =
+      data.name.trim().length > 2 &&
+      (data.recipients.length > 0 || data.body_html.trim().length > 10);
+    const shouldPersist = !!data.id || hasMeaningfulContent;
+
+    // Always snapshot to localStorage if there's any content (cheap, no side effects)
+    const hasAnyContent =
       data.name.trim() || data.subject.trim() || data.body_html.trim() || data.recipients.length > 0;
-    if (!hasContent) return;
+    if (!hasAnyContent) return;
 
     // Immediate snapshot to localStorage
     try {
@@ -233,6 +241,8 @@ export default function CampaignWizard() {
         })
       );
     } catch {/* quota */}
+
+    if (!shouldPersist) return;
 
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     autoSaveTimer.current = setTimeout(() => {
@@ -252,9 +262,6 @@ export default function CampaignWizard() {
       // On unmount, ensure pending save runs
       if (autoSaveTimer.current) {
         clearTimeout(autoSaveTimer.current);
-        saveChain.current = saveChain.current
-          .catch(() => undefined)
-          .then(() => saveDraft(true));
       }
     };
   }, []);
