@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -42,6 +42,10 @@ export default function CampaignWizard() {
   const [currentStep, setCurrentStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveChain = useRef<Promise<unknown>>(Promise.resolve());
+  const hydrated = useRef(false);
 
   const [data, setData] = useState<CampaignData>({
     name: "",
@@ -51,10 +55,28 @@ export default function CampaignWizard() {
     recipients: [],
   });
 
+  const LOCAL_KEY = (() => {
+    const id = searchParams.get("id");
+    return id ? `campaign-draft:${id}` : `campaign-draft:new`;
+  })();
+
   // Load existing campaign if editing
   useEffect(() => {
     const campaignId = searchParams.get("id");
-    if (!campaignId) return;
+    if (!campaignId) {
+      // Restore from localStorage if available
+      try {
+        const raw = localStorage.getItem(LOCAL_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === "object") {
+            setData((prev) => ({ ...prev, ...parsed }));
+          }
+        }
+      } catch {/* ignore */}
+      hydrated.current = true;
+      return;
+    }
     const load = async () => {
       const { data: campaign } = await supabase
         .from("campaigns")
@@ -81,9 +103,10 @@ export default function CampaignWizard() {
           company: r.company || "",
         })),
       });
+      hydrated.current = true;
     };
     load();
-  }, [searchParams]);
+  }, [searchParams, LOCAL_KEY]);
 
   const saveDraft = async (silent = false): Promise<string | undefined> => {
     if (!user) return undefined;
@@ -118,6 +141,7 @@ export default function CampaignWizard() {
           );
         }
         setSaving(false);
+        setLastSavedAt(new Date());
         if (!silent) toast({ title: "Brouillon sauvegardé" });
         return data.id;
       } else {
@@ -149,15 +173,63 @@ export default function CampaignWizard() {
         }
         setData((prev) => ({ ...prev, id: campaign.id }));
         setSaving(false);
+        setLastSavedAt(new Date());
         if (!silent) toast({ title: "Brouillon sauvegardé" });
         return campaign.id;
       }
     } catch (e: any) {
-      toast({ title: "Erreur", description: e.message, variant: "destructive" });
+      if (!silent) toast({ title: "Erreur", description: e.message, variant: "destructive" });
       setSaving(false);
       return undefined;
     }
   };
+
+  // Auto-save: localStorage immediate + DB debounced (2s)
+  useEffect(() => {
+    if (!hydrated.current) return;
+    const hasContent =
+      data.name.trim() || data.subject.trim() || data.body_html.trim() || data.recipients.length > 0;
+    if (!hasContent) return;
+
+    // Immediate snapshot to localStorage
+    try {
+      localStorage.setItem(
+        LOCAL_KEY,
+        JSON.stringify({
+          id: data.id,
+          name: data.name,
+          subject: data.subject,
+          from_email: data.from_email,
+          body_html: data.body_html,
+          recipients: data.recipients,
+        })
+      );
+    } catch {/* quota */}
+
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(() => {
+      saveChain.current = saveChain.current
+        .catch(() => undefined)
+        .then(() => saveDraft(true));
+    }, 2000);
+
+    return () => {
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    };
+  }, [data, LOCAL_KEY]);
+
+  // Flush localStorage when campaign is sent — clear after navigate
+  useEffect(() => {
+    return () => {
+      // On unmount, ensure pending save runs
+      if (autoSaveTimer.current) {
+        clearTimeout(autoSaveTimer.current);
+        saveChain.current = saveChain.current
+          .catch(() => undefined)
+          .then(() => saveDraft(true));
+      }
+    };
+  }, []);
 
   const sendCampaign = async () => {
     setSending(true);
@@ -170,6 +242,7 @@ export default function CampaignWizard() {
       });
 
       if (error) throw error;
+      try { localStorage.removeItem(LOCAL_KEY); } catch {/* ignore */}
       toast({ title: "Campagne lancée !", description: `Envoi en cours à ${data.recipients.length} destinataires` });
       navigate("/campaigns");
     } catch (e: any) {
@@ -199,6 +272,11 @@ export default function CampaignWizard() {
           <Megaphone className="h-5 w-5 text-primary" />
           <h1 className="text-lg font-semibold">Nouvelle campagne</h1>
           <div className="ml-auto">
+            {lastSavedAt && (
+              <span className="text-[11px] text-muted-foreground mr-3">
+                Sauvegardé à {lastSavedAt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+              </span>
+            )}
             <Button variant="outline" size="sm" onClick={() => saveDraft()} disabled={saving}>
               {saving ? "Sauvegarde…" : "Sauvegarder le brouillon"}
             </Button>
