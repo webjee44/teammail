@@ -199,7 +199,7 @@ export default function CampaignWizard() {
           <Megaphone className="h-5 w-5 text-primary" />
           <h1 className="text-lg font-semibold">Nouvelle campagne</h1>
           <div className="ml-auto">
-            <Button variant="outline" size="sm" onClick={saveDraft} disabled={saving}>
+            <Button variant="outline" size="sm" onClick={() => saveDraft()} disabled={saving}>
               {saving ? "Sauvegarde…" : "Sauvegarder le brouillon"}
             </Button>
           </div>
