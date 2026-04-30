@@ -28,11 +28,25 @@ function injectTracking(html: string, campaignId: string, recipientId: string, t
 
   // 2. Rewrite links for click tracking
   result = result.replace(
-    /href=["'](https?:\/\/[^"']+)["']/gi,
-    (_match, url) => {
-      // Don't track mailto or tel links
-      if (url.startsWith("mailto:") || url.startsWith("tel:")) return _match;
-      const clickUrl = `${trackingBaseUrl}?t=click&c=${campaignId}&r=${recipientId}&u=${encodeURIComponent(url)}`;
+    /href=["']([^"']+)["']/gi,
+    (_match, rawUrl) => {
+      const url = String(rawUrl).trim();
+      // Don't track mailto, tel, anchors, or already-tracked links
+      if (
+        url.startsWith("mailto:") ||
+        url.startsWith("tel:") ||
+        url.startsWith("#") ||
+        url.startsWith("javascript:")
+      ) {
+        return _match;
+      }
+      // Normalize: prepend https:// if no protocol
+      let normalized = url;
+      if (!/^https?:\/\//i.test(normalized)) {
+        // Strip leading slashes for protocol-relative or root-relative URLs
+        normalized = "https://" + normalized.replace(/^\/+/, "");
+      }
+      const clickUrl = `${trackingBaseUrl}?t=click&c=${campaignId}&r=${recipientId}&u=${encodeURIComponent(normalized)}`;
       return `href="${clickUrl}"`;
     }
   );
