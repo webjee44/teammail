@@ -1,15 +1,17 @@
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
+import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Extension } from "@tiptap/react";
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import {
-  Bold, Italic, Strikethrough, List, ListOrdered, Link as LinkIcon, Code, Undo, Redo, FileText,
+  Bold, Italic, Strikethrough, List, ListOrdered, Link as LinkIcon, Code, Undo, Redo, FileText, ImageIcon,
 } from "lucide-react";
 import { Toggle } from "@/components/ui/toggle";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 type Props = {
   value: string;
@@ -17,9 +19,12 @@ type Props = {
   placeholder?: string;
   className?: string;
   onTemplateClick?: () => void;
+  enableImageUpload?: boolean;
 };
 
-export function RichTextEditor({ value, onChange, placeholder, className, onTemplateClick }: Props) {
+export function RichTextEditor({ value, onChange, placeholder, className, onTemplateClick, enableImageUpload }: Props) {
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
   const addLink = useCallback((editorInstance: any) => {
     const previousUrl = editorInstance.getAttributes("link").href || "";
     const url = window.prompt("URL du lien :", previousUrl);
@@ -53,6 +58,11 @@ export function RichTextEditor({ value, onChange, placeholder, className, onTemp
         openOnClick: false,
         HTMLAttributes: { class: "text-primary underline" },
       }),
+      Image.configure({
+        inline: false,
+        allowBase64: false,
+        HTMLAttributes: { style: "max-width: 100%; height: auto; border-radius: 6px;" },
+      }),
       Placeholder.configure({
         placeholder: placeholder || "Tapez votre message…",
       }),
@@ -83,6 +93,33 @@ export function RichTextEditor({ value, onChange, placeholder, className, onTemp
   if (!editor) return null;
 
   const handleAddLink = () => addLink(editor);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !editor) return;
+    if (!file.type.startsWith("image/")) return;
+    if (file.size > 5 * 1024 * 1024) return; // 5MB max
+
+    const ext = file.name.split(".").pop() || "png";
+    const path = `campaign-images/${crypto.randomUUID()}.${ext}`;
+
+    const { error } = await supabase.storage.from("email-assets").upload(path, file, {
+      contentType: file.type,
+      upsert: false,
+    });
+    if (error) {
+      console.error("Upload error:", error);
+      return;
+    }
+
+    const { data: urlData } = supabase.storage.from("email-assets").getPublicUrl(path);
+    if (urlData?.publicUrl) {
+      editor.chain().focus().setImage({ src: urlData.publicUrl }).run();
+    }
+
+    // Reset input
+    if (imageInputRef.current) imageInputRef.current.value = "";
+  };
 
   const ToolbarButton = ({
     pressed,
@@ -176,6 +213,26 @@ export function RichTextEditor({ value, onChange, placeholder, className, onTemp
             >
               <FileText className="h-3.5 w-3.5" />
             </ToolbarButton>
+          </>
+        )}
+
+        {enableImageUpload && (
+          <>
+            <Separator orientation="vertical" className="mx-1 h-5" />
+            <ToolbarButton
+              pressed={false}
+              onPressedChange={() => imageInputRef.current?.click()}
+              title="Insérer une image"
+            >
+              <ImageIcon className="h-3.5 w-3.5" />
+            </ToolbarButton>
+            <input
+              ref={imageInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleImageUpload}
+            />
           </>
         )}
 
