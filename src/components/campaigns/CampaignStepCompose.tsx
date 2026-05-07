@@ -80,6 +80,7 @@ export function CampaignStepCompose({ data, onChange }: Props) {
           onChange={(html) => onChange({ ...data, body_html: html })}
           placeholder="Bonjour {{nom}},&#10;&#10;Nous avons le plaisir de vous informer...&#10;&#10;Cordialement,&#10;L'équipe"
           className="min-h-[300px]"
+          enableImageUpload
         />
       </div>
 
