@@ -1,0 +1,2 @@
+UPDATE campaigns SET status='draft', sent_count=0, failed_count=0 WHERE id='81d10583-b349-4296-9da6-51b280c0a3e2';
+UPDATE campaign_recipients SET status='pending', error_message=NULL, sent_at=NULL WHERE campaign_id='81d10583-b349-4296-9da6-51b280c0a3e2';
