@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { CommandDialog, CommandInput, CommandList, CommandGroup, CommandItem, CommandEmpty } from "@/components/ui/command";
 import { Mail, Paperclip, Search } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -99,9 +98,9 @@ export function CommandMenu({ open, onOpenChange, onSelect, mailboxId }: Props) 
       supabase
         .rpc("search_inbox", {
           p_query: q,
-          p_mailbox_id: mailboxId ?? undefined,
+          p_mailbox_id: mailboxId ?? null,
           p_has_attachment: filters.attachment,
-          p_since: filters.recent ? new Date(Date.now() - 7 * 86400_000).toISOString() : undefined,
+          p_since: filters.recent ? new Date(Date.now() - 7 * 86400_000).toISOString() : null,
           p_from_me: filters.fromMe,
           p_unread_only: filters.unread,
           p_limit: 8,
