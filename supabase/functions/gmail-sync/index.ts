@@ -180,6 +180,8 @@ async function fullScanOnePage(
   const url = new URL("https://gmail.googleapis.com/gmail/v1/users/me/threads");
   url.searchParams.set("maxResults", "20");
   url.searchParams.set("labelIds", "INBOX");
+  // Limit full scan to the last 24 months to keep history bounded
+  url.searchParams.set("q", "newer_than:730d");
   // Resume from stored page token if available
   if (mailbox.full_scan_page_token) {
     url.searchParams.set("pageToken", mailbox.full_scan_page_token);
