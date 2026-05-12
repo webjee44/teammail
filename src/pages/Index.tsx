@@ -295,7 +295,21 @@ const Index = () => {
       <CommandMenu
         open={commandOpen}
         onOpenChange={setCommandOpen}
-        onSelect={setSelectedId}
+        onSelect={async (id) => {
+          // Switch to the conversation's mailbox so the list reflects context
+          const { data } = await supabase
+            .from("conversations")
+            .select("mailbox_id")
+            .eq("id", id)
+            .maybeSingle();
+          if (data?.mailbox_id && data.mailbox_id !== mailboxId) {
+            const params = new URLSearchParams(searchParams);
+            params.set("mailbox", data.mailbox_id);
+            params.delete("filter");
+            setSearchParams(params, { replace: false });
+          }
+          setSelectedId(id);
+        }}
       />
       
     </AppLayout>
