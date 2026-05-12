@@ -18,6 +18,7 @@ import ScheduledEmails from "./pages/ScheduledEmails.tsx";
 import WhatsAppPage from "./pages/WhatsApp.tsx";
 import Campaigns from "./pages/Campaigns.tsx";
 import CampaignWizard from "./pages/CampaignWizard.tsx";
+import SearchResults from "./pages/SearchResults.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import { ReactNode } from "react";
 
@@ -58,6 +59,7 @@ const App = () => (
               <Route path="/whatsapp" element={<ProtectedRoute><WhatsAppPage /></ProtectedRoute>} />
               <Route path="/campaigns" element={<ProtectedRoute><Campaigns /></ProtectedRoute>} />
               <Route path="/campaigns/new" element={<ProtectedRoute><CampaignWizard /></ProtectedRoute>} />
+              <Route path="/search" element={<ProtectedRoute><SearchResults /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
             <FloatingCompose />

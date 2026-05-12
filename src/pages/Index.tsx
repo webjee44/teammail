@@ -295,6 +295,7 @@ const Index = () => {
       <CommandMenu
         open={commandOpen}
         onOpenChange={setCommandOpen}
+        mailboxId={mailboxId}
         onSelect={async (id) => {
           // Switch to the conversation's mailbox so the list reflects context
           const { data } = await supabase

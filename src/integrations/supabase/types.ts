@@ -1517,13 +1517,25 @@ export type Database = {
         }[]
       }
       search_inbox: {
-        Args: { p_limit?: number; p_query: string }
+        Args: {
+          p_from_me?: boolean
+          p_has_attachment?: boolean
+          p_limit?: number
+          p_mailbox_id?: string
+          p_query: string
+          p_since?: string
+          p_unread_only?: boolean
+        }
         Returns: {
           conversation_id: string
-          id: string
-          label: string
-          result_type: string
-          subtitle: string
+          from_email: string
+          from_name: string
+          has_attachment: boolean
+          is_unread: boolean
+          last_message_at: string
+          mailbox_email: string
+          snippet: string
+          subject: string
         }[]
       }
       show_limit: { Args: never; Returns: number }
