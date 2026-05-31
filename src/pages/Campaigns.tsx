@@ -44,6 +44,7 @@ type Campaign = {
   from_email: string | null;
   scheduled_at: string | null;
   created_at: string;
+  body_html?: string;
 };
 
 const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: any }> = {
@@ -138,7 +139,7 @@ export default function Campaigns() {
         name: `${campaign.name} (copie)`,
         subject: campaign.subject,
         from_email: campaign.from_email,
-        body_html: "",
+        body_html: campaign.body_html || "",
         total_recipients: 0,
         created_by: user.id,
         status: "draft",
