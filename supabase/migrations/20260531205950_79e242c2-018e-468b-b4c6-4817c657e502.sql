@@ -1,0 +1,1 @@
+ALTER TABLE public.campaign_recipients ADD COLUMN IF NOT EXISTS city text;
