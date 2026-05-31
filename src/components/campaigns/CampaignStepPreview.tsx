@@ -16,11 +16,13 @@ type Props = {
   sending: boolean;
 };
 
-function replaceVariables(text: string, recipient: { name: string; email: string; company: string }) {
+function replaceVariables(text: string, recipient: { name: string; email: string; company: string; city?: string }) {
   return text
     .replace(/\{\{nom\}\}/g, recipient.name || "—")
     .replace(/\{\{email\}\}/g, recipient.email || "—")
     .replace(/\{\{entreprise\}\}/g, recipient.company || "—")
+    .replace(/\{\{enseigne\}\}/g, recipient.company || "—")
+    .replace(/\{\{ville\}\}/g, recipient.city || "—")
     .replace(/\{\{téléphone\}\}/g, "—");
 }
 

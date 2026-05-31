@@ -19,6 +19,7 @@ type Contact = {
   name: string | null;
   company: string | null;
   phone: string | null;
+  city: string | null;
 };
 
 type TagType = {
@@ -39,7 +40,7 @@ export function CampaignStepRecipients({ data, onChange }: Props) {
   useEffect(() => {
     const loadData = async () => {
       const [contactsRes, tagsRes, ctRes] = await Promise.all([
-        supabase.from("contacts").select("id, email, name, company, phone").order("name").range(0, 49999),
+        supabase.from("contacts").select("id, email, name, company, phone, city").order("name").range(0, 49999),
         supabase.from("tags").select("id, name, color").order("name").range(0, 9999),
         supabase.from("contact_tags").select("contact_id, tag_id").range(0, 49999),
       ]);
@@ -105,6 +106,7 @@ export function CampaignStepRecipients({ data, onChange }: Props) {
             email: contact.email,
             name: contact.name || "",
             company: contact.company || "",
+            city: contact.city || "",
           },
         ],
       });
@@ -117,6 +119,7 @@ export function CampaignStepRecipients({ data, onChange }: Props) {
       email: c.email,
       name: c.name || "",
       company: c.company || "",
+      city: c.city || "",
     }));
     const existing = new Map(data.recipients.map((r) => [r.email, r]));
     all.forEach((r) => existing.set(r.email, r));
@@ -130,6 +133,7 @@ export function CampaignStepRecipients({ data, onChange }: Props) {
       email: c.email,
       name: c.name || "",
       company: c.company || "",
+      city: c.city || "",
     }));
     const existing = new Map(data.recipients.map((r) => [r.email, r]));
     toAdd.forEach((r) => existing.set(r.email, r));

@@ -103,6 +103,7 @@ export type Database = {
       campaign_recipients: {
         Row: {
           campaign_id: string
+          city: string | null
           clicked_at: string | null
           company: string | null
           contact_id: string | null
@@ -117,6 +118,7 @@ export type Database = {
         }
         Insert: {
           campaign_id: string
+          city?: string | null
           clicked_at?: string | null
           company?: string | null
           contact_id?: string | null
@@ -131,6 +133,7 @@ export type Database = {
         }
         Update: {
           campaign_id?: string
+          city?: string | null
           clicked_at?: string | null
           company?: string | null
           contact_id?: string | null
