@@ -39,9 +39,9 @@ export function CampaignStepRecipients({ data, onChange }: Props) {
   useEffect(() => {
     const loadData = async () => {
       const [contactsRes, tagsRes, ctRes] = await Promise.all([
-        supabase.from("contacts").select("id, email, name, company, phone").order("name"),
-        supabase.from("tags").select("id, name, color").order("name"),
-        supabase.from("contact_tags").select("contact_id, tag_id"),
+        supabase.from("contacts").select("id, email, name, company, phone").order("name").range(0, 49999),
+        supabase.from("tags").select("id, name, color").order("name").range(0, 9999),
+        supabase.from("contact_tags").select("contact_id, tag_id").range(0, 49999),
       ]);
 
       if (contactsRes.data) setContacts(contactsRes.data);
