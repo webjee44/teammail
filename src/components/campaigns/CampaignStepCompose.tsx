@@ -17,6 +17,8 @@ const variables = [
   { label: "{{nom}}", desc: "Nom du contact" },
   { label: "{{email}}", desc: "Email du contact" },
   { label: "{{entreprise}}", desc: "Entreprise" },
+  { label: "{{enseigne}}", desc: "Enseigne (alias entreprise)" },
+  { label: "{{ville}}", desc: "Ville" },
   { label: "{{téléphone}}", desc: "Téléphone" },
 ];
 

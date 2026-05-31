@@ -6,11 +6,13 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-function replaceVariables(text: string, recipient: { name: string | null; email: string; company: string | null }) {
+function replaceVariables(text: string, recipient: { name: string | null; email: string; company: string | null; city?: string | null }) {
   return text
     .replace(/\{\{nom\}\}/g, recipient.name || "")
     .replace(/\{\{email\}\}/g, recipient.email || "")
     .replace(/\{\{entreprise\}\}/g, recipient.company || "")
+    .replace(/\{\{enseigne\}\}/g, recipient.company || "")
+    .replace(/\{\{ville\}\}/g, recipient.city || "")
     .replace(/\{\{téléphone\}\}/g, "");
 }
 

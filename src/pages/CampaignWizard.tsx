@@ -26,6 +26,7 @@ export type Recipient = {
   email: string;
   name: string;
   company: string;
+  city?: string;
 };
 
 const steps = [
@@ -101,6 +102,7 @@ export default function CampaignWizard() {
           email: r.email,
           name: r.name || "",
           company: r.company || "",
+          city: (r as any).city || "",
         })),
       });
       hydrated.current = true;
@@ -164,6 +166,7 @@ export default function CampaignWizard() {
                 email: r.email,
                 name: r.name,
                 company: r.company,
+                city: r.city || null,
               }))
             );
           }
@@ -196,6 +199,7 @@ export default function CampaignWizard() {
               email: r.email,
               name: r.name,
               company: r.company,
+              city: r.city || null,
             }))
           );
         }
