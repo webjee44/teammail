@@ -6,63 +6,20 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// ─── Google OAuth JWT ─────────────────────────────────────────────
+// ─── Lovable Gmail connector gateway ──────────────────────────────
 
-async function getAccessToken(serviceAccountKey: any, userEmail: string): Promise<string> {
-  const now = Math.floor(Date.now() / 1000);
-  const header = { alg: "RS256", typ: "JWT" };
-  const payload = {
-    iss: serviceAccountKey.client_email,
-    sub: userEmail,
-    scope: "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.modify",
-    aud: "https://oauth2.googleapis.com/token",
-    iat: now,
-    exp: now + 3600,
+const GATEWAY_URL = "https://connector-gateway.lovable.dev/google_mail/gmail/v1";
+
+function gmailHeaders(extra: Record<string, string> = {}) {
+  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+  const connKey = Deno.env.get("GOOGLE_MAIL_API_KEY");
+  if (!lovableKey) throw new Error("LOVABLE_API_KEY missing");
+  if (!connKey) throw new Error("GOOGLE_MAIL_API_KEY missing (Gmail connector not linked)");
+  return {
+    Authorization: `Bearer ${lovableKey}`,
+    "X-Connection-Api-Key": connKey,
+    ...extra,
   };
-
-  const encode = (obj: any) => btoa(JSON.stringify(obj)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-  const unsignedToken = `${encode(header)}.${encode(payload)}`;
-
-  const pemContents = serviceAccountKey.private_key
-    .replace(/-----BEGIN PRIVATE KEY-----/, "")
-    .replace(/-----END PRIVATE KEY-----/, "")
-    .replace(/\n/g, "");
-  const binaryKey = Uint8Array.from(atob(pemContents), (c) => c.charCodeAt(0));
-
-  const cryptoKey = await crypto.subtle.importKey(
-    "pkcs8",
-    binaryKey,
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-
-  const signature = await crypto.subtle.sign(
-    "RSASSA-PKCS1-v1_5",
-    cryptoKey,
-    new TextEncoder().encode(unsignedToken)
-  );
-
-  const sig = btoa(String.fromCharCode(...new Uint8Array(signature)))
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
-
-  const jwt = `${unsignedToken}.${sig}`;
-
-  const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${jwt}`,
-  });
-
-  if (!tokenRes.ok) {
-    const err = await tokenRes.text();
-    throw new Error(`Failed to get access token for ${userEmail}: ${err}`);
-  }
-
-  const tokenData = await tokenRes.json();
-  return tokenData.access_token;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────
