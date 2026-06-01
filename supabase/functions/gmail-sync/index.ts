@@ -134,7 +134,7 @@ async function fullScanOnePage(
 ): Promise<{ synced: number; nextPageToken: string | null; done: boolean }> {
   let synced = 0;
 
-  const url = new URL("${GATEWAY_URL}/users/me/threads");
+  const url = new URL(`${GATEWAY_URL}/users/me/threads`);
   url.searchParams.set("maxResults", "20");
   url.searchParams.set("labelIds", "INBOX");
   // Limit full scan to the last 24 months to keep history bounded
@@ -184,7 +184,7 @@ async function incrementalSync(
   const processedThreadIds = new Set<string>();
 
   do {
-    const url = new URL("${GATEWAY_URL}/users/me/history");
+    const url = new URL(`${GATEWAY_URL}/users/me/history`);
     url.searchParams.set("startHistoryId", startHistoryId);
     // FIX: historyTypes must be repeated params, not comma-separated
     url.searchParams.append("historyTypes", "messageAdded");
@@ -691,7 +691,7 @@ serve(async (req) => {
           let historyId: string | null = null;
           try {
             const profileRes = await fetch(
-              "${GATEWAY_URL}/users/me/profile",
+              `${GATEWAY_URL}/users/me/profile`,
               { headers: gmailHeaders() }
             );
             if (profileRes.ok) {
