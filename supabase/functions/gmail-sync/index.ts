@@ -134,7 +134,7 @@ async function fullScanOnePage(
 ): Promise<{ synced: number; nextPageToken: string | null; done: boolean }> {
   let synced = 0;
 
-  const url = new URL("https://gmail.googleapis.com/gmail/v1/users/me/threads");
+  const url = new URL("${GATEWAY_URL}/users/me/threads");
   url.searchParams.set("maxResults", "20");
   url.searchParams.set("labelIds", "INBOX");
   // Limit full scan to the last 24 months to keep history bounded
@@ -145,7 +145,7 @@ async function fullScanOnePage(
   }
 
   const threadsRes = await fetch(url.toString(), {
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: gmailHeaders(),
   });
 
   if (!threadsRes.ok) {
@@ -184,7 +184,7 @@ async function incrementalSync(
   const processedThreadIds = new Set<string>();
 
   do {
-    const url = new URL("https://gmail.googleapis.com/gmail/v1/users/me/history");
+    const url = new URL("${GATEWAY_URL}/users/me/history");
     url.searchParams.set("startHistoryId", startHistoryId);
     // FIX: historyTypes must be repeated params, not comma-separated
     url.searchParams.append("historyTypes", "messageAdded");
@@ -194,7 +194,7 @@ async function incrementalSync(
     if (pageToken) url.searchParams.set("pageToken", pageToken);
 
     const historyRes = await fetch(url.toString(), {
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: gmailHeaders(),
     });
 
     if (historyRes.status === 404) {
@@ -279,8 +279,8 @@ async function syncThread(
     .maybeSingle();
 
   const threadRes = await fetch(
-    `https://gmail.googleapis.com/gmail/v1/users/me/threads/${threadId}?format=full`,
-    { headers: { Authorization: `Bearer ${accessToken}` } }
+    `${GATEWAY_URL}/users/me/threads/${threadId}?format=full`,
+    { headers: gmailHeaders() }
   );
 
   if (!threadRes.ok) return false;
@@ -463,8 +463,8 @@ async function syncThread(
         }
 
         const attRes = await fetch(
-          `https://gmail.googleapis.com/gmail/v1/users/me/messages/${gMsg.id}/attachments/${att.attachmentId}`,
-          { headers: { Authorization: `Bearer ${accessToken}` } }
+          `${GATEWAY_URL}/users/me/messages/${gMsg.id}/attachments/${att.attachmentId}`,
+          { headers: gmailHeaders() }
         );
         if (!attRes.ok) {
           console.error(`Failed to download attachment ${att.filename}:`, await attRes.text());
@@ -691,8 +691,8 @@ serve(async (req) => {
           let historyId: string | null = null;
           try {
             const profileRes = await fetch(
-              "https://gmail.googleapis.com/gmail/v1/users/me/profile",
-              { headers: { Authorization: `Bearer ${accessToken}` } }
+              "${GATEWAY_URL}/users/me/profile",
+              { headers: gmailHeaders() }
             );
             if (profileRes.ok) {
               const profile = await profileRes.json();
