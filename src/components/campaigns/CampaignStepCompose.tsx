@@ -34,7 +34,12 @@ export function CampaignStepCompose({ data, onChange }: Props) {
     setPolishing(true);
     try {
       const { data: result, error } = await supabase.functions.invoke("polish-reply", {
-        body: { text: data.body_html, instruction: "Améliore ce texte d'email professionnel. Garde les variables entre {{ }} intactes. Réponds uniquement avec le texte amélioré." },
+        body: {
+          text: data.body_html,
+          format: "html",
+          instruction:
+            "Améliore ce texte d'email professionnel. Garde les variables entre {{ }} intactes (ex: {{enseigne}}, {{ville}}). Conserve exactement la mise en forme HTML : paragraphes <p>, sauts de ligne, listes, liens, gras, italique. Réponds uniquement avec le HTML amélioré.",
+        },
       });
       if (error) throw error;
       if (result?.polished) {
