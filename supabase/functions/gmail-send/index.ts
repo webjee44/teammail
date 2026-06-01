@@ -34,62 +34,19 @@ function toBase64Url(str: string): string {
     .replace(/=+$/, "");
 }
 
-async function getAccessToken(serviceAccountKey: any, senderEmail: string): Promise<string> {
-  const now = Math.floor(Date.now() / 1000);
-  const header = { alg: "RS256", typ: "JWT" };
-  const payload = {
-    iss: serviceAccountKey.client_email,
-    sub: senderEmail,
-    scope: "https://www.googleapis.com/auth/gmail.send",
-    aud: "https://oauth2.googleapis.com/token",
-    iat: now,
-    exp: now + 3600,
+// Lovable Gmail connector gateway
+const GATEWAY_URL = "https://connector-gateway.lovable.dev/google_mail/gmail/v1";
+
+function gmailHeaders(extra: Record<string, string> = {}) {
+  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+  const connKey = Deno.env.get("GOOGLE_MAIL_API_KEY");
+  if (!lovableKey) throw new Error("LOVABLE_API_KEY missing");
+  if (!connKey) throw new Error("GOOGLE_MAIL_API_KEY missing (Gmail connector not linked)");
+  return {
+    Authorization: `Bearer ${lovableKey}`,
+    "X-Connection-Api-Key": connKey,
+    ...extra,
   };
-
-  const encode = (obj: any) =>
-    btoa(JSON.stringify(obj)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-  const unsignedToken = `${encode(header)}.${encode(payload)}`;
-
-  const pemContents = serviceAccountKey.private_key
-    .replace(/-----BEGIN PRIVATE KEY-----/, "")
-    .replace(/-----END PRIVATE KEY-----/, "")
-    .replace(/\n/g, "");
-  const binaryKey = Uint8Array.from(atob(pemContents), (c) => c.charCodeAt(0));
-
-  const cryptoKey = await crypto.subtle.importKey(
-    "pkcs8",
-    binaryKey,
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-
-  const signature = await crypto.subtle.sign(
-    "RSASSA-PKCS1-v1_5",
-    cryptoKey,
-    new TextEncoder().encode(unsignedToken)
-  );
-
-  const sig = btoa(String.fromCharCode(...new Uint8Array(signature)))
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
-
-  const jwt = `${unsignedToken}.${sig}`;
-
-  const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${jwt}`,
-  });
-
-  if (!tokenRes.ok) {
-    const err = await tokenRes.text();
-    throw new Error(`Failed to get access token for ${senderEmail}: ${err}`);
-  }
-
-  const tokenData = await tokenRes.json();
-  return tokenData.access_token;
 }
 
 type Attachment = {
@@ -279,23 +236,6 @@ serve(async (req) => {
 
     const signatureHtml = skip_signature ? "" : await getSignatureHtml(supabase, mailbox.id);
 
-    let serviceAccountKeyStr = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
-    if (!serviceAccountKeyStr) throw new Error("GOOGLE_SERVICE_ACCOUNT_KEY not configured");
-
-    serviceAccountKeyStr = serviceAccountKeyStr.trim();
-    let serviceAccountKey: any;
-    try {
-      serviceAccountKey = JSON.parse(serviceAccountKeyStr);
-    } catch {
-      try {
-        serviceAccountKey = JSON.parse(atob(serviceAccountKeyStr));
-      } catch (e2) {
-        throw new Error(`Invalid GOOGLE_SERVICE_ACCOUNT_KEY format: ${e2}`);
-      }
-    }
-
-    const accessToken = await getAccessToken(serviceAccountKey, from_email.toLowerCase());
-
     const isHtml = /<[a-z][\s\S]*>/i.test(body);
     const plainBody = isHtml ? body.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">") : body;
     const htmlBody = isHtml ? body : body.replace(/\n/g, "<br>");
@@ -316,13 +256,10 @@ serve(async (req) => {
     const encodedMessage = toBase64Url(rawEmail);
 
     const sendRes = await fetch(
-      "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+      `${GATEWAY_URL}/users/me/messages/send`,
       {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
+        headers: gmailHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ raw: encodedMessage, ...(thread_id ? { threadId: thread_id } : {}) }),
       }
     );
