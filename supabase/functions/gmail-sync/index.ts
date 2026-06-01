@@ -128,7 +128,6 @@ function extractAttachments(payload: any): AttachmentInfo[] {
 // ─── Full scan: ONE page per run, resumable via page token ────────
 
 async function fullScanOnePage(
-  accessToken: string,
   mailbox: any,
   supabase: any,
 ): Promise<{ synced: number; nextPageToken: string | null; done: boolean }> {
@@ -160,7 +159,7 @@ async function fullScanOnePage(
 
   for (const thread of threads) {
     // During full scan, skip binary attachment downloads to stay within timeout
-    const threadSynced = await syncThread(accessToken, thread.id, mailbox, supabase, /* skipAttachmentBinaries */ true);
+    const threadSynced = await syncThread(thread.id, mailbox, supabase, /* skipAttachmentBinaries */ true);
     if (threadSynced) synced++;
   }
 
@@ -173,7 +172,6 @@ async function fullScanOnePage(
 // ─── Incremental sync: history.list ───────────────────────────────
 
 async function incrementalSync(
-  accessToken: string,
   mailbox: any,
   supabase: any,
   startHistoryId: string,
@@ -219,7 +217,7 @@ async function incrementalSync(
           const threadId = added.message?.threadId;
           if (threadId && !processedThreadIds.has(threadId)) {
             processedThreadIds.add(threadId);
-            const threadSynced = await syncThread(accessToken, threadId, mailbox, supabase, false);
+            const threadSynced = await syncThread(threadId, mailbox, supabase, false);
             if (threadSynced) synced++;
           }
         }
@@ -265,7 +263,6 @@ async function incrementalSync(
 // ─── Sync a single thread ─────────────────────────────────────────
 
 async function syncThread(
-  accessToken: string,
   threadId: string,
   mailbox: any,
   supabase: any,
@@ -587,22 +584,6 @@ serve(async (req) => {
       // No body or invalid JSON
     }
 
-    let serviceAccountKeyStr = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
-    if (!serviceAccountKeyStr) throw new Error("GOOGLE_SERVICE_ACCOUNT_KEY not configured");
-
-    serviceAccountKeyStr = serviceAccountKeyStr.trim();
-    let serviceAccountKey: any;
-    try {
-      serviceAccountKey = JSON.parse(serviceAccountKeyStr);
-    } catch {
-      try {
-        serviceAccountKey = JSON.parse(atob(serviceAccountKeyStr));
-      } catch (e2) {
-        console.error("Failed to parse service account key. First 20 chars:", serviceAccountKeyStr.substring(0, 20));
-        throw new Error(`Invalid GOOGLE_SERVICE_ACCOUNT_KEY format: ${e2}`);
-      }
-    }
-
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // ── Round-robin: pick ONE mailbox (the one with oldest last_run_at) ──
@@ -642,14 +623,13 @@ serve(async (req) => {
       .eq("id", mailbox.id);
 
     try {
-      const accessToken = await getAccessToken(serviceAccountKey, mailbox.email);
       let synced = 0;
       let action = "";
 
       if (mailbox.sync_mode === "incremental" && mailbox.history_id) {
         // ── Incremental sync ──
         console.log(`Incremental sync for ${mailbox.email} from historyId ${mailbox.history_id}`);
-        const result = await incrementalSync(accessToken, mailbox, supabase, String(mailbox.history_id));
+        const result = await incrementalSync(mailbox, supabase, String(mailbox.history_id));
 
         if (result.needsFullScan) {
           // History expired — reset to full_scan mode
@@ -683,7 +663,7 @@ serve(async (req) => {
       } else {
         // ── Full scan (one page at a time) ──
         console.log(`Full scan for ${mailbox.email} (page_token: ${mailbox.full_scan_page_token || "START"})`);
-        const result = await fullScanOnePage(accessToken, mailbox, supabase);
+        const result = await fullScanOnePage(mailbox, supabase);
         synced = result.synced;
 
         if (result.done) {
