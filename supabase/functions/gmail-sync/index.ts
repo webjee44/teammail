@@ -6,63 +6,20 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// ─── Google OAuth JWT ─────────────────────────────────────────────
+// ─── Lovable Gmail connector gateway ──────────────────────────────
 
-async function getAccessToken(serviceAccountKey: any, userEmail: string): Promise<string> {
-  const now = Math.floor(Date.now() / 1000);
-  const header = { alg: "RS256", typ: "JWT" };
-  const payload = {
-    iss: serviceAccountKey.client_email,
-    sub: userEmail,
-    scope: "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.modify",
-    aud: "https://oauth2.googleapis.com/token",
-    iat: now,
-    exp: now + 3600,
+const GATEWAY_URL = "https://connector-gateway.lovable.dev/google_mail/gmail/v1";
+
+function gmailHeaders(extra: Record<string, string> = {}) {
+  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+  const connKey = Deno.env.get("GOOGLE_MAIL_API_KEY");
+  if (!lovableKey) throw new Error("LOVABLE_API_KEY missing");
+  if (!connKey) throw new Error("GOOGLE_MAIL_API_KEY missing (Gmail connector not linked)");
+  return {
+    Authorization: `Bearer ${lovableKey}`,
+    "X-Connection-Api-Key": connKey,
+    ...extra,
   };
-
-  const encode = (obj: any) => btoa(JSON.stringify(obj)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-  const unsignedToken = `${encode(header)}.${encode(payload)}`;
-
-  const pemContents = serviceAccountKey.private_key
-    .replace(/-----BEGIN PRIVATE KEY-----/, "")
-    .replace(/-----END PRIVATE KEY-----/, "")
-    .replace(/\n/g, "");
-  const binaryKey = Uint8Array.from(atob(pemContents), (c) => c.charCodeAt(0));
-
-  const cryptoKey = await crypto.subtle.importKey(
-    "pkcs8",
-    binaryKey,
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-
-  const signature = await crypto.subtle.sign(
-    "RSASSA-PKCS1-v1_5",
-    cryptoKey,
-    new TextEncoder().encode(unsignedToken)
-  );
-
-  const sig = btoa(String.fromCharCode(...new Uint8Array(signature)))
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
-
-  const jwt = `${unsignedToken}.${sig}`;
-
-  const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${jwt}`,
-  });
-
-  if (!tokenRes.ok) {
-    const err = await tokenRes.text();
-    throw new Error(`Failed to get access token for ${userEmail}: ${err}`);
-  }
-
-  const tokenData = await tokenRes.json();
-  return tokenData.access_token;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────
@@ -171,13 +128,12 @@ function extractAttachments(payload: any): AttachmentInfo[] {
 // ─── Full scan: ONE page per run, resumable via page token ────────
 
 async function fullScanOnePage(
-  accessToken: string,
   mailbox: any,
   supabase: any,
 ): Promise<{ synced: number; nextPageToken: string | null; done: boolean }> {
   let synced = 0;
 
-  const url = new URL("https://gmail.googleapis.com/gmail/v1/users/me/threads");
+  const url = new URL(`${GATEWAY_URL}/users/me/threads`);
   url.searchParams.set("maxResults", "20");
   url.searchParams.set("labelIds", "INBOX");
   // Limit full scan to the last 24 months to keep history bounded
@@ -188,7 +144,7 @@ async function fullScanOnePage(
   }
 
   const threadsRes = await fetch(url.toString(), {
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: gmailHeaders(),
   });
 
   if (!threadsRes.ok) {
@@ -203,7 +159,7 @@ async function fullScanOnePage(
 
   for (const thread of threads) {
     // During full scan, skip binary attachment downloads to stay within timeout
-    const threadSynced = await syncThread(accessToken, thread.id, mailbox, supabase, /* skipAttachmentBinaries */ true);
+    const threadSynced = await syncThread(thread.id, mailbox, supabase, /* skipAttachmentBinaries */ true);
     if (threadSynced) synced++;
   }
 
@@ -216,7 +172,6 @@ async function fullScanOnePage(
 // ─── Incremental sync: history.list ───────────────────────────────
 
 async function incrementalSync(
-  accessToken: string,
   mailbox: any,
   supabase: any,
   startHistoryId: string,
@@ -227,7 +182,7 @@ async function incrementalSync(
   const processedThreadIds = new Set<string>();
 
   do {
-    const url = new URL("https://gmail.googleapis.com/gmail/v1/users/me/history");
+    const url = new URL(`${GATEWAY_URL}/users/me/history`);
     url.searchParams.set("startHistoryId", startHistoryId);
     // FIX: historyTypes must be repeated params, not comma-separated
     url.searchParams.append("historyTypes", "messageAdded");
@@ -237,7 +192,7 @@ async function incrementalSync(
     if (pageToken) url.searchParams.set("pageToken", pageToken);
 
     const historyRes = await fetch(url.toString(), {
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: gmailHeaders(),
     });
 
     if (historyRes.status === 404) {
@@ -262,7 +217,7 @@ async function incrementalSync(
           const threadId = added.message?.threadId;
           if (threadId && !processedThreadIds.has(threadId)) {
             processedThreadIds.add(threadId);
-            const threadSynced = await syncThread(accessToken, threadId, mailbox, supabase, false);
+            const threadSynced = await syncThread(threadId, mailbox, supabase, false);
             if (threadSynced) synced++;
           }
         }
@@ -308,7 +263,6 @@ async function incrementalSync(
 // ─── Sync a single thread ─────────────────────────────────────────
 
 async function syncThread(
-  accessToken: string,
   threadId: string,
   mailbox: any,
   supabase: any,
@@ -322,8 +276,8 @@ async function syncThread(
     .maybeSingle();
 
   const threadRes = await fetch(
-    `https://gmail.googleapis.com/gmail/v1/users/me/threads/${threadId}?format=full`,
-    { headers: { Authorization: `Bearer ${accessToken}` } }
+    `${GATEWAY_URL}/users/me/threads/${threadId}?format=full`,
+    { headers: gmailHeaders() }
   );
 
   if (!threadRes.ok) return false;
@@ -506,8 +460,8 @@ async function syncThread(
         }
 
         const attRes = await fetch(
-          `https://gmail.googleapis.com/gmail/v1/users/me/messages/${gMsg.id}/attachments/${att.attachmentId}`,
-          { headers: { Authorization: `Bearer ${accessToken}` } }
+          `${GATEWAY_URL}/users/me/messages/${gMsg.id}/attachments/${att.attachmentId}`,
+          { headers: gmailHeaders() }
         );
         if (!attRes.ok) {
           console.error(`Failed to download attachment ${att.filename}:`, await attRes.text());
@@ -630,22 +584,6 @@ serve(async (req) => {
       // No body or invalid JSON
     }
 
-    let serviceAccountKeyStr = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
-    if (!serviceAccountKeyStr) throw new Error("GOOGLE_SERVICE_ACCOUNT_KEY not configured");
-
-    serviceAccountKeyStr = serviceAccountKeyStr.trim();
-    let serviceAccountKey: any;
-    try {
-      serviceAccountKey = JSON.parse(serviceAccountKeyStr);
-    } catch {
-      try {
-        serviceAccountKey = JSON.parse(atob(serviceAccountKeyStr));
-      } catch (e2) {
-        console.error("Failed to parse service account key. First 20 chars:", serviceAccountKeyStr.substring(0, 20));
-        throw new Error(`Invalid GOOGLE_SERVICE_ACCOUNT_KEY format: ${e2}`);
-      }
-    }
-
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // ── Round-robin: pick ONE mailbox (the one with oldest last_run_at) ──
@@ -685,14 +623,13 @@ serve(async (req) => {
       .eq("id", mailbox.id);
 
     try {
-      const accessToken = await getAccessToken(serviceAccountKey, mailbox.email);
       let synced = 0;
       let action = "";
 
       if (mailbox.sync_mode === "incremental" && mailbox.history_id) {
         // ── Incremental sync ──
         console.log(`Incremental sync for ${mailbox.email} from historyId ${mailbox.history_id}`);
-        const result = await incrementalSync(accessToken, mailbox, supabase, String(mailbox.history_id));
+        const result = await incrementalSync(mailbox, supabase, String(mailbox.history_id));
 
         if (result.needsFullScan) {
           // History expired — reset to full_scan mode
@@ -726,7 +663,7 @@ serve(async (req) => {
       } else {
         // ── Full scan (one page at a time) ──
         console.log(`Full scan for ${mailbox.email} (page_token: ${mailbox.full_scan_page_token || "START"})`);
-        const result = await fullScanOnePage(accessToken, mailbox, supabase);
+        const result = await fullScanOnePage(mailbox, supabase);
         synced = result.synced;
 
         if (result.done) {
@@ -734,8 +671,8 @@ serve(async (req) => {
           let historyId: string | null = null;
           try {
             const profileRes = await fetch(
-              "https://gmail.googleapis.com/gmail/v1/users/me/profile",
-              { headers: { Authorization: `Bearer ${accessToken}` } }
+              `${GATEWAY_URL}/users/me/profile`,
+              { headers: gmailHeaders() }
             );
             if (profileRes.ok) {
               const profile = await profileRes.json();
