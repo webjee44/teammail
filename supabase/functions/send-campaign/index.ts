@@ -152,8 +152,8 @@ serve(async (req) => {
 
     // Chunked processing — one invocation handles BATCH_SIZE recipients
     // then fire-and-forget re-invokes itself. Keeps each run under edge
-    // worker lifetime and lets pg_cron resume any orphaned chunk.
-    const BATCH_SIZE = 15;
+    // request/client timeouts and lets pg_cron resume any orphaned chunk.
+    const BATCH_SIZE = 4;
 
     // Load next batch of pending recipients only
     const { data: recipients } = await supabase
@@ -161,6 +161,7 @@ serve(async (req) => {
       .select("*")
       .eq("campaign_id", campaign_id)
       .eq("status", "pending")
+      .order("created_at", { ascending: true })
       .limit(BATCH_SIZE);
 
     if (!recipients || recipients.length === 0) {
