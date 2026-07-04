@@ -90,8 +90,18 @@ serve(async (req) => {
     // Otherwise validate as a user JWT.
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
     const isServiceRole = token === supabaseServiceKey;
-    const isAnonKey = anonKey && token === anonKey;
-    if (!isServiceRole && !isAnonKey) {
+    let isCronAnonJwt = false;
+    try {
+      const payloadB64 = token.split(".")[1];
+      if (payloadB64) {
+        const payload = JSON.parse(atob(payloadB64));
+        isCronAnonJwt = payload.role === "anon" && payload.iss === "supabase";
+      }
+    } catch {
+      // Not a JWT; fall back to the exact secret comparison below.
+    }
+    const isAnonKey = Boolean(anonKey && token === anonKey);
+    if (!isServiceRole && !isAnonKey && !isCronAnonJwt) {
       const authClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
       const { data: authData, error: authErr } = await authClient.auth.getUser(token);
       if (authErr || !authData?.user) {
@@ -142,8 +152,8 @@ serve(async (req) => {
 
     // Chunked processing — one invocation handles BATCH_SIZE recipients
     // then fire-and-forget re-invokes itself. Keeps each run under edge
-    // worker lifetime and lets pg_cron resume any orphaned chunk.
-    const BATCH_SIZE = 15;
+    // request/client timeouts and lets pg_cron resume any orphaned chunk.
+    const BATCH_SIZE = 4;
 
     // Load next batch of pending recipients only
     const { data: recipients } = await supabase
@@ -151,6 +161,7 @@ serve(async (req) => {
       .select("*")
       .eq("campaign_id", campaign_id)
       .eq("status", "pending")
+      .order("created_at", { ascending: true })
       .limit(BATCH_SIZE);
 
     if (!recipients || recipients.length === 0) {
