@@ -90,8 +90,18 @@ serve(async (req) => {
     // Otherwise validate as a user JWT.
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
     const isServiceRole = token === supabaseServiceKey;
-    const isAnonKey = anonKey && token === anonKey;
-    if (!isServiceRole && !isAnonKey) {
+    let isCronAnonJwt = false;
+    try {
+      const payloadB64 = token.split(".")[1];
+      if (payloadB64) {
+        const payload = JSON.parse(atob(payloadB64));
+        isCronAnonJwt = payload.role === "anon" && payload.iss === "supabase";
+      }
+    } catch {
+      // Not a JWT; fall back to the exact secret comparison below.
+    }
+    const isAnonKey = Boolean(anonKey && token === anonKey);
+    if (!isServiceRole && !isAnonKey && !isCronAnonJwt) {
       const authClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
       const { data: authData, error: authErr } = await authClient.auth.getUser(token);
       if (authErr || !authData?.user) {
