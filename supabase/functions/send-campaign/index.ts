@@ -120,22 +120,32 @@ serve(async (req) => {
       });
     }
 
-    if (campaign.status !== "draft") {
-      return new Response(JSON.stringify({ error: "Campaign already sent or sending" }), {
+    // Accept draft (initial launch) or sending (resume from a previous chunk)
+    if (campaign.status !== "draft" && campaign.status !== "sending") {
+      return new Response(JSON.stringify({ error: `Campaign status is ${campaign.status}, cannot send` }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Mark as sending
-    await supabase.from("campaigns").update({ status: "sending" }).eq("id", campaign_id);
+    // Mark as sending (bump updated_at so the cron watchdog knows we're alive)
+    await supabase
+      .from("campaigns")
+      .update({ status: "sending", updated_at: new Date().toISOString() })
+      .eq("id", campaign_id);
 
-    // Load pending recipients
+    // Chunked processing — one invocation handles BATCH_SIZE recipients
+    // then fire-and-forget re-invokes itself. Keeps each run under edge
+    // worker lifetime and lets pg_cron resume any orphaned chunk.
+    const BATCH_SIZE = 15;
+
+    // Load next batch of pending recipients only
     const { data: recipients } = await supabase
       .from("campaign_recipients")
       .select("*")
       .eq("campaign_id", campaign_id)
-      .eq("status", "pending");
+      .eq("status", "pending")
+      .limit(BATCH_SIZE);
 
     if (!recipients || recipients.length === 0) {
       await supabase.from("campaigns").update({ status: "sent" }).eq("id", campaign_id);
@@ -152,12 +162,10 @@ serve(async (req) => {
       .eq("status", "sent");
     const sentEmails = new Set((alreadySent || []).map((r) => r.email.toLowerCase()));
 
-    // Background worker — runs after we return the response, so no 150s timeout
-    const work = async () => {
-      let sentCount = 0;
-      let failedCount = 0;
+    let sentCount = 0;
+    let failedCount = 0;
 
-      for (let i = 0; i < recipients.length; i++) {
+    for (let i = 0; i < recipients.length; i++) {
         const r = recipients[i];
 
         // Re-check campaign status every iteration — allow remote stop
@@ -168,7 +176,10 @@ serve(async (req) => {
           .single();
         if (cur?.status !== "sending") {
           console.log(`Campaign ${campaign_id} no longer sending (${cur?.status}) — stopping`);
-          break;
+          return new Response(
+            JSON.stringify({ success: true, stopped: true, sent: sentCount, failed: failedCount }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
         }
 
         // Skip if this email was already sent in a previous run
@@ -252,45 +263,63 @@ serve(async (req) => {
           }).eq("id", campaign_id);
         }
 
-        // Delay between sends — randomized 4-8s
+        // Delay between sends — randomized 4-8s (Gmail throttle protection)
         if (i < recipients.length - 1) {
           const ms = 4000 + Math.floor(Math.random() * 4000);
           await delay(ms);
         }
-      }
+    }
 
-      // Final update — mark as sent if no more pending
-      const { count: stillPending } = await supabase
-        .from("campaign_recipients")
-        .select("*", { count: "exact", head: true })
-        .eq("campaign_id", campaign_id)
-        .eq("status", "pending");
-      const { count: totalSent } = await supabase
-        .from("campaign_recipients")
-        .select("*", { count: "exact", head: true })
-        .eq("campaign_id", campaign_id)
-        .eq("status", "sent");
-      const { count: totalFailed } = await supabase
-        .from("campaign_recipients")
-        .select("*", { count: "exact", head: true })
-        .eq("campaign_id", campaign_id)
-        .eq("status", "failed");
+    // End-of-chunk: recount and decide whether to self-invoke or finish
+    const { count: stillPending } = await supabase
+      .from("campaign_recipients")
+      .select("*", { count: "exact", head: true })
+      .eq("campaign_id", campaign_id)
+      .eq("status", "pending");
+    const { count: totalSent } = await supabase
+      .from("campaign_recipients")
+      .select("*", { count: "exact", head: true })
+      .eq("campaign_id", campaign_id)
+      .eq("status", "sent");
+    const { count: totalFailed } = await supabase
+      .from("campaign_recipients")
+      .select("*", { count: "exact", head: true })
+      .eq("campaign_id", campaign_id)
+      .eq("status", "failed");
 
+    if ((stillPending || 0) === 0) {
       await supabase.from("campaigns").update({
-        status: (stillPending || 0) === 0 ? "sent" : "draft",
+        status: "sent",
         sent_count: totalSent || 0,
         failed_count: totalFailed || 0,
       }).eq("id", campaign_id);
+      console.log(`Campaign ${campaign_id} fully sent — sent=${totalSent}, failed=${totalFailed}`);
+      return new Response(
+        JSON.stringify({ success: true, done: true, sent: totalSent, failed: totalFailed }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-      console.log(`Campaign ${campaign_id} done — sent=${sentCount}, failed=${failedCount}`);
-    };
+    // More recipients remain — bump updated_at and self-invoke fire-and-forget
+    await supabase.from("campaigns").update({
+      sent_count: totalSent || 0,
+      failed_count: totalFailed || 0,
+      updated_at: new Date().toISOString(),
+    }).eq("id", campaign_id);
 
-    // Run in background — response returns immediately
-    // @ts-ignore — EdgeRuntime is available in Supabase Edge Functions
-    EdgeRuntime.waitUntil(work());
+    // Fire-and-forget: kick off next chunk without awaiting
+    fetch(`${supabaseUrl}/functions/v1/send-campaign`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${supabaseServiceKey}`,
+      },
+      body: JSON.stringify({ campaign_id }),
+    }).catch((e) => console.error("self-invoke failed:", e));
 
+    console.log(`Campaign ${campaign_id} chunk done — sent=${sentCount}, failed=${failedCount}, remaining=${stillPending}`);
     return new Response(
-      JSON.stringify({ success: true, queued: recipients.length, message: "Envoi en cours en arrière-plan" }),
+      JSON.stringify({ success: true, chunk_done: true, sent: sentCount, failed: failedCount, remaining: stillPending }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
