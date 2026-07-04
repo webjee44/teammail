@@ -86,10 +86,12 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     const token = authHeader.replace("Bearer ", "");
-    // Allow service role token (used by self-invoke and pg_cron watchdog)
+    // Allow service role token (self-invoke) or anon key (pg_cron watchdog).
+    // Otherwise validate as a user JWT.
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
     const isServiceRole = token === supabaseServiceKey;
-    if (!isServiceRole) {
-      const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
+    const isAnonKey = anonKey && token === anonKey;
+    if (!isServiceRole && !isAnonKey) {
       const authClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
       const { data: authData, error: authErr } = await authClient.auth.getUser(token);
       if (authErr || !authData?.user) {
