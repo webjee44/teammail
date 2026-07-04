@@ -1,107 +1,68 @@
-# Migration Gmail : Service Account → Connecteur Lovable
-
 ## Objectif
-Remplacer le mécanisme actuel (Service Account Google Workspace + JWT + délégation domain-wide) par le **connecteur Lovable `google_mail`**, qui gère l'OAuth, le refresh des tokens et le proxy API automatiquement.
 
-**Hypothèse validée :** une seule mailbox conservée — `commercial@cloudvapor.com`. La mailbox `marketing@cloudvapor.com` sera désactivée dans la table `team_mailboxes`.
+Empêcher les campagnes de rester bloquées en `sending` quand le worker background d'edge function est tué avant la fin.
 
-## Pré-requis (action utilisateur)
-1. Te connecter à `commercial@cloudvapor.com` dans ton navigateur avant la migration
-2. Au moment du plan, je déclencherai le picker `connect` → tu autorises l'app Lovable à accéder à cette boîte
-3. Scopes nécessaires : `gmail.readonly`, `gmail.send`, `gmail.modify` (pour archive/mark-read)
+## Changements
 
-## Étapes techniques
+### 1. `supabase/functions/send-campaign/index.ts` — chunking + auto-chaînage
 
-### 1. Lier le connecteur `google_mail`
-Appel à `standard_connectors--connect(connector_id="google_mail")` — tu choisis la boîte dans le picker. Cela expose 2 variables dans les edge functions :
-- `LOVABLE_API_KEY`
-- `GOOGLE_MAIL_API_KEY`
+- Nouvelle constante `BATCH_SIZE = 15`
+- La boucle d'envoi s'arrête après `BATCH_SIZE` destinataires traités (au lieu de tous)
+- Le délai aléatoire 4-8 s entre envois est conservé (protection Gmail) → un chunk dure ~1-2 min max, bien sous la limite edge
+- À la fin du chunk :
+  - Recompte les `pending` restants
+  - S'il en reste **et** que la campagne est toujours `sending` → `fetch()` vers l'URL publique de `send-campaign` avec `{campaign_id}` sans `await` (fire-and-forget), puis `return 200`
+  - S'il n'en reste plus → marquer `status = 'sent'` et return
+- Suppression de `EdgeRuntime.waitUntil` : la fonction rend la main rapidement, plus besoin de background worker
+- Le check `status !== 'sending'` en début de chaque itération est conservé (permet l'arrêt manuel via passage en `draft`)
+- L'idempotence existante (skip par email déjà envoyé) protège contre les doublons si un chunk se ré-invoque par erreur
 
-### 2. Refactor des 5 edge functions Gmail
-Pour chacune, remplacer :
-- ❌ La fonction `getAccessToken()` (~50 lignes de JWT manuel + Web Crypto)
-- ❌ Les appels directs à `https://gmail.googleapis.com/...`
-- ❌ La lecture de `GOOGLE_SERVICE_ACCOUNT_KEY`
-- ❌ Le paramètre `senderEmail` / l'impersonation
+### 2. Migration — cron watchdog
 
-Par :
-- ✅ Helper unique `gmailFetch(path, init)` qui appelle `https://connector-gateway.lovable.dev/google_mail/gmail/v1/...`
-- ✅ Headers `Authorization: Bearer ${LOVABLE_API_KEY}` + `X-Connection-Api-Key: ${GOOGLE_MAIL_API_KEY}`
+Job `pg_cron` toutes les 5 min :
 
-Fichiers concernés :
-- `supabase/functions/gmail-send/index.ts`
-- `supabase/functions/gmail-sync/index.ts`
-- `supabase/functions/gmail-archive/index.ts`
-- `supabase/functions/gmail-mark-read/index.ts`
-- `supabase/functions/gmail-reconcile/index.ts`
-
-### 3. Adapter la logique multi-mailbox
-La table `team_mailboxes` reste, mais la boucle "pour chaque mailbox active, impersonifier" devient "**filtrer sur l'unique mailbox connectée**". Concrètement :
-- Désactiver `marketing@cloudvapor.com` (`is_active = false`) via migration
-- Ajouter un garde-fou : si une edge function reçoit une `mailbox_id` qui ne correspond pas à l'email du connecteur, elle refuse l'appel
-- Stocker l'email connecté dans une variable d'env ou via un appel `gmail/v1/users/me/profile` au démarrage
-
-### 4. Vérification & nettoyage
-- Tester `gmail-sync` manuellement → 1 thread doit remonter
-- Tester `gmail-send` via la Compose UI
-- Tester `gmail-archive` + `gmail-mark-read` depuis la Inbox
-- **Une fois la migration validée**, supprimer le secret `GOOGLE_SERVICE_ACCOUNT_KEY`
-
-### 5. Mettre à jour la mémoire projet
-Documenter dans `mem://features/gmail-integration` que l'app utilise désormais le connecteur Lovable (mono-mailbox) et non plus un Service Account.
-
-## Détails techniques
-
-### Pattern gateway commun (helper partagé inline dans chaque function)
-```ts
-const GATEWAY_URL = "https://connector-gateway.lovable.dev/google_mail/gmail/v1";
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-const GOOGLE_MAIL_API_KEY = Deno.env.get("GOOGLE_MAIL_API_KEY");
-
-if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY missing");
-if (!GOOGLE_MAIL_API_KEY) throw new Error("GOOGLE_MAIL_API_KEY missing");
-
-async function gmailFetch(path: string, init: RequestInit = {}) {
-  const res = await fetch(`${GATEWAY_URL}${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
-      "X-Connection-Api-Key": GOOGLE_MAIL_API_KEY,
-      "Content-Type": "application/json",
-      ...init.headers,
-    },
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Gmail gateway ${res.status}: ${body}`);
-  }
-  return res.json();
-}
-```
-
-### Endpoints utilisés
-| Function | Endpoint actuel | Endpoint gateway |
-|---|---|---|
-| gmail-send | `gmail.googleapis.com/.../messages/send` | `/users/me/messages/send` |
-| gmail-sync | `.../history`, `.../messages/{id}` | `/users/me/history`, `/users/me/messages/{id}` |
-| gmail-archive | `.../messages/{id}/modify` | `/users/me/messages/{id}/modify` |
-| gmail-mark-read | `.../messages/{id}/modify` | `/users/me/messages/{id}/modify` |
-| gmail-reconcile | `.../messages?q=...` | `/users/me/messages?q=...` |
-
-### Migration SQL
 ```sql
-UPDATE public.team_mailboxes
-SET is_active = false
-WHERE email = 'marketing@cloudvapor.com';
+SELECT cron.schedule(
+  'resume-stuck-campaigns',
+  '*/5 * * * *',
+  $$
+  SELECT net.http_post(
+    url := 'https://<project>.supabase.co/functions/v1/send-campaign',
+    headers := '{"Content-Type":"application/json","Authorization":"Bearer <anon>"}'::jsonb,
+    body := jsonb_build_object('campaign_id', c.id)
+  )
+  FROM campaigns c
+  WHERE c.status = 'sending'
+    AND c.updated_at < now() - interval '3 minutes'
+    AND EXISTS (SELECT 1 FROM campaign_recipients r WHERE r.campaign_id = c.id AND r.status = 'pending');
+  $$
+);
 ```
+
+Extensions `pg_cron` et `pg_net` activées si besoin. Cette migration passe par `supabase--insert` (pas `migration`) car elle contient l'URL et la clé du projet — pas de propagation aux remix.
+
+### 3. Note mémoire
+
+Mise à jour de `mem://constraints/campaign-paused` pour refléter que la fonctionnalité est réactivée avec l'architecture chunkée.
+
+## Auth de l'auto-invocation
+
+Le `fetch` self-call inclura `Authorization: Bearer <SERVICE_ROLE_KEY>` (déjà dispo côté edge) — la fonction accepte déjà ce token via son check auth existant. Pas de changement RLS.
+
+## Vérification post-déploiement
+
+1. Relancer manuellement `Easy Drop` seulement si elle n'est pas encore finie (a priori terminée à ce stade)
+2. **Ne pas** relancer Outreach Lot 1 ni Dormants GTA (décision utilisateur)
+3. Observer les logs `send-campaign` pour confirmer le pattern : boot → 15 envois → self-invoke → shutdown propre
 
 ## Zones à risque
-- **Quotas** : le connecteur partage les quotas Gmail standards (250 quota units/sec pour `commercial@`). À surveiller pendant les gros syncs initiaux.
-- **`historyId`** : la première sync post-migration risque d'avoir un `historyId` obsolète → prévoir un fallback "full sync" si le history est invalide.
-- **Pas de rollback simple** : une fois le `GOOGLE_SERVICE_ACCOUNT_KEY` supprimé, retour arrière = recréer une clé GCP. Je le garderai jusqu'à validation complète.
-- **Erreur 403 insufficient scope** possible si tu ne coches pas `gmail.modify` au moment du connect → je détecte et déclenche `reconnect` automatiquement.
 
-## Hors-scope
-- Pas de changement UI
-- Pas de changement aux tables `conversations`, `messages`, `comments`
-- Pas de modification de l'auth utilisateurs (Google Sign-In de l'app reste tel quel)
+- **Boucle infinie** si `status` reste `sending` alors qu'il n'y a plus de `pending` : mitigé par le recompte explicite avant self-invoke
+- **Double invocation** (chunk N+1 lancé par la fonction ET par le cron) : mitigé par l'idempotence email + la fenêtre 3 min du cron
+- **URL self-call** : construite depuis `SUPABASE_URL` env var (déjà utilisée dans le code actuel pour appeler `gmail-send`)
+
+## Fichiers touchés
+
+- `supabase/functions/send-campaign/index.ts` (edit)
+- 1 migration SQL via `supabase--insert` (cron)
+- `.lovable/memory/constraints/campaign-paused.md` (edit)
