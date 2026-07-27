@@ -231,7 +231,8 @@ export function useInboxMutations({
         if (insertErr) throw insertErr;
 
         toast.success("Réponse en cours d'envoi…");
-        setSelectedId(null);
+        // Keep the conversation open — the new message will appear via realtime
+        // as soon as the outbox processor inserts it. No manual refresh needed.
         refetch();
       } catch (err: any) {
         toast.error("Erreur d'envoi : " + (err.message || String(err)));
