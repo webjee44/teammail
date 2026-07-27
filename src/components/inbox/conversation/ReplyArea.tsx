@@ -429,8 +429,19 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
                 <Button
                   size="sm"
                   onClick={async () => {
-                    onReply?.(conversation.id, replyHtml, attachedFiles);
+                    if (isReplyEmpty) return;
+                    const bodyToSend = replyHtml;
+                    const filesToSend = attachedFiles;
+                    // Clear the editor immediately so it doesn't look like nothing happened
                     await resetState();
+                    try {
+                      await onReply?.(conversation.id, bodyToSend, filesToSend);
+                    } catch (err: any) {
+                      toast.error("Erreur lors de l'envoi : " + (err?.message || String(err)));
+                      // Restore what the user typed so they don't lose it
+                      setReplyHtml(bodyToSend);
+                      setAttachedFiles(filesToSend);
+                    }
                   }}
                   disabled={isReplyEmpty}
                   className="gap-1.5 px-4"
