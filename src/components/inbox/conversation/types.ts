@@ -59,7 +59,7 @@ export type ConversationDetailProps = {
   conversation: ConversationDetailData | null;
   currentUserId?: string;
   onStatusChange?: (id: string, status: "open" | "closed") => void;
-  onReply?: (id: string, body: string, attachments?: FileToUpload[]) => void;
+  onReply?: (id: string, body: string, attachments?: FileToUpload[]) => Promise<void> | void;
   onComment?: (id: string, body: string) => void;
   onEditComment?: (commentId: string, newBody: string) => void;
   onDeleteComment?: (commentId: string) => void;

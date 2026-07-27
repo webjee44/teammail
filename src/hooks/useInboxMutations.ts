@@ -145,7 +145,9 @@ export function useInboxMutations({
       const conv =
         conversations.find((c) => c.id === id) ??
         searchResults?.find((c) => c.id === id);
-      if (!conv?.from_email) return;
+      if (!conv?.from_email) {
+        throw new Error("Conversation introuvable ou destinataire manquant");
+      }
 
       // 1. Mailbox of the conversation
       const { data: convRow } = await supabase
@@ -177,10 +179,7 @@ export function useInboxMutations({
 
       // 3. No automatic fallback — block
       if (!fromEmail) {
-        toast.error(
-          "Impossible de déterminer l'expéditeur. Sélectionnez une boîte mail."
-        );
-        return;
+        throw new Error("Impossible de déterminer l'expéditeur. Sélectionnez une boîte mail.");
       }
 
       const lastMsg =
@@ -192,51 +191,46 @@ export function useInboxMutations({
         data: f.base64,
       }));
 
-      // Insert directly into outbox_commands
-      try {
-        const { data: { user: currentUser } } = await supabase.auth.getUser();
-        if (!currentUser) throw new Error("Non authentifié");
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("team_id")
-          .eq("user_id", currentUser.id)
-          .maybeSingle();
-        if (!profile?.team_id) throw new Error("Aucune équipe");
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) throw new Error("Non authentifié");
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("team_id")
+        .eq("user_id", currentUser.id)
+        .maybeSingle();
+      if (!profile?.team_id) throw new Error("Aucune équipe");
 
-        const { error: insertErr } = await supabase.from("outbox_commands").insert({
-          team_id: profile.team_id,
-          created_by: currentUser.id,
-          command_type: "send_reply",
+      const { error: insertErr } = await supabase.from("outbox_commands").insert({
+        team_id: profile.team_id,
+        created_by: currentUser.id,
+        command_type: "send_reply",
+        conversation_id: id,
+        idempotency_key: `reply-${id}-${Date.now()}`,
+        payload: {
+          to: conv.from_email,
+          subject: `Re: ${conv.subject}`,
+          body,
+          from_email: fromEmail,
+          from_name: senderName || fromEmail,
+          attachments: gmailAttachments?.length ? gmailAttachments : undefined,
+          thread_id: convRow?.gmail_thread_id || undefined,
+          in_reply_to: (lastMsg as any)?.gmail_message_id || undefined,
+          references: (lastMsg as any)?.gmail_message_id || undefined,
           conversation_id: id,
-          idempotency_key: `reply-${id}-${Date.now()}`,
-          payload: {
-            to: conv.from_email,
-            subject: `Re: ${conv.subject}`,
-            body,
-            from_email: fromEmail,
-            from_name: senderName || fromEmail,
-            attachments: gmailAttachments?.length ? gmailAttachments : undefined,
-            thread_id: convRow?.gmail_thread_id || undefined,
-            in_reply_to: (lastMsg as any)?.gmail_message_id || undefined,
-            references: (lastMsg as any)?.gmail_message_id || undefined,
-            conversation_id: id,
-            attached_files: attachedFiles?.map((f: FileToUpload) => ({
-              name: f.name,
-              type: f.file.type,
-              size: f.file.size,
-              base64: f.base64,
-            })) || undefined,
-          },
-        });
-        if (insertErr) throw insertErr;
+          attached_files: attachedFiles?.map((f: FileToUpload) => ({
+            name: f.name,
+            type: f.file.type,
+            size: f.file.size,
+            base64: f.base64,
+          })) || undefined,
+        },
+      });
+      if (insertErr) throw insertErr;
 
-        toast.success("Réponse en cours d'envoi…");
-        // Keep the conversation open — the new message will appear via realtime
-        // as soon as the outbox processor inserts it. No manual refresh needed.
-        refetch();
-      } catch (err: any) {
-        toast.error("Erreur d'envoi : " + (err.message || String(err)));
-      }
+      toast.success("Réponse en cours d'envoi…");
+      // Keep the conversation open — the new message will appear via realtime
+      // as soon as the outbox processor inserts it. No manual refresh needed.
+      refetch();
     },
     [conversations, searchResults, mailboxId, user, messages, fetchDetail, refetch]
   );
