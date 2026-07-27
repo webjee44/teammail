@@ -136,7 +136,10 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
   };
 
   const handlePolish = async () => {
-    if (isReplyEmpty) return;
+    if (isReplyEmpty) {
+      toast.info("Écrivez d'abord votre réponse avant de la peaufiner.");
+      return;
+    }
     setPolishing(true);
     try {
       const { data, error } = await supabase.functions.invoke("polish-reply", {
@@ -332,7 +335,7 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button size="sm" variant="ghost" onClick={handlePolish} disabled={polishing || isReplyEmpty} className="h-8 w-8 p-0">
+                    <Button size="sm" variant="ghost" onClick={handlePolish} disabled={polishing} className="h-8 w-8 p-0">
                       {polishing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
                     </Button>
                   </TooltipTrigger>
