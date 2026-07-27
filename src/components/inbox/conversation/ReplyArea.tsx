@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -36,7 +36,7 @@ type Props = {
   conversation: ConversationDetailData;
   activeTab: string;
   onActiveTabChange: (tab: string) => void;
-  onReply?: (id: string, body: string, attachments?: FileToUpload[]) => void;
+  onReply?: (id: string, body: string, attachments?: FileToUpload[]) => Promise<void> | void;
   onComment?: (id: string, body: string) => void;
   onForward?: () => void;
   onReplyAll?: () => void;
@@ -62,6 +62,17 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
   const [draftInitialized, setDraftInitialized] = useState(false);
   const [cc, setCc] = useState<string[]>([]);
   const [bcc, setBcc] = useState<string[]>([]);
+  const [sending, setSending] = useState(false);
+  const sendingRef = useRef(false);
+
+  useEffect(() => {
+    setReplyHtml("");
+    setSuggestions([]);
+    setAttachedFiles([]);
+    setCc([]);
+    setBcc([]);
+    setDraftInitialized(false);
+  }, [conversation.id]);
 
   // Apply reply-all CC when triggered from parent
   useEffect(() => {
@@ -108,13 +119,43 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
   const isReplyEmpty = !replyHtml.trim() || replyHtml === "<p></p>";
 
   const resetState = async () => {
-    await deleteDraft();
     setReplyHtml("");
-    setDraftInitialized(false);
+    setDraftInitialized(true);
     setSuggestions([]);
     setAttachedFiles([]);
     setCc([]);
     setBcc([]);
+    await deleteDraft();
+  };
+
+  const handleSendReply = async () => {
+    if (isReplyEmpty || sendingRef.current) return;
+
+    const bodyToSend = replyHtml;
+    const filesToSend = attachedFiles;
+
+    sendingRef.current = true;
+    setSending(true);
+
+    // Clear the editor immediately so the sent text no longer looks editable.
+    setReplyHtml("");
+    setSuggestions([]);
+    setAttachedFiles([]);
+    setCc([]);
+    setBcc([]);
+    setDraftInitialized(true);
+
+    try {
+      await deleteDraft();
+      await onReply?.(conversation.id, bodyToSend, filesToSend);
+    } catch (err: any) {
+      toast.error("Erreur lors de l'envoi : " + (err?.message || String(err)));
+      setReplyHtml(bodyToSend);
+      setAttachedFiles(filesToSend);
+    } finally {
+      sendingRef.current = false;
+      setSending(false);
+    }
   };
 
   const handleSuggestReplies = async () => {
@@ -428,25 +469,12 @@ export function ReplyArea({ conversation, activeTab, onActiveTabChange, onReply,
                 {/* Send */}
                 <Button
                   size="sm"
-                  onClick={async () => {
-                    if (isReplyEmpty) return;
-                    const bodyToSend = replyHtml;
-                    const filesToSend = attachedFiles;
-                    // Clear the editor immediately so it doesn't look like nothing happened
-                    await resetState();
-                    try {
-                      await onReply?.(conversation.id, bodyToSend, filesToSend);
-                    } catch (err: any) {
-                      toast.error("Erreur lors de l'envoi : " + (err?.message || String(err)));
-                      // Restore what the user typed so they don't lose it
-                      setReplyHtml(bodyToSend);
-                      setAttachedFiles(filesToSend);
-                    }
-                  }}
-                  disabled={isReplyEmpty}
+                  onClick={handleSendReply}
+                  disabled={isReplyEmpty || sending}
                   className="gap-1.5 px-4"
                 >
-                  <Send className="h-3.5 w-3.5" /> Envoyer
+                  {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                  {sending ? "Envoi…" : "Envoyer"}
                 </Button>
               </div>
             </div>

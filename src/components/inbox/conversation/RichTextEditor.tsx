@@ -79,13 +79,21 @@ export function RichTextEditor({ value, onChange, placeholder, className, onTemp
     },
   });
 
-  // Sync external value changes (e.g. template insertion, suggestion click)
+  // Sync external value changes (e.g. template insertion, suggestion click, send/reset)
   useEffect(() => {
     if (!editor) return;
     if (editor.isDestroyed) return;
     const currentHtml = editor.getHTML();
-    // Only sync if the change came from outside (not from editor's own onUpdate)
-    if (value !== currentHtml && value !== "<p></p>" && value !== "") {
+    if (value === currentHtml) return;
+
+    // Explicitly clear the editor when the parent resets the value after sending.
+    if (!value || value === "<p></p>") {
+      editor.commands.clearContent(false);
+      return;
+    }
+
+    // Only sync non-empty changes that came from outside (template/suggestion insertion).
+    if (value !== currentHtml) {
       editor.commands.setContent(value, { emitUpdate: false });
     }
   }, [value, editor]);
