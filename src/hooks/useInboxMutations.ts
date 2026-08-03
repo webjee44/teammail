@@ -142,19 +142,24 @@ export function useInboxMutations({
 
   const handleReply = useCallback(
     async (id: string, body: string, attachedFiles?: FileToUpload[]) => {
-      const conv =
+      const localConv =
         conversations.find((c) => c.id === id) ??
         searchResults?.find((c) => c.id === id);
-      if (!conv?.from_email) {
-        throw new Error("Conversation introuvable ou destinataire manquant");
-      }
 
-      // 1. Mailbox of the conversation
+      // Always read the conversation from DB: the local list may not contain it
+      // (opened from search, closed/archived state, mailbox switch…).
       const { data: convRow } = await supabase
         .from("conversations")
-        .select("mailbox_id, gmail_thread_id")
+        .select("mailbox_id, gmail_thread_id, from_email, subject")
         .eq("id", id)
         .maybeSingle();
+
+      const toEmail = convRow?.from_email || localConv?.from_email;
+      const subject = convRow?.subject ?? localConv?.subject ?? "";
+
+      if (!toEmail) {
+        throw new Error("Conversation introuvable ou destinataire manquant");
+      }
 
       let fromEmail: string | undefined;
 
@@ -207,8 +212,8 @@ export function useInboxMutations({
         conversation_id: id,
         idempotency_key: `reply-${id}-${Date.now()}`,
         payload: {
-          to: conv.from_email,
-          subject: `Re: ${conv.subject}`,
+          to: toEmail,
+          subject: subject.startsWith("Re:") ? subject : `Re: ${subject}`,
           body,
           from_email: fromEmail,
           from_name: senderName || fromEmail,
