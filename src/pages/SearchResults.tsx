@@ -52,6 +52,7 @@ export default function SearchResults() {
 
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [mailboxLabel, setMailboxLabel] = useState<string | null>(null);
 
   useEffect(() => {
@@ -62,6 +63,7 @@ export default function SearchResults() {
 
   useEffect(() => {
     setLoading(true);
+    setError(null);
     supabase.rpc("search_inbox", {
       p_query: q,
       p_mailbox_id: mailboxId ?? null,
@@ -71,7 +73,13 @@ export default function SearchResults() {
       p_unread_only: filters.unread,
       p_limit: 100,
     }).then(({ data, error }) => {
-      if (!error && data) setRows(data as Row[]);
+      if (error) {
+        console.error("search_inbox failed:", error);
+        setError(error.message);
+        setRows([]);
+      } else {
+        setRows((data || []) as Row[]);
+      }
       setLoading(false);
     });
   }, [q, mailboxId, filters]);
@@ -124,6 +132,10 @@ export default function SearchResults() {
         <div className="flex-1 overflow-auto">
           {loading ? (
             <div className="p-6 text-sm text-muted-foreground">Recherche…</div>
+          ) : error ? (
+            <div className="p-6 text-sm text-destructive">
+              La recherche a échoué : {error}
+            </div>
           ) : rows.length === 0 ? (
             <div className="p-6 text-sm text-muted-foreground">Aucun résultat</div>
           ) : (
