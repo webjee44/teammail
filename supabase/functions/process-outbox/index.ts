@@ -6,6 +6,50 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Lovable Gmail connector gateway
+const GATEWAY_URL = "https://connector-gateway.lovable.dev/google_mail/gmail/v1";
+
+function gmailHeaders(extra: Record<string, string> = {}) {
+  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+  const connKey = Deno.env.get("GOOGLE_MAIL_API_KEY");
+  if (!lovableKey) throw new Error("LOVABLE_API_KEY missing");
+  if (!connKey) throw new Error("GOOGLE_MAIL_API_KEY missing (Gmail connector not linked)");
+  return {
+    Authorization: `Bearer ${lovableKey}`,
+    "X-Connection-Api-Key": connKey,
+    ...extra,
+  };
+}
+
+// Replying to a thread must also clear UNREAD in Gmail, otherwise the thread
+// stays bold in Gmail and the next gmail-sync flips it back to unread here.
+async function clearGmailUnread(
+  supabase: any,
+  threadId: string,
+  conversationId: string | null,
+) {
+  try {
+    const res = await fetch(`${GATEWAY_URL}/users/me/threads/${threadId}/modify`, {
+      method: "POST",
+      headers: gmailHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ removeLabelIds: ["UNREAD"] }),
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error(`Gmail mark-read after reply failed [${res.status}]: ${errText}`);
+      await supabase.from("sync_journal").insert({
+        conversation_id: conversationId,
+        drift_type: "mark_read_failed",
+        local_state: "read",
+        remote_state: "unread",
+        action_taken: `Gmail API error: ${res.status} — ${errText.slice(0, 200)}`,
+      });
+    }
+  } catch (e) {
+    console.error("Gmail mark-read after reply threw:", e);
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -235,6 +279,11 @@ serve(async (req) => {
                   ...(gmailThreadId ? { gmail_thread_id: gmailThreadId } : {}),
                 })
                 .eq("id", conversationId);
+
+              // Mirror the read state to Gmail (thread-level, covers every message)
+              if (gmailThreadId) {
+                await clearGmailUnread(supabase, gmailThreadId, conversationId);
+              }
             } catch (postSendErr: any) {
               console.error("Post-send insert failed:", postSendErr);
               await supabase.from("sync_journal").insert({
